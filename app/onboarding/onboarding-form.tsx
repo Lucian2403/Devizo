@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { createOrganization, type OnboardingState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ function SubmitButton() {
 }
 
 export function OnboardingForm() {
-  const [state, action] = useFormState<OnboardingState, FormData>(
+  const [state, action] = useActionState<OnboardingState, FormData>(
     createOrganization,
     null,
   );
