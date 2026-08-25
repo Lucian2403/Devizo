@@ -5,6 +5,7 @@ import {
   organizationMembers,
 } from "@/infrastructure/db/schema";
 import type {
+  CompanySettingsInput,
   CreateOrganizationInput,
   Organization,
   OrganizationRepository,
@@ -20,6 +21,13 @@ function toDomain(row: typeof organizations.$inferSelect): Organization {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    legalName: row.legalName,
+    email: row.email,
+    phone: row.phone,
+    address: row.address,
+    country: row.country,
+    vatNumber: row.vatNumber,
+    vatRate: row.vatRate,
     defaultCurrency: row.defaultCurrency,
     defaultLanguage: row.defaultLanguage,
     customerDocumentLanguage: row.customerDocumentLanguage,
@@ -66,6 +74,40 @@ export class DrizzleOrganizationRepository implements OrganizationRepository {
       .where(eq(organizationMembers.userId, userId));
 
     return rows.map((r) => toDomain(r.org));
+  }
+
+  async getById(organizationId: OrganizationId): Promise<Organization | null> {
+    const [row] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    return row ? toDomain(row) : null;
+  }
+
+  async updateSettings(
+    organizationId: OrganizationId,
+    input: CompanySettingsInput,
+  ): Promise<Organization> {
+    const [row] = await db
+      .update(organizations)
+      .set({
+        name: input.name,
+        legalName: input.legalName ?? null,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        address: input.address ?? null,
+        country: input.country ?? null,
+        vatNumber: input.vatNumber ?? null,
+        // vatRate is a number in the domain; store it as a NUMERIC string.
+        vatRate: input.vatRate === undefined ? null : input.vatRate.toString(),
+        defaultCurrency: input.defaultCurrency,
+        defaultLanguage: input.defaultLanguage,
+        customerDocumentLanguage: input.customerDocumentLanguage,
+      })
+      .where(eq(organizations.id, organizationId))
+      .returning();
+    return toDomain(row!);
   }
 
   async isSlugTaken(slug: string): Promise<boolean> {

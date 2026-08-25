@@ -1,5 +1,6 @@
-import type { UserId } from "@/domain/shared/types";
+import type { OrganizationId, UserId } from "@/domain/shared/types";
 import type {
+  CompanySettingsInput,
   CreateOrganizationInput,
   Organization,
   OrganizationRepository,
@@ -31,5 +32,18 @@ export class OrganizationService {
 
   async getOrganizationsForUser(userId: UserId): Promise<Organization[]> {
     return this.repository.findByUser(userId);
+  }
+
+  async getOrganization(
+    organizationId: OrganizationId,
+  ): Promise<Organization | null> {
+    return this.repository.getById(organizationId);
+  }
+
+  async updateCompanySettings(
+    organizationId: OrganizationId,
+    input: CompanySettingsInput,
+  ): Promise<Organization> {
+    return this.repository.updateSettings(organizationId, input);
   }
 }
