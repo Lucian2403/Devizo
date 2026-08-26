@@ -44,40 +44,54 @@ export default async function EditProjectPage({
   const action = updateProject.bind(null, id);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      {/* Quotes for this project — shown first. */}
-      <section className="space-y-3">
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div className="flex items-center justify-between gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Proiect
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{project.name}</h1>
+        </div>
+        <form action={createQuoteForProject}>
+          <input type="hidden" name="projectId" value={id} />
+          <Button type="submit" size="sm">
+            Deviz nou
+          </Button>
+        </form>
+      </div>
+
+      <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
-          <form action={createQuoteForProject}>
-            <input type="hidden" name="projectId" value={id} />
-            <Button type="submit" size="sm">
-              Deviz nou
-            </Button>
-          </form>
+          <h2 className="text-lg font-semibold">Devize</h2>
+          <span className="text-sm text-muted-foreground">
+            {quotes.length} {quotes.length === 1 ? "deviz" : "devize"}
+          </span>
         </div>
 
         {quotes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Niciun deviz încă.</p>
+          <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
+            Niciun deviz încă.
+          </div>
         ) : (
-          <ul className="divide-y rounded-lg border bg-card">
+          <ul className="space-y-3">
             {quotes.map((q) => (
               <li key={q.quoteId}>
                 <Link
                   href={`/quotes/${q.quoteId}`}
-                  className="flex items-center justify-between px-4 py-3 text-sm hover:bg-accent"
+                  className="flex items-center justify-between gap-4 rounded-xl border bg-background/60 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-secondary/20"
                 >
-                  <span>
-                    <span className="font-medium">
-                      Versiunea {q.versionNumber}
-                    </span>
-                    <span className="ml-2 text-muted-foreground">
+                  <div>
+                    <div className="font-medium">Versiunea {q.versionNumber}</div>
+                    <div className="text-sm text-muted-foreground">
                       {STATUS_LABELS[q.status]}
-                    </span>
-                  </span>
-                  <span className="tabular-nums">
-                    {formatMoney(q.total, q.currency)}
-                  </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Total</div>
+                    <div className="tabular-nums font-semibold">
+                      {formatMoney(q.total, q.currency)}
+                    </div>
+                  </div>
                 </Link>
               </li>
             ))}
@@ -85,9 +99,8 @@ export default async function EditProjectPage({
         )}
       </section>
 
-      {/* Project editing section — below the quotes. */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Editează proiect</h2>
+      <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold">Editează proiect</h2>
         <ProjectForm
           action={action}
           project={project}
