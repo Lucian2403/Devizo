@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { signUp, type AuthActionState } from "../actions";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,15 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Creating account..." : "Create account"}
-    </Button>
-  );
-}
 
 export default function SignUpPage() {
   const [state, action] = useActionState<AuthActionState, FormData>(signUp, null);
@@ -49,7 +39,9 @@ export default function SignUpPage() {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-3">
-          <SubmitButton />
+          <SubmitButton className="w-full" pendingLabel="Creating account...">
+            Create account
+          </SubmitButton>
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/sign-in" className="underline">

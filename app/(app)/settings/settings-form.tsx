@@ -6,7 +6,7 @@ import type { Organization } from "@/domain/organizations/organization.repositor
 import { updateCompanySettings, type SettingsState } from "./actions";
 import { LANGUAGE_OPTIONS } from "@/lib/i18n/languages";
 import { SUPPORTED_CURRENCIES } from "@/domain/shared/types";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,18 +14,6 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 
 const selectClasses =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending && (
-        <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      )}
-      {pending ? "Saving..." : "Save changes"}
-    </Button>
-  );
-}
 
 // A dropdown limited to the supported languages.
 function LanguageSelect({
@@ -181,7 +169,7 @@ function FormFields({
         )}
       </CardContent>
       <CardFooter>
-        <SubmitButton />
+        <SubmitButton pendingLabel="Saving...">Save changes</SubmitButton>
       </CardFooter>
     </>
   );

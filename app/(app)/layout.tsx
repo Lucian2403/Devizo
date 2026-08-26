@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getOrganizationService } from "@/server/container";
 import { signOut } from "../(auth)/actions";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/brand/logo";
+import { MainNav } from "./main-nav";
 
 export default async function AppLayout({
   children,
@@ -18,37 +19,25 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-6">
-          <span className="font-semibold">QuoteAI</span>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
-              Dashboard
-            </Link>
-            <Link
-              href="/customers"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Customers
-            </Link>
-            <Link
-              href="/settings"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Settings
-            </Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{orgs[0]?.name}</span>
-          <form action={signOut}>
-            <Button variant="ghost" size="sm" type="submit">
-              Sign out
-            </Button>
-          </form>
+      <header className="sticky top-0 z-10 border-b border-border/70 bg-background/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-8">
+            <Logo />
+            <MainNav />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              {orgs[0]?.name}
+            </span>
+            <form action={signOut}>
+              <Button variant="ghost" size="sm" type="submit">
+                Sign out
+              </Button>
+            </form>
+          </div>
         </div>
       </header>
-      <main className="p-6">{children}</main>
+      <main className="mx-auto max-w-6xl p-6">{children}</main>
     </div>
   );
 }

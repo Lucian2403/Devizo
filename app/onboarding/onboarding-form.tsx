@@ -1,10 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { createOrganization, type OnboardingState } from "./actions";
 import { SUPPORTED_CURRENCIES } from "@/domain/shared/types";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,15 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Creating..." : "Create organization"}
-    </Button>
-  );
-}
 
 export function OnboardingForm() {
   const [state, action] = useActionState<OnboardingState, FormData>(
@@ -83,7 +73,9 @@ export function OnboardingForm() {
           )}
         </CardContent>
         <CardFooter>
-          <SubmitButton />
+          <SubmitButton className="w-full" pendingLabel="Creating...">
+            Create organization
+          </SubmitButton>
         </CardFooter>
       </form>
     </Card>

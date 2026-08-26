@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { signIn, type AuthActionState } from "../actions";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,15 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Signing in..." : "Sign in"}
-    </Button>
-  );
-}
-
 export default function SignInPage() {
   const [state, action] = useActionState<AuthActionState, FormData>(signIn, null);
 
@@ -32,7 +22,7 @@ export default function SignInPage() {
     <Card>
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>Access your QuoteAI workspace.</CardDescription>
+        <CardDescription>Access your Devizo workspace.</CardDescription>
       </CardHeader>
       <form action={action}>
         <CardContent className="space-y-4">
@@ -49,7 +39,9 @@ export default function SignInPage() {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-3">
-          <SubmitButton />
+          <SubmitButton className="w-full" pendingLabel="Signing in...">
+            Sign in
+          </SubmitButton>
           <p className="text-sm text-muted-foreground">
             No account?{" "}
             <Link href="/sign-up" className="underline">

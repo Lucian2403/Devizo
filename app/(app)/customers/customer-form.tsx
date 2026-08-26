@@ -1,24 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import type { Customer } from "@/domain/customers/customer.repository";
 import type { CustomerFormState } from "./actions";
 import { LANGUAGE_OPTIONS } from "@/lib/i18n/languages";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-
-function SubmitButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Saving..." : label}
-    </Button>
-  );
-}
 
 export function CustomerForm({
   action,
@@ -91,7 +81,7 @@ export function CustomerForm({
           )}
         </CardContent>
         <CardFooter>
-          <SubmitButton label={submitLabel} />
+          <SubmitButton pendingLabel="Saving...">{submitLabel}</SubmitButton>
         </CardFooter>
       </form>
     </Card>
