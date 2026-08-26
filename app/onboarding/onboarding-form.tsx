@@ -24,24 +24,24 @@ export function OnboardingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create your company</CardTitle>
+        <CardTitle>Creează-ți compania</CardTitle>
         <CardDescription>
-          Set up your organization to start creating estimates.
+          Configurează organizația pentru a începe să creezi devize.
         </CardDescription>
       </CardHeader>
       <form action={action}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Company name</Label>
+            <Label htmlFor="name">Numele companiei</Label>
             <Input id="name" name="name" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="slug">Workspace slug</Label>
+            <Label htmlFor="slug">Identificator spațiu de lucru</Label>
             <Input id="slug" name="slug" placeholder="acme-renovations" required />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="defaultCurrency">Currency</Label>
+              <Label htmlFor="defaultCurrency">Monedă</Label>
               <select
                 id="defaultCurrency"
                 name="defaultCurrency"
@@ -56,11 +56,11 @@ export function OnboardingForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="defaultLanguage">Language</Label>
+              <Label htmlFor="defaultLanguage">Limbă</Label>
               <Input id="defaultLanguage" name="defaultLanguage" defaultValue="en" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerDocumentLanguage">Docs</Label>
+              <Label htmlFor="customerDocumentLanguage">Documente</Label>
               <Input
                 id="customerDocumentLanguage"
                 name="customerDocumentLanguage"
@@ -73,8 +73,8 @@ export function OnboardingForm() {
           )}
         </CardContent>
         <CardFooter>
-          <SubmitButton className="w-full" pendingLabel="Creating...">
-            Create organization
+          <SubmitButton className="w-full" pendingLabel="Se creează...">
+            Creează organizația
           </SubmitButton>
         </CardFooter>
       </form>

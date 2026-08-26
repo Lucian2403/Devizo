@@ -11,20 +11,20 @@ export default async function CustomersPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Customers</h1>
+        <h1 className="text-2xl font-semibold">Clienți</h1>
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href="/customers/archived">Archived</Link>
+            <Link href="/customers/archived">Arhivate</Link>
           </Button>
           <Button asChild>
-            <Link href="/customers/new">New customer</Link>
+            <Link href="/customers/new">Client nou</Link>
           </Button>
         </div>
       </div>
 
       {customers.length === 0 ? (
         <p className="text-muted-foreground">
-          No customers yet. Create your first one.
+          Niciun client încă. Creează-l pe primul.
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
@@ -41,13 +41,13 @@ export default async function CustomersPage() {
                   {customer.name}
                 </Link>
                 <p className="text-sm text-muted-foreground">
-                  {customer.email ?? customer.phone ?? "No contact details"}
+                  {customer.email ?? customer.phone ?? "Fără date de contact"}
                 </p>
               </div>
               <form action={archiveCustomer}>
                 <input type="hidden" name="customerId" value={customer.id} />
                 <Button variant="ghost" size="sm" type="submit">
-                  Archive
+                  Arhivează
                 </Button>
               </form>
             </li>

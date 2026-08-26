@@ -11,14 +11,14 @@ export default async function ArchivedCustomersPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Archived customers</h1>
+        <h1 className="text-2xl font-semibold">Clienți arhivați</h1>
         <Button asChild variant="outline">
-          <Link href="/customers">Back to customers</Link>
+          <Link href="/customers">Înapoi la clienți</Link>
         </Button>
       </div>
 
       {customers.length === 0 ? (
-        <p className="text-muted-foreground">No archived customers.</p>
+        <p className="text-muted-foreground">Niciun client arhivat.</p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {customers.map((customer) => (
@@ -29,13 +29,13 @@ export default async function ArchivedCustomersPage() {
               <div>
                 <p className="font-medium">{customer.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {customer.email ?? customer.phone ?? "No contact details"}
+                  {customer.email ?? customer.phone ?? "Fără date de contact"}
                 </p>
               </div>
               <form action={restoreCustomer}>
                 <input type="hidden" name="customerId" value={customer.id} />
                 <Button variant="ghost" size="sm" type="submit">
-                  Restore
+                  Restaurează
                 </Button>
               </form>
             </li>

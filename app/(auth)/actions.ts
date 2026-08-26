@@ -7,7 +7,7 @@ import { env } from "@/lib/env";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  password: z.string().min(8, "Parola trebuie să aibă cel puțin 8 caractere."),
 });
 
 export type AuthActionState = { error: string } | null;
@@ -25,7 +25,7 @@ export async function signIn(
 ): Promise<AuthActionState> {
   const parsed = parseCredentials(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   const supabase = await createClient();
@@ -41,7 +41,7 @@ export async function signUp(
 ): Promise<AuthActionState> {
   const parsed = parseCredentials(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   const supabase = await createClient();

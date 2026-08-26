@@ -7,9 +7,9 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Company settings</h1>
+        <h1 className="text-2xl font-semibold">Setări companie</h1>
         <p className="text-muted-foreground">
-          These details appear on your estimates and documents.
+          Aceste detalii apar pe devizele și documentele tale.
         </p>
       </div>
       <SettingsForm org={org} />

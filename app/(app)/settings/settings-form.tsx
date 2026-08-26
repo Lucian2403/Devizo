@@ -73,11 +73,11 @@ function FormFields({
       <CardContent className="space-y-4 pt-6">
         <fieldset disabled={pending} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Company name</Label>
+            <Label htmlFor="name">Numele companiei</Label>
             <Input id="name" name="name" defaultValue={org.name} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="legalName">Legal name</Label>
+            <Label htmlFor="legalName">Denumire legală</Label>
             <Input
               id="legalName"
               name="legalName"
@@ -95,12 +95,12 @@ function FormFields({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telefon</Label>
               <Input id="phone" name="phone" defaultValue={org.phone ?? ""} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Adresă</Label>
             <Textarea
               id="address"
               name="address"
@@ -108,7 +108,7 @@ function FormFields({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="country">Country</Label>
+            <Label htmlFor="country">Țară</Label>
             <Input
               id="country"
               name="country"
@@ -117,7 +117,7 @@ function FormFields({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="vatNumber">Tax / VAT ID</Label>
+              <Label htmlFor="vatNumber">Cod fiscal / TVA</Label>
               <Input
                 id="vatNumber"
                 name="vatNumber"
@@ -125,7 +125,7 @@ function FormFields({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="vatRate">VAT rate (%)</Label>
+              <Label htmlFor="vatRate">Cota TVA (%)</Label>
               <Input
                 id="vatRate"
                 name="vatRate"
@@ -139,18 +139,18 @@ function FormFields({
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="defaultCurrency">Currency</Label>
+              <Label htmlFor="defaultCurrency">Monedă</Label>
               <CurrencySelect defaultValue={org.defaultCurrency} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="defaultLanguage">Default language</Label>
+              <Label htmlFor="defaultLanguage">Limbă implicită</Label>
               <LanguageSelect
                 name="defaultLanguage"
                 defaultValue={org.defaultLanguage}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerDocumentLanguage">Document language</Label>
+              <Label htmlFor="customerDocumentLanguage">Limba documentelor</Label>
               <LanguageSelect
                 name="customerDocumentLanguage"
                 defaultValue={org.customerDocumentLanguage}
@@ -164,12 +164,12 @@ function FormFields({
         )}
         {state && "ok" in state && !pending && (
           <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
-            Settings saved successfully.
+            Setările au fost salvate cu succes.
           </p>
         )}
       </CardContent>
       <CardFooter>
-        <SubmitButton pendingLabel="Saving...">Save changes</SubmitButton>
+        <SubmitButton pendingLabel="Se salvează...">Salvează modificările</SubmitButton>
       </CardFooter>
     </>
   );

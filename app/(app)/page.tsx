@@ -8,10 +8,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-2">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <h1 className="text-2xl font-semibold">Panou</h1>
       <p className="text-muted-foreground">
-        Workspace ready for {org?.name}. Estimate features arrive in the next
-        milestones.
+        Spațiu de lucru pregătit pentru {org?.name}. Funcțiile de devize sosesc
+        în etapele următoare.
       </p>
     </div>
   );

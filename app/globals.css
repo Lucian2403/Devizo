@@ -5,26 +5,27 @@
 @layer base {
   :root {
     /* Warm off-white background inspired by the Devizo logo backdrop. */
-    --background: 45 29% 97%;
-    --foreground: 218 16% 20%;
+    --background: 45 33% 96%;
+    --foreground: 222 22% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 218 16% 20%;
-    /* Charcoal primary for solid buttons; near-white text on top. */
-    --primary: 218 16% 20%;
-    --primary-foreground: 45 29% 97%;
-    --secondary: 40 15% 93%;
-    --secondary-foreground: 218 16% 20%;
-    --muted: 40 15% 93%;
-    --muted-foreground: 218 10% 46%;
-    /* Amber brand accent used for the logo and highlights. */
-    --accent: 42 92% 53%;
-    --accent-foreground: 218 16% 20%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 40 14% 88%;
-    --input: 40 14% 88%;
-    --ring: 42 92% 53%;
-    --radius: 0.6rem;
+    --card-foreground: 222 22% 16%;
+    /* Amber/yellow from the logo is the primary action color. Solid buttons are
+       yellow with dark text for contrast (yellow is too light for white text). */
+    --primary: 42 96% 55%;
+    --primary-foreground: 222 30% 14%;
+    --secondary: 42 22% 91%;
+    --secondary-foreground: 222 22% 16%;
+    --muted: 42 20% 92%;
+    --muted-foreground: 220 12% 42%;
+    /* A deeper gold accent for hovers, links and highlights. */
+    --accent: 38 95% 50%;
+    --accent-foreground: 222 30% 14%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 33% 97%;
+    --border: 42 18% 85%;
+    --input: 42 18% 85%;
+    --ring: 42 96% 50%;
+    --radius: 0.7rem;
   }
 }
 
@@ -34,5 +35,18 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Soft warm glow anchored top-left so the flat background feels less generic. */
+    background-image:
+      radial-gradient(
+        70rem 40rem at -10% -10%,
+        hsl(42 96% 55% / 0.14),
+        transparent 60%
+      ),
+      radial-gradient(
+        55rem 35rem at 110% 0%,
+        hsl(38 95% 50% / 0.08),
+        transparent 55%
+      );
+    background-attachment: fixed;
   }
 }

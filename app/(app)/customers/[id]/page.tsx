@@ -26,8 +26,8 @@ export default async function EditCustomerPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Edit customer</h1>
-      <CustomerForm action={action} customer={customer} submitLabel="Save changes" />
+      <h1 className="text-2xl font-semibold">Editează client</h1>
+      <CustomerForm action={action} customer={customer} submitLabel="Salvează modificările" />
     </div>
   );
 }

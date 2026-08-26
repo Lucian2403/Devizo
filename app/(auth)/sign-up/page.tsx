@@ -21,8 +21,8 @@ export default function SignUpPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create account</CardTitle>
-        <CardDescription>Start building estimates faster.</CardDescription>
+        <CardTitle>Creează cont</CardTitle>
+        <CardDescription>Începe să creezi devize mai rapid.</CardDescription>
       </CardHeader>
       <form action={action}>
         <CardContent className="space-y-4">
@@ -31,7 +31,7 @@ export default function SignUpPage() {
             <Input id="email" name="email" type="email" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Parolă</Label>
             <Input id="password" name="password" type="password" required />
           </div>
           {state?.error && (
@@ -39,13 +39,13 @@ export default function SignUpPage() {
           )}
         </CardContent>
         <CardFooter className="flex-col gap-3">
-          <SubmitButton className="w-full" pendingLabel="Creating account...">
-            Create account
+          <SubmitButton className="w-full" pendingLabel="Se creează contul...">
+            Creează cont
           </SubmitButton>
           <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
+            Ai deja un cont?{" "}
             <Link href="/sign-in" className="underline">
-              Sign in
+              Autentificare
             </Link>
           </p>
         </CardFooter>

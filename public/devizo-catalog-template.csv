@@ -1,0 +1,4 @@
+Code,Name,Description,Unit,Selling price,Cost price,Category
+DEMO-001,Remove wall tiles,Demolition of existing wall tiles,m2,18.00,9.00,Demolition
+PAINT-010,Interior wall painting,Two coats incl. primer,m2,11.50,4.00,Painting
+ELEC-045,Install electrical socket,Standard socket incl. wiring,pcs,45.00,20.00,Electrical

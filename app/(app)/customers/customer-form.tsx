@@ -29,11 +29,11 @@ export function CustomerForm({
       <form action={formAction}>
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">Denumire</Label>
             <Input id="name" name="name" defaultValue={customer?.name ?? ""} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="contactName">Contact person</Label>
+            <Label htmlFor="contactName">Persoană de contact</Label>
             <Input
               id="contactName"
               name="contactName"
@@ -51,19 +51,19 @@ export function CustomerForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telefon</Label>
               <Input id="phone" name="phone" defaultValue={customer?.phone ?? ""} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="preferredLanguage">Preferred language</Label>
+            <Label htmlFor="preferredLanguage">Limba preferată</Label>
             <select
               id="preferredLanguage"
               name="preferredLanguage"
               defaultValue={customer?.preferredLanguage ?? ""}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">Not set</option>
+              <option value="">Nesetat</option>
               {LANGUAGE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -72,7 +72,7 @@ export function CustomerForm({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">Note</Label>
             <Textarea id="notes" name="notes" defaultValue={customer?.notes ?? ""} />
           </div>
 
@@ -81,7 +81,7 @@ export function CustomerForm({
           )}
         </CardContent>
         <CardFooter>
-          <SubmitButton pendingLabel="Saving...">{submitLabel}</SubmitButton>
+          <SubmitButton pendingLabel="Se salvează...">{submitLabel}</SubmitButton>
         </CardFooter>
       </form>
     </Card>

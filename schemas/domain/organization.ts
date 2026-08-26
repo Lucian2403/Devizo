@@ -11,8 +11,8 @@ export const createOrganizationSchema = z.object({
   name: z.string().min(2).max(120),
   slug,
   defaultCurrency: currencySchema.default("EUR"),
-  defaultLanguage: languageSchema.default("en"),
-  customerDocumentLanguage: languageSchema.default("en"),
+  defaultLanguage: languageSchema.default("ro"),
+  customerDocumentLanguage: languageSchema.default("ro"),
 });
 
 export type CreateOrganizationValues = z.infer<typeof createOrganizationSchema>;

@@ -24,7 +24,7 @@ export async function createOrganization(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   try {

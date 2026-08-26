@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Devizo",
-  description: "Faster professional estimates for renovation companies.",
+  description: "Devize profesionale mai rapide pentru companiile de renovări.",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="ro">
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

@@ -19,23 +19,25 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-border/70 bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-border/70 bg-background/85 shadow-[0_1px_0_hsl(42_96%_55%/0.35)] backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-8">
             <Logo />
             <MainNav />
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">
+            <span className="hidden rounded-full bg-secondary px-3 py-1 text-sm font-medium text-muted-foreground sm:inline">
               {orgs[0]?.name}
             </span>
             <form action={signOut}>
               <Button variant="ghost" size="sm" type="submit">
-                Sign out
+                Deconectare
               </Button>
             </form>
           </div>
         </div>
+        {/* Thin brand gradient underline keeps the header from feeling generic. */}
+        <div className="h-0.5 w-full bg-gradient-to-r from-accent via-primary to-transparent" />
       </header>
       <main className="mx-auto max-w-6xl p-6">{children}</main>
     </div>

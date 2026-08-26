@@ -27,7 +27,7 @@ export async function createCustomer(
 
   const parsed = parseCustomer(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   await getCustomerService().createCustomer(org.id, parsed.data);
@@ -45,7 +45,7 @@ export async function updateCustomer(
 
   const parsed = parseCustomer(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   await getCustomerService().updateCustomer(org.id, customerId, parsed.data);

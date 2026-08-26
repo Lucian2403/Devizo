@@ -4,6 +4,9 @@ export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 export type UserId = string;
 export type OrganizationId = string;
 export type CustomerId = string;
+export type ProjectId = string;
+export type CatalogCategoryId = string;
+export type CatalogItemId = string;
 
 // The languages the MVP supports. Language fields must use one of these codes.
 export const SUPPORTED_LANGUAGES = [
@@ -26,3 +29,23 @@ export const SUPPORTED_CURRENCIES = [
   "GBP",
 ] as const;
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+
+// The canonical units the catalog understands. Imported values must be mapped
+// to one of these; arbitrary unit strings are never stored.
+export const SUPPORTED_UNITS = [
+  "m2",
+  "m",
+  "m3",
+  "pcs",
+  "hour",
+  "day",
+  "kg",
+  "l",
+  "set",
+  "service",
+] as const;
+export type SupportedUnit = (typeof SUPPORTED_UNITS)[number];
+
+// A project moves through these stages. Archiving is separate from status.
+export const PROJECT_STATUSES = ["planned", "active", "completed"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];

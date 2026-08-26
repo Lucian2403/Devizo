@@ -28,7 +28,7 @@ export async function updateCompanySettings(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsed.error.issues[0]?.message ?? "Date invalide." };
   }
 
   await getOrganizationService().updateCompanySettings(org.id, parsed.data);
