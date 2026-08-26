@@ -1,4 +1,4 @@
-import { and, eq, asc } from "drizzle-orm";
+import { and, eq, asc, or, ilike } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import { catalogItems } from "@/infrastructure/db/schema";
 import {
@@ -74,6 +74,32 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
       .from(catalogItems)
       .where(eq(catalogItems.organizationId, organizationId))
       .orderBy(asc(catalogItems.name));
+    return rows.map(toDomain);
+  }
+
+  async searchActive(
+    organizationId: OrganizationId,
+    term: string,
+    limit: number,
+  ): Promise<CatalogItem[]> {
+    // Case-insensitive match on name or code. Uses ILIKE so it works well for
+    // large catalogs without loading everything into the client.
+    const pattern = `%${term}%`;
+    const rows = await db
+      .select()
+      .from(catalogItems)
+      .where(
+        and(
+          eq(catalogItems.organizationId, organizationId),
+          eq(catalogItems.active, true),
+          or(
+            ilike(catalogItems.name, pattern),
+            ilike(catalogItems.code, pattern),
+          ),
+        ),
+      )
+      .orderBy(asc(catalogItems.name))
+      .limit(limit);
     return rows.map(toDomain);
   }
 

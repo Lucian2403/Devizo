@@ -42,6 +42,12 @@ export class DuplicateItemCodeError extends Error {
 export interface CatalogItemRepository {
   listActive(organizationId: OrganizationId): Promise<CatalogItem[]>;
   listAll(organizationId: OrganizationId): Promise<CatalogItem[]>;
+  // Search-as-you-type over active items by name or code (limited result set).
+  searchActive(
+    organizationId: OrganizationId,
+    term: string,
+    limit: number,
+  ): Promise<CatalogItem[]>;
   getById(
     organizationId: OrganizationId,
     itemId: CatalogItemId,

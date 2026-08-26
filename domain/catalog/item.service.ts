@@ -30,6 +30,16 @@ export class CatalogItemService {
     return this.repository.listActive(organizationId);
   }
 
+  // Search-as-you-type used by the quote editor's catalog picker.
+  searchActiveItems(
+    organizationId: OrganizationId,
+    term: string,
+  ): Promise<CatalogItem[]> {
+    const trimmed = term.trim();
+    if (trimmed.length === 0) return Promise.resolve([]);
+    return this.repository.searchActive(organizationId, trimmed, 20);
+  }
+
   async getItem(
     organizationId: OrganizationId,
     itemId: CatalogItemId,

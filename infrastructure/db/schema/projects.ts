@@ -5,6 +5,7 @@ import {
   timestamp,
   foreignKey,
   check,
+  unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -50,6 +51,12 @@ export const projects = pgTable(
     statusCheck: check(
       "projects_status_check",
       sql`${table.status} in ('planned', 'active', 'completed')`,
+    ),
+    // Lets quotes reference (id, organization_id) with a composite foreign key,
+    // so a quote can never point at a project from another organization.
+    orgIdUnique: unique("projects_id_org_unique").on(
+      table.id,
+      table.organizationId,
     ),
   }),
 );

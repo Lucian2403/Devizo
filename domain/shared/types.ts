@@ -7,7 +7,9 @@ export type CustomerId = string;
 export type ProjectId = string;
 export type CatalogCategoryId = string;
 export type CatalogItemId = string;
-
+export type QuoteId = string;
+export type QuoteVersionId = string;
+export type QuoteItemId = string;
 // The languages the MVP supports. Language fields must use one of these codes.
 export const SUPPORTED_LANGUAGES = [
   "ro",
@@ -49,3 +51,8 @@ export type SupportedUnit = (typeof SUPPORTED_UNITS)[number];
 // A project moves through these stages. Archiving is separate from status.
 export const PROJECT_STATUSES = ["planned", "active", "completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+// A quote version moves through these stages. Only 'draft' is editable in the
+// MVP; 'sent'/'accepted'/'rejected' versions become immutable.
+export const QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected"] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];

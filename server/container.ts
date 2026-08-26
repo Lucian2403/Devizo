@@ -8,6 +8,8 @@ import { CatalogCategoryService } from "@/domain/catalog/category.service";
 import { DrizzleCatalogCategoryRepository } from "@/infrastructure/db/repositories/catalogCategory.repository";
 import { CatalogItemService } from "@/domain/catalog/item.service";
 import { DrizzleCatalogItemRepository } from "@/infrastructure/db/repositories/catalogItem.repository";
+import { QuoteService } from "@/domain/quotes/quote.service";
+import { DrizzleQuoteRepository } from "@/infrastructure/db/repositories/quote.repository";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -36,4 +38,8 @@ export function getCatalogItemService(): CatalogItemService {
 // The import flow uses item bulk upsert directly on the repository.
 export function getCatalogItemRepository(): DrizzleCatalogItemRepository {
   return new DrizzleCatalogItemRepository();
+}
+
+export function getQuoteService(): QuoteService {
+  return new QuoteService(new DrizzleQuoteRepository());
 }
