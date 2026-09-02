@@ -155,6 +155,7 @@ export async function validateImport(
   const result = validateImportRows(payload.rows, {
     decimalFormat: payload.decimalFormat,
     unitMapping: payload.unitMapping,
+    defaultItemType: payload.defaultItemType,
     existingCodeToId,
   });
 
@@ -190,6 +191,7 @@ export async function runImport(
   const result = validateImportRows(payload.rows, {
     decimalFormat: payload.decimalFormat,
     unitMapping: payload.unitMapping,
+    defaultItemType: payload.defaultItemType,
     existingCodeToId,
   });
 

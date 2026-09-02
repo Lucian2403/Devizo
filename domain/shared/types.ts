@@ -48,6 +48,11 @@ export const SUPPORTED_UNITS = [
 ] as const;
 export type SupportedUnit = (typeof SUPPORTED_UNITS)[number];
 
+// A catalog item is either LABOR (a work operation) or MATERIAL (a product).
+// Matching must never cross these types. Existing operations default to labor.
+export const CATALOG_ITEM_TYPES = ["labor", "material"] as const;
+export type CatalogItemType = (typeof CATALOG_ITEM_TYPES)[number];
+
 // A project moves through these stages. Archiving is separate from status.
 export const PROJECT_STATUSES = ["planned", "active", "completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];

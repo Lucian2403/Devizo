@@ -1,5 +1,5 @@
 import type { CatalogItemId } from "@/domain/shared/types";
-import type { SupportedUnit } from "@/domain/shared/types";
+import type { CatalogItemType, SupportedUnit } from "@/domain/shared/types";
 import type { CatalogItemData } from "./item.repository";
 import { normalizePrice, isNonNegative, type DecimalFormat } from "./money";
 import { isSupportedUnit } from "./units";
@@ -16,6 +16,7 @@ export const IMPORT_FIELDS = [
   "name",
   "description",
   "unit",
+  "itemType",
   "sellingPrice",
   "costPrice",
   "category",
@@ -30,6 +31,9 @@ export interface ImportContext {
   decimalFormat: DecimalFormat;
   // Raw unit text (lowercased) -> canonical unit chosen by the user.
   unitMapping: Record<string, SupportedUnit>;
+  // Explicit default item type chosen by the user for this import. Rows with no
+  // (or an unrecognized) item_type cell fall back to this — never inferred.
+  defaultItemType: CatalogItemType;
   // Existing item codes in the org -> their id, for update matching.
   existingCodeToId: Map<string, CatalogItemId>;
 }
@@ -124,6 +128,21 @@ export function validateImportRows(
     const categoryName = (row.category ?? "").trim() || null;
     const description = (row.description ?? "").trim() || null;
 
+    // Item type: use the row's explicit cell when it clearly says labor/material,
+    // otherwise fall back to the user's explicit default. Never inferred from
+    // the name or other fields.
+    const rawType = (row.itemType ?? "").trim().toLowerCase();
+    let itemType: CatalogItemType = context.defaultItemType;
+    if (rawType !== "") {
+      if (rawType === "labor" || rawType === "manopera" || rawType === "manoperă") {
+        itemType = "labor";
+      } else if (rawType === "material") {
+        itemType = "material";
+      } else {
+        rowErrors.push(`Item type "${row.itemType}" is not "labor" or "material".`);
+      }
+    }
+
     if (rowErrors.length > 0) {
       errors.push({
         rowNumber,
@@ -140,6 +159,7 @@ export function validateImportRows(
       name,
       description,
       unit: unit!,
+      itemType,
       sellingPrice: sellingPrice!,
       costPrice,
       active: true,

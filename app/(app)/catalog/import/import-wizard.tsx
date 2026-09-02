@@ -9,7 +9,11 @@ import {
 } from "@/domain/catalog/import.service";
 import { DECIMAL_FORMAT_EXAMPLES, type DecimalFormat } from "@/domain/catalog/money";
 import { suggestUnit } from "@/domain/catalog/units";
-import { SUPPORTED_UNITS, type SupportedUnit } from "@/domain/shared/types";
+import {
+  SUPPORTED_UNITS,
+  type CatalogItemType,
+  type SupportedUnit,
+} from "@/domain/shared/types";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { parseUpload, validateImport, runImport } from "./actions";
 import type { ImportPreview, ImportResult } from "./types";
@@ -27,6 +31,7 @@ const FIELD_LABELS: Record<ImportField, string> = {
   name: "Denumire (obligatoriu)",
   description: "Descriere",
   unit: "Unitate (obligatoriu)",
+  itemType: "Tip (manoperă/material, opțional)",
   sellingPrice: "Preț de vânzare (obligatoriu)",
   costPrice: "Preț de cost",
   category: "Categorie",
@@ -51,6 +56,7 @@ export function ImportWizard() {
     () => Object.fromEntries(IMPORT_FIELDS.map((f) => [f, -1])) as Record<ImportField, number>,
   );
   const [decimalFormat, setDecimalFormat] = useState<DecimalFormat>("dot");
+  const [defaultItemType, setDefaultItemType] = useState<CatalogItemType>("labor");
   const [unitMapping, setUnitMapping] = useState<Record<string, SupportedUnit>>({});
 
   // Preview / confirm.
@@ -148,6 +154,7 @@ export function ImportWizard() {
         rows: buildMappedRows(),
         decimalFormat,
         unitMapping: frozenUnitMapping,
+        defaultItemType,
       });
       setPreview(res);
       setStep("preview");
@@ -166,6 +173,7 @@ export function ImportWizard() {
         rows: buildMappedRows(),
         decimalFormat,
         unitMapping,
+        defaultItemType,
         applyUpdates,
         createCategories,
       });
@@ -299,6 +307,21 @@ export function ImportWizard() {
               <p className="text-xs text-muted-foreground">
                 Exemplu: {DECIMAL_FORMAT_EXAMPLES[decimalFormat]}. Separatorii nu
                 sunt niciodată ghiciți.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipul implicit al articolelor</Label>
+              <select
+                value={defaultItemType}
+                onChange={(e) => setDefaultItemType(e.target.value as CatalogItemType)}
+                className={selectClasses}
+              >
+                <option value="labor">Manoperă (operațiuni)</option>
+                <option value="material">Material (produse)</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Se aplică rândurilor fără o coloană „Tip”. Nu se ghicește niciodată.
               </p>
             </div>
 

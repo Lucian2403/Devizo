@@ -13,7 +13,8 @@
     "db:migrate": "tsx infrastructure/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:policies": "tsx infrastructure/db/applyPolicies.ts",
-    "db:seed": "tsx infrastructure/db/seed.ts"
+    "db:seed": "tsx infrastructure/db/seed.ts",
+    "test:ai": "tsx scripts/test-ai.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",

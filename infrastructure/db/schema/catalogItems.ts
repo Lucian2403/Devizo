@@ -32,6 +32,7 @@ export const catalogItems = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     unit: text("unit").notNull(),
+    itemType: text("item_type").notNull().default("labor"),
     sellingPrice: numeric("selling_price", { precision: 12, scale: 2 }).notNull(),
     costPrice: numeric("cost_price", { precision: 12, scale: 2 }),
     active: boolean("active").notNull().default(true),
@@ -56,6 +57,10 @@ export const catalogItems = pgTable(
     unitCheck: check(
       "catalog_items_unit_check",
       sql`${table.unit} in ('m2', 'm', 'm3', 'pcs', 'hour', 'day', 'kg', 'l', 'set', 'service')`,
+    ),
+    itemTypeCheck: check(
+      "catalog_items_item_type_check",
+      sql`${table.itemType} in ('labor', 'material')`,
     ),
   }),
 );

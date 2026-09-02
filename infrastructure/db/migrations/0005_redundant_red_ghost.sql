@@ -1,0 +1,2 @@
+ALTER TABLE "catalog_items" ADD COLUMN "item_type" text DEFAULT 'labor' NOT NULL;--> statement-breakpoint
+ALTER TABLE "catalog_items" ADD CONSTRAINT "catalog_items_item_type_check" CHECK ("catalog_items"."item_type" in ('labor', 'material'));

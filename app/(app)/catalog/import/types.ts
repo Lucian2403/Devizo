@@ -1,5 +1,5 @@
 import type { DecimalFormat } from "@/domain/catalog/money";
-import type { SupportedUnit } from "@/domain/shared/types";
+import type { CatalogItemType, SupportedUnit } from "@/domain/shared/types";
 import type { MappedRow } from "@/domain/catalog/import.service";
 
 // Shared types for the import flow. Kept out of the "use server" actions file
@@ -14,6 +14,7 @@ export interface ImportPayload {
   rows: MappedRow[];
   decimalFormat: DecimalFormat;
   unitMapping: Record<string, SupportedUnit>;
+  defaultItemType: CatalogItemType;
 }
 
 export interface ImportPreview {

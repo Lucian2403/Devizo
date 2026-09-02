@@ -17,6 +17,7 @@ import {
   type CatalogSearchResult,
   type SaveDraftState,
 } from "../../actions";
+import { AiAssistant, type AssistantLine } from "./ai-assistant";
 
 // One editable line in the client. All money/quantities are kept as strings so
 // the exact value the user typed reaches the server unchanged.
@@ -93,6 +94,17 @@ export function QuoteEditor({
     null,
   );
 
+  // One-time AI prefill handed over from the home page "start with AI" card.
+  // Read from sessionStorage on mount, then clear it so refreshes stay clean.
+  const [aiPrefill, setAiPrefill] = useState("");
+  useEffect(() => {
+    const stored = sessionStorage.getItem("ai_prefill");
+    if (stored) {
+      setAiPrefill(stored);
+      sessionStorage.removeItem("ai_prefill");
+    }
+  }, []);
+
   // --- Live preview totals (display only) ---------------------------------
   const preview = useMemo(() => {
     const lineTotals = lines.map((l) => {
@@ -149,6 +161,24 @@ export function QuoteEditor({
     ]);
   }
 
+  // Appends confirmed AI-assistant rows as editor lines. The user already
+  // reviewed each one; prices came from the catalog or explicit manual input.
+  function addAssistantLines(assistantLines: AssistantLine[]) {
+    setLines((prev) => [
+      ...prev,
+      ...assistantLines.map((l) => ({
+        key: nextKey(),
+        catalogItemId: l.catalogItemId,
+        name: l.name,
+        description: l.description,
+        unit: l.unit,
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+        discountPct: "0",
+      })),
+    ]);
+  }
+
   // The items payload is serialized as JSON in a hidden field on submit.
   const itemsJson = JSON.stringify(
     lines.map((l) => ({
@@ -184,6 +214,13 @@ export function QuoteEditor({
           <div className="text-muted-foreground">{snapshot.projectAddress}</div>
         )}
       </div>
+
+      <AiAssistant
+        currency={currency}
+        onConfirm={addAssistantLines}
+        initialText={aiPrefill}
+        autoOpen={aiPrefill.length > 0}
+      />
 
       <CatalogPicker onPick={addCatalogLine} currency={currency} />
 

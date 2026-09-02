@@ -79,6 +79,18 @@ export function CatalogItemForm({
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="itemType">Tip</Label>
+              <select
+                id="itemType"
+                name="itemType"
+                defaultValue={item?.itemType ?? "labor"}
+                className={selectClasses}
+              >
+                <option value="labor">Manoperă</option>
+                <option value="material">Material</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="unit">Unitate</Label>
               <select
                 id="unit"

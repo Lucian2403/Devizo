@@ -1,6 +1,7 @@
 import type {
   CatalogCategoryId,
   CatalogItemId,
+  CatalogItemType,
   OrganizationId,
   SupportedUnit,
 } from "@/domain/shared/types";
@@ -13,6 +14,9 @@ export interface CatalogItem {
   name: string;
   description: string | null;
   unit: SupportedUnit;
+  // Whether this is a labor operation or a material product. Matching never
+  // crosses the two types.
+  itemType: CatalogItemType;
   // Money is kept as a canonical decimal string, never a JS float.
   sellingPrice: string;
   costPrice: string | null;
@@ -27,6 +31,7 @@ export interface CatalogItemData {
   name: string;
   description?: string | null;
   unit: SupportedUnit;
+  itemType: CatalogItemType;
   sellingPrice: string;
   costPrice?: string | null;
   active: boolean;
@@ -43,10 +48,12 @@ export interface CatalogItemRepository {
   listActive(organizationId: OrganizationId): Promise<CatalogItem[]>;
   listAll(organizationId: OrganizationId): Promise<CatalogItem[]>;
   // Search-as-you-type over active items by name or code (limited result set).
+  // An optional itemType restricts results to labor or material only.
   searchActive(
     organizationId: OrganizationId,
     term: string,
     limit: number,
+    itemType?: CatalogItemType,
   ): Promise<CatalogItem[]>;
   getById(
     organizationId: OrganizationId,

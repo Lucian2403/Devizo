@@ -20,6 +20,7 @@ function parseItem(formData: FormData) {
     categoryId: formData.get("categoryId"),
     description: formData.get("description") || undefined,
     unit: formData.get("unit"),
+    itemType: formData.get("itemType"),
     sellingPrice: formData.get("sellingPrice"),
     costPrice: formData.get("costPrice"),
     active: formData.get("active"),

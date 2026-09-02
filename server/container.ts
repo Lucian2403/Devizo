@@ -10,6 +10,8 @@ import { CatalogItemService } from "@/domain/catalog/item.service";
 import { DrizzleCatalogItemRepository } from "@/infrastructure/db/repositories/catalogItem.repository";
 import { QuoteService } from "@/domain/quotes/quote.service";
 import { DrizzleQuoteRepository } from "@/infrastructure/db/repositories/quote.repository";
+import { EstimateAssistantService } from "@/domain/ai/estimate.service";
+import { GeminiExtractionProvider } from "@/infrastructure/ai/gemini/extraction.provider";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -42,4 +44,14 @@ export function getCatalogItemRepository(): DrizzleCatalogItemRepository {
 
 export function getQuoteService(): QuoteService {
   return new QuoteService(new DrizzleQuoteRepository());
+}
+
+// AI-assisted estimate extraction. The provider is created lazily so pages that
+// don't use AI never require the AI API key to be set. Swapping providers here
+// keeps the domain and application layers untouched.
+export function getEstimateAssistantService(): EstimateAssistantService {
+  return new EstimateAssistantService(
+    new GeminiExtractionProvider(),
+    new DrizzleCatalogItemRepository(),
+  );
 }

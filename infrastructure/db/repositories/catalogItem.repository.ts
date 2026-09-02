@@ -9,6 +9,7 @@ import {
 } from "@/domain/catalog/item.repository";
 import type {
   CatalogItemId,
+  CatalogItemType,
   OrganizationId,
   SupportedUnit,
 } from "@/domain/shared/types";
@@ -34,6 +35,7 @@ function toDomain(row: typeof catalogItems.$inferSelect): CatalogItem {
     name: row.name,
     description: row.description,
     unit: row.unit as SupportedUnit,
+    itemType: row.itemType as CatalogItemType,
     sellingPrice: row.sellingPrice,
     costPrice: row.costPrice,
     active: row.active,
@@ -47,10 +49,20 @@ function toColumns(data: CatalogItemData) {
     name: data.name,
     description: data.description ?? null,
     unit: data.unit,
+    itemType: data.itemType,
     sellingPrice: data.sellingPrice,
     costPrice: data.costPrice ?? null,
     active: data.active,
   };
+}
+
+function splitSearchTokens(term: string): string[] {
+  return [...new Set(
+    term
+      .trim()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((token) => token.length >= 2),
+  )];
 }
 
 export class DrizzleCatalogItemRepository implements CatalogItemRepository {
@@ -81,10 +93,22 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     organizationId: OrganizationId,
     term: string,
     limit: number,
+    itemType?: CatalogItemType,
   ): Promise<CatalogItem[]> {
-    // Case-insensitive match on name or code. Uses ILIKE so it works well for
-    // large catalogs without loading everything into the client.
-    const pattern = `%${term}%`;
+    // Retrieval for AI matching must be broader than a single contiguous phrase:
+    // terms like "montaj laminat" should still find "Montare laminat click".
+    const pattern = `%${term.trim()}%`;
+    const tokenPatterns = splitSearchTokens(term).map((token) => `%${token}%`);
+    const searchClauses = [
+      ilike(catalogItems.name, pattern),
+      ilike(catalogItems.code, pattern),
+      ilike(catalogItems.description, pattern),
+      ...tokenPatterns.flatMap((tokenPattern) => [
+        ilike(catalogItems.name, tokenPattern),
+        ilike(catalogItems.code, tokenPattern),
+        ilike(catalogItems.description, tokenPattern),
+      ]),
+    ];
     const rows = await db
       .select()
       .from(catalogItems)
@@ -92,10 +116,8 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         and(
           eq(catalogItems.organizationId, organizationId),
           eq(catalogItems.active, true),
-          or(
-            ilike(catalogItems.name, pattern),
-            ilike(catalogItems.code, pattern),
-          ),
+          itemType ? eq(catalogItems.itemType, itemType) : undefined,
+          or(...searchClauses),
         ),
       )
       .orderBy(asc(catalogItems.name))
