@@ -8,6 +8,7 @@ import {
   foreignKey,
   uniqueIndex,
   check,
+  vector,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -36,6 +37,20 @@ export const catalogItems = pgTable(
     sellingPrice: numeric("selling_price", { precision: 12, scale: 2 }).notNull(),
     costPrice: numeric("cost_price", { precision: 12, scale: 2 }),
     active: boolean("active").notNull().default(true),
+    // --- Semantic search (M5.1) ------------------------------------------
+    // Embedding of the item's semantic fields (name/description/category/
+    // item_type/unit). Nullable = not yet embedded; retrieval falls back to
+    // lexical for such rows. Dimension is fixed at 768 for this schema.
+    embedding: vector("embedding", { dimensions: 768 }),
+    // Hash of the exact text that produced `embedding`. Used to skip
+    // re-embedding when only non-semantic fields (e.g. price) change.
+    embeddingSource: text("embedding_source"),
+    // Provider/model that produced the embedding, so we can re-embed safely
+    // if the model or dimensionality ever changes.
+    embeddingModel: text("embedding_model"),
+    embeddingUpdatedAt: timestamp("embedding_updated_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

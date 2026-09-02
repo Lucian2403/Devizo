@@ -10,8 +10,10 @@ next-env.d.ts
 
 # Env
 .env
+.env.*
 .env.local
 .env*.local
+!.env.example
 
 # Misc
 .DS_Store

@@ -13,7 +13,7 @@ import type {
   ExtractionResult,
   MatchedItem,
 } from "@/domain/ai/extraction.types";
-import { extractFromText } from "../../ai-actions";
+import { extractFromText, recordMatchFeedback } from "../../ai-actions";
 
 // A line the assistant hands back to the editor once the user confirms.
 export interface AssistantLine {
@@ -103,6 +103,23 @@ export function AiAssistant({
 
     result.items.forEach((matched, index) => {
       const decision = decisions[index]!;
+
+      // Capture feedback whenever the final choice differs from what the
+      // assistant suggested (including the user picking "manual"/no match, or
+      // skipping the item). Best-effort, fire-and-forget — never blocks confirm.
+      const suggested = matched.suggestedCatalogItemId ?? null;
+      const selected =
+        decision.include && decision.catalogItemId
+          ? decision.catalogItemId
+          : null;
+      if (selected !== suggested) {
+        void recordMatchFeedback({
+          extractedText: matched.item.rawText,
+          suggestedCatalogItemId: suggested,
+          selectedCatalogItemId: selected,
+        });
+      }
+
       if (!decision.include) return;
 
       const candidate = matched.candidates.find(

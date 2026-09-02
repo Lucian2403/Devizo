@@ -8,6 +8,7 @@ import {
   getCatalogCategoryService,
   getCatalogItemService,
   getCatalogItemRepository,
+  syncCatalogEmbeddings,
 } from "@/server/container";
 import type { CatalogItemId } from "@/domain/shared/types";
 import {
@@ -231,6 +232,10 @@ export async function runImport(
     creates,
     updates.map((u) => ({ id: u.id, data: u.data! })),
   );
+
+  // Best-effort: embed new/changed rows after the data commit. A failure here
+  // never rolls back the import; unembedded rows are picked up on next sync.
+  await syncCatalogEmbeddings(org.id);
 
   revalidatePath("/catalog");
   return {

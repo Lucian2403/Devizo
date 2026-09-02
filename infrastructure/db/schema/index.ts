@@ -5,6 +5,7 @@ export * from "./customers";
 export * from "./projects";
 export * from "./catalogCategories";
 export * from "./catalogItems";
+export * from "./catalogMatchFeedback";
 export * from "./quotes";
 export * from "./quoteVersions";
 export * from "./quoteItems";

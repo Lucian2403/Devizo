@@ -13,6 +13,11 @@ import {
 } from "../domain/ai/concepts";
 import { jobExtractionSchema } from "../schemas/domain/aiExtraction";
 import { rectangleArea, roomWallArea } from "../domain/quotes/geometry";
+import { buildEmbedText, embedTextHash } from "../domain/ai/catalogEmbedding";
+import { EstimateAssistantService } from "../domain/ai/estimate.service";
+import type { CatalogItem, CatalogItemRepository } from "../domain/catalog/item.repository";
+import type { EmbeddingProvider } from "../domain/ai/embedding.provider";
+import type { ExtractionProvider } from "../domain/ai/providers";
 import type {
   ExtractedItem,
   MatchCandidate,
@@ -315,4 +320,169 @@ test("material kind is accepted (explicit product)", () => {
   assert.equal(parsed.items[0]!.kind, "material");
 });
 
-console.log(`\n${passed} checks passed.`);
+console.log("Semantic catalog embedding:");
+
+test("embed-text hash is stable for identical fields", () => {
+  const fields = {
+    name: "Vopsea lavabilă",
+    description: "Vopsea albă",
+    categoryName: "Materiale",
+    itemType: "material" as const,
+    unit: "pcs" as const,
+  };
+  const a = embedTextHash(buildEmbedText(fields));
+  const b = embedTextHash(buildEmbedText({ ...fields }));
+  assert.equal(a, b);
+});
+
+test("embed-text hash changes when name/unit/type change", () => {
+  const fields = {
+    name: "Vopsea lavabilă",
+    description: "Vopsea albă",
+    categoryName: "Materiale",
+    itemType: "material" as const,
+    unit: "pcs" as const,
+  };
+  const base = embedTextHash(buildEmbedText(fields));
+  assert.notEqual(base, embedTextHash(buildEmbedText({ ...fields, name: "X" })));
+  assert.notEqual(base, embedTextHash(buildEmbedText({ ...fields, unit: "m2" })));
+  assert.notEqual(
+    base,
+    embedTextHash(buildEmbedText({ ...fields, itemType: "labor" })),
+  );
+});
+
+// --- Hybrid retrieval (fake providers, no network) -------------------------
+
+function labelItem(overrides: Partial<CatalogItem>): CatalogItem {
+  return {
+    id: "id",
+    organizationId: "org",
+    categoryId: null,
+    code: null,
+    name: "name",
+    description: null,
+    unit: "m2",
+    itemType: "labor",
+    sellingPrice: "10.00",
+    costPrice: null,
+    active: true,
+    ...overrides,
+  };
+}
+
+function extractedItem(overrides: Partial<ExtractedItem>): ExtractedItem {
+  return {
+    concept: "xyzzy",
+    kind: "labor",
+    action: "install",
+    object: "tiles",
+    surface: null,
+    normalizedConcept: "xyzzy",
+    rawText: "xyzzy",
+    description: "xyzzy",
+    quantity: null,
+    unit: null,
+    confidence: 0.8,
+    searchTerms: ["xyzzy"],
+    ...overrides,
+  };
+}
+
+// Minimal fakes: only the methods the assist path touches are implemented.
+function fakeRepo(opts: {
+  lexical?: CatalogItem[];
+  semantic?: { item: CatalogItem; similarity: number }[];
+}): CatalogItemRepository {
+  return {
+    searchActive: async () => opts.lexical ?? [],
+    semanticSearch: async () => opts.semantic ?? [],
+  } as unknown as CatalogItemRepository;
+}
+
+const fakeEmbedder: EmbeddingProvider = {
+  model: "fake",
+  dimensions: 3,
+  embed: async (texts) => texts.map(() => [0.1, 0.2, 0.3]),
+};
+
+function fakeExtraction(item: ExtractedItem): ExtractionProvider {
+  return {
+    extract: async () => ({
+      detectedLanguage: "ro",
+      items: [item],
+      assumptions: [],
+      missingInformation: [],
+    }),
+  } as unknown as ExtractionProvider;
+}
+
+let asyncPassed = 0;
+async function atest(name: string, fn: () => Promise<void>) {
+  await fn();
+  asyncPassed += 1;
+  console.log(`  ok - ${name}`);
+}
+
+async function runAsyncTests() {
+  console.log("Hybrid retrieval (semantic fusion):");
+
+  await atest(
+    "semantic-only match (no lexical support) is capped at review, not matched",
+    async () => {
+      // High similarity + object/action bonuses push the score into the
+      // matched band, but there is zero lexical overlap → must stay review.
+      const row = labelItem({ id: "L1", name: "Montare gresie pana la 60 cm" });
+      const service = new EstimateAssistantService(
+        fakeExtraction(extractedItem({})),
+        fakeRepo({ semantic: [{ item: row, similarity: 0.95 }] }),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "xyzzy");
+      assert.equal(res.items[0]!.status, "review");
+      assert.equal(res.items[0]!.suggestedCatalogItemId, "L1");
+    },
+  );
+
+  await atest("hard unit gate excludes wrong-unit rows after merge", async () => {
+    const row = labelItem({ id: "P1", name: "Montare gresie", unit: "pcs" });
+    const service = new EstimateAssistantService(
+      fakeExtraction(extractedItem({ unit: "m2" })),
+      fakeRepo({ semantic: [{ item: row, similarity: 0.95 }] }),
+      fakeEmbedder,
+    );
+    const res = await service.assist("org", "ro", "xyzzy");
+    assert.equal(res.items[0]!.candidates.length, 0);
+    assert.equal(res.items[0]!.status, "unmatched");
+  });
+
+  await atest("embedding failure degrades to lexical-only", async () => {
+    const row = labelItem({ id: "L2", name: "Montare gresie pana la 60 cm" });
+    const brokenEmbedder: EmbeddingProvider = {
+      model: "fake",
+      dimensions: 3,
+      embed: async () => {
+        throw new Error("boom");
+      },
+    };
+    const service = new EstimateAssistantService(
+      fakeExtraction(
+        extractedItem({ concept: "gresie", searchTerms: ["gresie"] }),
+      ),
+      fakeRepo({ lexical: [row] }),
+      brokenEmbedder,
+    );
+    const res = await service.assist("org", "ro", "gresie");
+    // Still returns the lexical candidate despite the embedder throwing.
+    assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "L2"));
+  });
+}
+
+runAsyncTests()
+  .then(() => {
+    console.log(`\n${passed + asyncPassed} checks passed.`);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

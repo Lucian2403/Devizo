@@ -43,6 +43,13 @@
       "when": 1788282945828,
       "tag": "0005_redundant_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788334753075,
+      "tag": "0006_clear_speed_demon",
+      "breakpoints": true
     }
   ]
 }

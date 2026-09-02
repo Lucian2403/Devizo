@@ -1,11 +1,14 @@
-import { and, eq, asc, or, ilike } from "drizzle-orm";
+import { and, eq, asc, or, ilike, sql, isNotNull } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
-import { catalogItems } from "@/infrastructure/db/schema";
+import { catalogItems, catalogCategories } from "@/infrastructure/db/schema";
 import {
   DuplicateItemCodeError,
   type CatalogItem,
   type CatalogItemData,
   type CatalogItemRepository,
+  type SemanticCandidate,
+  type EmbeddingInputRow,
+  type EmbeddingWriteRow,
 } from "@/domain/catalog/item.repository";
 import type {
   CatalogItemId,
@@ -241,6 +244,92 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           );
       }
       return { created: creates.length, updated: updates.length };
+    });
+  }
+
+  async semanticSearch(
+    organizationId: OrganizationId,
+    queryEmbedding: number[],
+    itemType: CatalogItemType,
+    limit: number,
+  ): Promise<SemanticCandidate[]> {
+    // pgvector literal, e.g. "[0.1,0.2,...]". Passed as a bound parameter and
+    // cast to vector. Hard filters (org/type/active + has-embedding) run in the
+    // WHERE clause BEFORE ordering by cosine distance.
+    const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+    const distance = sql<number>`${catalogItems.embedding} <=> ${vectorLiteral}::vector`;
+
+    const rows = await db
+      .select({ row: catalogItems, distance })
+      .from(catalogItems)
+      .where(
+        and(
+          eq(catalogItems.organizationId, organizationId),
+          eq(catalogItems.active, true),
+          eq(catalogItems.itemType, itemType),
+          isNotNull(catalogItems.embedding),
+        ),
+      )
+      .orderBy(distance)
+      .limit(limit);
+
+    return rows.map(({ row, distance: d }) => ({
+      item: toDomain(row),
+      // Cosine similarity in 0..1 (distance is 0..2 for cosine; clamp defensively).
+      similarity: Math.max(0, Math.min(1, 1 - Number(d))),
+    }));
+  }
+
+  async listEmbeddingInputs(
+    organizationId: OrganizationId,
+  ): Promise<EmbeddingInputRow[]> {
+    const rows = await db
+      .select({
+        id: catalogItems.id,
+        name: catalogItems.name,
+        description: catalogItems.description,
+        categoryName: catalogCategories.name,
+        itemType: catalogItems.itemType,
+        unit: catalogItems.unit,
+        storedHash: catalogItems.embeddingSource,
+      })
+      .from(catalogItems)
+      .leftJoin(
+        catalogCategories,
+        eq(catalogItems.categoryId, catalogCategories.id),
+      )
+      .where(
+        and(
+          eq(catalogItems.organizationId, organizationId),
+          eq(catalogItems.active, true),
+        ),
+      );
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      categoryName: row.categoryName,
+      itemType: row.itemType as CatalogItemType,
+      unit: row.unit as SupportedUnit,
+      storedHash: row.storedHash,
+    }));
+  }
+
+  async saveEmbeddings(rows: EmbeddingWriteRow[]): Promise<void> {
+    if (rows.length === 0) return;
+    await db.transaction(async (tx) => {
+      for (const row of rows) {
+        await tx
+          .update(catalogItems)
+          .set({
+            embedding: row.embedding,
+            embeddingSource: row.hash,
+            embeddingModel: row.model,
+            embeddingUpdatedAt: new Date(),
+          })
+          .where(eq(catalogItems.id, row.id));
+      }
     });
   }
 }

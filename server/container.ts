@@ -12,6 +12,10 @@ import { QuoteService } from "@/domain/quotes/quote.service";
 import { DrizzleQuoteRepository } from "@/infrastructure/db/repositories/quote.repository";
 import { EstimateAssistantService } from "@/domain/ai/estimate.service";
 import { GeminiExtractionProvider } from "@/infrastructure/ai/gemini/extraction.provider";
+import { CatalogEmbeddingService } from "@/domain/ai/catalogEmbedding";
+import { CatalogEmbeddingSyncService } from "@/domain/catalog/embeddingSync.service";
+import { GeminiEmbeddingProvider } from "@/infrastructure/ai/gemini/embedding.provider";
+import { GeminiRerankProvider } from "@/infrastructure/ai/gemini/rerank.provider";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -53,5 +57,37 @@ export function getEstimateAssistantService(): EstimateAssistantService {
   return new EstimateAssistantService(
     new GeminiExtractionProvider(),
     new DrizzleCatalogItemRepository(),
+    // Semantic retrieval is best-effort inside the service; if the embedding
+    // provider or key is unavailable, matching falls back to lexical-only.
+    new GeminiEmbeddingProvider(),
+    // LLM rerank is opt-in via env and also best-effort.
+    process.env.AI_RERANK_ENABLED === "true"
+      ? new GeminiRerankProvider()
+      : undefined,
   );
+}
+
+// Catalog semantic-embedding sync (M5.1). The embedding provider is created
+// lazily here so catalog CRUD never depends on the AI key at import time.
+export function getCatalogEmbeddingSyncService(): CatalogEmbeddingSyncService {
+  return new CatalogEmbeddingSyncService(
+    new DrizzleCatalogItemRepository(),
+    new CatalogEmbeddingService(new GeminiEmbeddingProvider()),
+  );
+}
+
+/**
+ * Best-effort embedding refresh for an organization's catalog. Never throws:
+ * embeddings are eventually-consistent, so a provider/key failure must not
+ * break catalog create/update/import. Unembedded rows are picked up on the next
+ * successful sync (or the backfill script).
+ */
+export async function syncCatalogEmbeddings(
+  organizationId: string,
+): Promise<void> {
+  try {
+    await getCatalogEmbeddingSyncService().syncOrganization(organizationId);
+  } catch (error) {
+    console.error("Catalog embedding sync failed:", error);
+  }
 }

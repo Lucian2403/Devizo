@@ -5,6 +5,8 @@ import { getEstimateAssistantService } from "@/server/container";
 import { ExtractionError } from "@/domain/ai/providers";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/domain/shared/types";
 import type { ExtractionResult } from "@/domain/ai/extraction.types";
+import { db } from "@/infrastructure/db";
+import { catalogMatchFeedback } from "@/infrastructure/db/schema";
 
 // Server-side input limit. Keeps prompt cost bounded and blocks abuse; there is
 // no in-memory rate limiter (it wouldn't be reliable on serverless).
@@ -56,5 +58,29 @@ export async function extractFromText(text: string): Promise<ExtractState> {
     // Don't leak provider/internal details to the client.
     console.error("AI extraction failed:", error);
     return { ok: false, error: "Asistentul AI nu este disponibil momentan." };
+  }
+}
+
+// Records what the user actually chose versus what the assistant suggested, so
+// we can measure and later improve matching. Append-only, best-effort: a
+// failure here must never block the user's quote. No learning loop yet.
+export async function recordMatchFeedback(input: {
+  extractedText: string;
+  suggestedCatalogItemId: string | null;
+  selectedCatalogItemId: string | null;
+}): Promise<void> {
+  try {
+    const { org } = await requireCurrentOrg();
+    const extractedText = (input.extractedText ?? "").trim();
+    if (extractedText.length === 0) return;
+
+    await db.insert(catalogMatchFeedback).values({
+      organizationId: org.id,
+      extractedText: extractedText.slice(0, MAX_INPUT_CHARS),
+      suggestedCatalogItemId: input.suggestedCatalogItemId,
+      selectedCatalogItemId: input.selectedCatalogItemId,
+    });
+  } catch (error) {
+    console.error("Failed to record match feedback:", error);
   }
 }

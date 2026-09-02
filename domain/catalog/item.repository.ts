@@ -44,6 +44,34 @@ export class DuplicateItemCodeError extends Error {
   }
 }
 
+// A catalog row returned by semantic vector search, with its cosine similarity
+// (0..1, higher is closer). The item carries authoritative price/unit/type.
+export interface SemanticCandidate {
+  item: CatalogItem;
+  similarity: number;
+}
+
+// The semantic fields needed to (re)build an item's embedding, plus the
+// currently stored hash so callers can skip unchanged items. categoryName is
+// resolved via join so the embedding captures the category label, not an id.
+export interface EmbeddingInputRow {
+  id: CatalogItemId;
+  name: string;
+  description: string | null;
+  categoryName: string | null;
+  itemType: CatalogItemType;
+  unit: SupportedUnit;
+  storedHash: string | null;
+}
+
+// One embedding to persist for an item.
+export interface EmbeddingWriteRow {
+  id: CatalogItemId;
+  embedding: number[];
+  hash: string;
+  model: string;
+}
+
 export interface CatalogItemRepository {
   listActive(organizationId: OrganizationId): Promise<CatalogItem[]>;
   listAll(organizationId: OrganizationId): Promise<CatalogItem[]>;
@@ -84,4 +112,24 @@ export interface CatalogItemRepository {
     creates: CatalogItemData[],
     updates: { id: CatalogItemId; data: CatalogItemData }[],
   ): Promise<{ created: number; updated: number }>;
+
+  // --- Semantic search (M5.1) --------------------------------------------
+  // Exact cosine vector search, HARD-filtered by organization, item_type and
+  // active BEFORE ranking. Rows without an embedding are excluded (they fall
+  // back to lexical retrieval upstream). Returns at most `limit` rows.
+  semanticSearch(
+    organizationId: OrganizationId,
+    queryEmbedding: number[],
+    itemType: CatalogItemType,
+    limit: number,
+  ): Promise<SemanticCandidate[]>;
+
+  // Returns the semantic inputs (with category name and stored hash) for the
+  // org's active items, so the caller can decide which need (re)embedding.
+  listEmbeddingInputs(
+    organizationId: OrganizationId,
+  ): Promise<EmbeddingInputRow[]>;
+
+  // Persists embeddings for the given items in one transaction.
+  saveEmbeddings(rows: EmbeddingWriteRow[]): Promise<void>;
 }

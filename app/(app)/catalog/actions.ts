@@ -6,6 +6,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getCatalogCategoryService,
   getCatalogItemService,
+  syncCatalogEmbeddings,
 } from "@/server/container";
 import { catalogItemSchema } from "@/schemas/domain/catalogItem";
 import { catalogCategorySchema } from "@/schemas/domain/catalogCategory";
@@ -47,6 +48,9 @@ export async function createItem(
     throw error;
   }
 
+  // Best-effort: refresh embeddings so the new item is semantically searchable.
+  await syncCatalogEmbeddings(org.id);
+
   revalidatePath("/catalog");
   redirect("/catalog");
 }
@@ -71,6 +75,9 @@ export async function updateItem(
     }
     throw error;
   }
+
+  // Best-effort: re-embed only if semantic fields changed (hash-guarded).
+  await syncCatalogEmbeddings(org.id);
 
   revalidatePath("/catalog");
   redirect("/catalog");
