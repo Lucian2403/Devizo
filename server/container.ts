@@ -16,6 +16,8 @@ import { CatalogEmbeddingService } from "@/domain/ai/catalogEmbedding";
 import { CatalogEmbeddingSyncService } from "@/domain/catalog/embeddingSync.service";
 import { GeminiEmbeddingProvider } from "@/infrastructure/ai/gemini/embedding.provider";
 import { GeminiRerankProvider } from "@/infrastructure/ai/gemini/rerank.provider";
+import { GeminiTranscriptionProvider } from "@/infrastructure/ai/gemini/transcription.provider";
+import type { TranscriptionProvider } from "@/domain/ai/transcription.provider";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -65,6 +67,13 @@ export function getEstimateAssistantService(): EstimateAssistantService {
       ? new GeminiRerankProvider()
       : undefined,
   );
+}
+
+// Voice transcription (M5.2). Created lazily so non-voice flows never require
+// the AI key. Swap this line to use a different vendor (e.g. OpenAI
+// gpt-4o-mini-transcribe) without touching the route handler or the UI.
+export function getTranscriptionProvider(): TranscriptionProvider {
+  return new GeminiTranscriptionProvider();
 }
 
 // Catalog semantic-embedding sync (M5.1). The embedding provider is created

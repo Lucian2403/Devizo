@@ -14,6 +14,7 @@ import type {
   MatchedItem,
 } from "@/domain/ai/extraction.types";
 import { extractFromText, recordMatchFeedback } from "../../ai-actions";
+import { VoiceRecorder } from "./voice-recorder";
 
 // A line the assistant hands back to the editor once the user confirms.
 export interface AssistantLine {
@@ -184,6 +185,16 @@ export function AiAssistant({
 
       <div className="space-y-2">
         <Label htmlFor="ai-text">Descrie lucrarea</Label>
+        {/* Voice is just another way to fill this textarea. The transcript is
+            appended and stays editable; analysis reuses the same text flow. */}
+        <VoiceRecorder
+          onTranscript={(transcript) => {
+            setError(null);
+            setText((prev) =>
+              prev.trim().length > 0 ? `${prev}\n${transcript}` : transcript,
+            );
+          }}
+        />
         <Textarea
           id="ai-text"
           rows={4}
