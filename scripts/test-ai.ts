@@ -10,9 +10,19 @@ import {
   tagText,
   hasStrongConflict,
   expandJargon,
-} from "../domain/ai/concepts";
-import { jobExtractionSchema } from "../schemas/domain/aiExtraction";
-import { rectangleArea, roomWallArea } from "../domain/quotes/geometry";
+  tagProfileRoles,
+  hasProfileRoleConflict,
+  parseThicknessMm,
+  hasThicknessConflict,
+  parseMountType,
+  hasMountTypeConflict,
+  parseElectricalScope,
+} from "../domain/ai/concepts";import { jobExtractionSchema } from "../schemas/domain/aiExtraction";
+import {
+  rectangleArea,
+  roomWallArea,
+  computeSurfaceArea,
+} from "../domain/quotes/geometry";
 import { buildEmbedText, embedTextHash } from "../domain/ai/catalogEmbedding";
 import { EstimateAssistantService } from "../domain/ai/estimate.service";
 import type { CatalogItem, CatalogItemRepository } from "../domain/catalog/item.repository";
@@ -261,6 +271,294 @@ test("D: room 5x4x2.75 minus window 1.5x1.4 and door 0.8x2.0 = 45.8 m2", () => {
   assert.equal(area, "45.8");
 });
 
+console.log("Regression: real-world geometry + surface/object safety:");
+
+// TEST 1 — room walls (net) and ceiling from raw dimensions.
+test("T1: walls 5.2x3.8x2.72 minus window 1.6x1.4 and door 0.9x2.05 = 44.88 m2", () => {
+  const area = computeSurfaceArea("room_walls", {
+    length: 5.2,
+    width: 3.8,
+    height: 2.72,
+    openings: [
+      { width: 1.6, height: 1.4 },
+      { width: 0.9, height: 2.05 },
+    ],
+  });
+  assert.equal(area, "44.88");
+});
+
+test("T1: ceiling 5.2 x 3.8 = 19.76 m2", () => {
+  assert.equal(computeSurfaceArea("ceiling", { length: 5.2, width: 3.8 }), "19.76");
+});
+
+test("T1: amorsare tavan (primer) must NOT match 'Glet tavan pentru vopsire' (putty)", () => {
+  const row = tagText("Glet tavan pentru vopsire");
+  // Item is priming on the ceiling; the row is ceiling putty → object conflict.
+  assert.ok(hasStrongConflict("prepare", "primer", row, "ceiling"));
+});
+
+test("T6: 'pentru vopsire' is a purpose clause, not a paint operation", () => {
+  const row = tagText("Glet tavan pentru vopsire");
+  // Primary object is putty; the trailing "pentru vopsire" must NOT tag paint.
+  assert.ok(row.objects.has("putty"));
+  assert.ok(!row.objects.has("paint"));
+  assert.ok(!row.actions.has("finish"));
+  // A real paint row keeps paint tagged.
+  const paintRow = tagText("Vopsire tavan un strat");
+  assert.ok(paintRow.objects.has("paint"));
+  assert.ok(paintRow.actions.has("finish"));
+});
+
+test("T6: ceiling paint item must NOT match the ceiling putty row", () => {
+  const puttyRow = tagText("Glet tavan pentru vopsire");
+  // Vopsirea tavanului → finish/paint on ceiling; putty row is now a conflict.
+  assert.ok(hasStrongConflict("finish", "paint", puttyRow, "ceiling"));
+  const paintRow = tagText("Vopsire tavan un strat");
+  assert.ok(!hasStrongConflict("finish", "paint", paintRow, "ceiling"));
+});
+
+// TEST 2 — single drywall wall, net area, no truncation.
+test("T2: drywall wall 4.30 x 2.65 minus door 0.8 x 2.0 = 9.8 m2 (net)", () => {
+  const area = computeSurfaceArea("wall_rectangle", {
+    width: 4.3,
+    height: 2.65,
+    openings: [{ width: 0.8, height: 2.0 }],
+  });
+  assert.equal(area, "9.8");
+});
+
+test("T2: gross drywall wall 4.30 x 2.65 rounds half-up to 11.4 (never 11.39)", () => {
+  assert.equal(rectangleArea(4.3, 2.65), "11.4");
+});
+
+// TEST 3 — surface compatibility keeps floor tile vs wall tile separate.
+test("T3: floor tile item must NOT match a wall-tile catalog row", () => {
+  const wallTileRow = tagText("Montaj faianță pe pereți");
+  assert.ok(hasStrongConflict("install", "tiles", wallTileRow, "floor"));
+});
+
+test("T3: wall tile item must NOT match a floor-tile catalog row", () => {
+  const floorTileRow = tagText("Montaj gresie pardoseală");
+  assert.ok(hasStrongConflict("install", "tiles", floorTileRow, "wall"));
+});
+
+test("T3: same-surface tile stays compatible (floor tile vs floor-tile row)", () => {
+  const floorTileRow = tagText("Montaj gresie pardoseală");
+  assert.ok(!hasStrongConflict("install", "tiles", floorTileRow, "floor"));
+});
+
+// TEST 4 — compound drywall scope decomposes into atomic requirements.
+test("T4: compound drywall input decomposes into labor + explicit materials + specs", () => {
+  const parsed = jobExtractionSchema.parse({
+    detectedLanguage: "ro",
+    items: [
+      {
+        concept: "constructie perete gips-carton",
+        kind: "labor",
+        action: "install",
+        object: "drywall",
+        surface: "wall",
+        normalizedConcept: "install drywall partition",
+        rawText: "Facem un perete de 4.30 lungime și 2.65 înălțime, gips-carton dublu pe ambele părți",
+        description: "Perete gips-carton dublu pe ambele părți, profil 75",
+        quantity: null,
+        unit: "m2",
+        confidence: 0.9,
+        searchTerms: ["gips-carton", "perete despartitor"],
+        specifications: ["gips-carton dublu", "pe ambele părți"],
+        geometry: {
+          shape: "wall_rectangle",
+          length: null,
+          width: 4.3,
+          height: 2.65,
+          openings: [{ width: 0.8, height: 2.0, count: 1 }],
+        },
+      },
+      {
+        concept: "vata minerala 75mm",
+        kind: "material",
+        action: "install",
+        object: "other",
+        surface: "wall",
+        normalizedConcept: "mineral wool 75mm",
+        rawText: "vată minerală de 75 înăuntru",
+        description: "Vată minerală 75 mm",
+        quantity: null,
+        unit: "m2",
+        confidence: 0.8,
+        searchTerms: ["vata minerala"],
+        specifications: ["75 mm"],
+        geometry: null,
+      },
+      {
+        concept: "profil 75",
+        kind: "material",
+        action: "install",
+        object: "other",
+        surface: null,
+        normalizedConcept: "metal profile 75",
+        rawText: "Profil normal de 75",
+        description: "Profil 75 mm",
+        quantity: null,
+        unit: "m",
+        confidence: 0.8,
+        searchTerms: ["profil 75"],
+        specifications: ["75 mm"],
+        geometry: null,
+      },
+    ],
+    assumptions: [],
+    // Door install intent is unclear → flagged, not turned into a line.
+    missingInformation: ["Nu este clar dacă montajul ușii este inclus."],
+  });
+  // Labor + two explicit materials survive as separate structured items.
+  assert.equal(parsed.items.length, 3);
+  assert.equal(parsed.items[0]!.kind, "labor");
+  assert.deepEqual(parsed.items[0]!.specifications, [
+    "gips-carton dublu",
+    "pe ambele părți",
+  ]);
+  assert.equal(parsed.items[1]!.kind, "material");
+  assert.equal(parsed.items[2]!.kind, "material");
+  // Materials without an explicit deterministic quantity stay null.
+  assert.equal(parsed.items[1]!.quantity, null);
+  assert.equal(parsed.items[2]!.quantity, null);
+});
+
+test("T4: specifications default to [] when the model omits them", () => {
+  const parsed = jobExtractionSchema.parse({
+    detectedLanguage: "ro",
+    items: [
+      {
+        concept: "x",
+        kind: "labor",
+        action: "install",
+        object: null,
+        surface: null,
+        normalizedConcept: "x",
+        rawText: "x",
+        description: "x",
+        quantity: null,
+        unit: "m2",
+        confidence: 0.5,
+        searchTerms: [],
+      },
+    ],
+    assumptions: [],
+    missingInformation: [],
+  });
+  assert.deepEqual(parsed.items[0]!.specifications, []);
+});
+
+// TEST 5 — drywall profile technical role (partition vs ceiling).
+test("T5: 'profil normal de 75' is a partition stud, not a ceiling profile", () => {
+  const roles = tagProfileRoles("Profil normal de 75");
+  assert.ok(roles.has("partition_stud"));
+  assert.ok(!roles.has("ceiling_profile"));
+});
+
+test("T5: CW/UW → partition; CD 60/27 / UD → ceiling", () => {
+  assert.ok(tagProfileRoles("Profil CW 75").has("partition_stud"));
+  assert.ok(tagProfileRoles("Profil UW 75").has("partition_track"));
+  assert.ok(tagProfileRoles("Profil CD gips-carton 60/27 4 m").has("ceiling_profile"));
+  assert.ok(tagProfileRoles("Profil UD 28/27").has("ceiling_track"));
+});
+
+test("T5: partition profile requirement must NOT match CD ceiling profile", () => {
+  const required = tagProfileRoles("Profil normal de 75");
+  const candidate = tagProfileRoles("Profil CD gips-carton 60/27 4 m");
+  assert.ok(hasProfileRoleConflict(required, candidate));
+});
+
+test("T5: partition profile requirement stays compatible with CW 75", () => {
+  const required = tagProfileRoles("Profil normal de 75");
+  const candidate = tagProfileRoles("Profil CW 75 x 4 m");
+  assert.ok(!hasProfileRoleConflict(required, candidate));
+});
+
+test("T5: non-profile rows are never tagged (no false conflict)", () => {
+  // "Vată minerală 75 mm" also has 75, but it is not a profile.
+  assert.equal(tagProfileRoles("Vată minerală 75 mm").size, 0);
+  assert.ok(
+    !hasProfileRoleConflict(
+      tagProfileRoles("Profil normal de 75"),
+      tagProfileRoles("Vată minerală 75 mm"),
+    ),
+  );
+});
+
+// TEST 7 — explicit material thickness must be respected (75 mm ≠ 50 mm).
+test("T7: parseThicknessMm reads mm, cm and dimension triples", () => {
+  assert.equal(parseThicknessMm("grosime 75 mm"), 75);
+  assert.equal(parseThicknessMm("Vată minerală de 75 mm pentru izolație"), 75);
+  // 100x60x5 cm → smallest dimension 5 cm = 50 mm thickness.
+  assert.equal(parseThicknessMm("Vată minerală Rockmin 100x60x5 cm"), 50);
+  assert.equal(parseThicknessMm("Vată minerală Akusto Plus 75 mm, 10,8 m²"), 75);
+  assert.equal(parseThicknessMm("Fără dimensiuni"), null);
+});
+
+test("T7: 75 mm requirement conflicts with a 50 mm (100x60x5 cm) candidate", () => {
+  const requiredMm = parseThicknessMm("grosime 75 mm");
+  assert.ok(hasThicknessConflict(requiredMm, "Vată minerală Rockmin 100x60x5 cm"));
+});
+
+test("T7: 75 mm requirement stays compatible with a 75 mm candidate", () => {
+  const requiredMm = parseThicknessMm("grosime 75 mm");
+  assert.ok(
+    !hasThicknessConflict(requiredMm, "Vată minerală Akusto Plus 75 mm, 10,8 m²"),
+  );
+});
+
+test("T7: unknown thickness never blocks (no false conflict)", () => {
+  assert.ok(!hasThicknessConflict(null, "Vată minerală Rockmin 100x60x5 cm"));
+  assert.ok(!hasThicknessConflict(75, "Vată minerală fără dimensiune"));
+});
+
+// TEST 8 — bathroom: waterproofing object + WC mount type + water systems.
+test("T8: waterproofing is its own object, never tiles nor mesh", () => {
+  const wp = tagText("Aplicare hidroizolație pe podea");
+  assert.ok(wp.objects.has("waterproofing"));
+  assert.ok(!wp.objects.has("tiles"));
+  // Waterproofing item must NOT match a tile-install row (object conflict).
+  const tileRow = tagText("Montare gresie până la 60 cm");
+  assert.ok(hasStrongConflict("install", "waterproofing", tileRow, "floor"));
+  // Nor a fiberglass mesh reinforcement row.
+  const meshRow = tagText("Aplicare fibră de sticlă pe pereți");
+  assert.ok(hasStrongConflict("install", "waterproofing", meshRow, "wall"));
+  // A real waterproofing row stays compatible.
+  const wpRow = tagText("Hidroizolare baie sub placări");
+  assert.ok(!hasStrongConflict("install", "waterproofing", wpRow, "floor"));
+});
+
+test("T8: WC suspendat/încastrat must block a floor-mounted WC row", () => {
+  const required = parseMountType("Montare WC suspendat");
+  assert.equal(required, "suspended");
+  assert.ok(hasMountTypeConflict(required, "Montare vas WC pe pardoseală"));
+  assert.ok(!hasMountTypeConflict(required, "Montare WC încastrat"));
+  // Unknown mount on the candidate never conflicts.
+  assert.ok(!hasMountTypeConflict(required, "Montare WC"));
+});
+
+// TEST 9 — electrical installation depth: new point vs mechanism only.
+test("T9: 'punct nou cu cablu și doză' is a full point; bare priza is mechanism", () => {
+  assert.equal(
+    parseElectricalScope("Montare puncte noi pentru prize, cu cablu și doză"),
+    "full_point",
+  );
+  assert.equal(
+    parseElectricalScope("montăm priza în doza deja pregătită"),
+    "mechanism",
+  );
+  // Catalog rows tag the same way.
+  assert.equal(parseElectricalScope("Executare punct electric"), "full_point");
+  assert.equal(
+    parseElectricalScope("Montare priză sau întrerupător"),
+    "mechanism",
+  );
+  // Non-electrical text is untagged.
+  assert.equal(parseElectricalScope("Montare gresie pe podea"), null);
+});
+
 console.log("Item-type / quantity semantics:");
 
 test("A: пошпаклевать → labor putty; покрасить → labor paint (never material)", () => {
@@ -385,6 +683,8 @@ function extractedItem(overrides: Partial<ExtractedItem>): ExtractedItem {
     unit: null,
     confidence: 0.8,
     searchTerms: ["xyzzy"],
+    specifications: [],
+    geometry: null,
     ...overrides,
   };
 }
@@ -411,6 +711,17 @@ function fakeExtraction(item: ExtractedItem): ExtractionProvider {
     extract: async () => ({
       detectedLanguage: "ro",
       items: [item],
+      assumptions: [],
+      missingInformation: [],
+    }),
+  } as unknown as ExtractionProvider;
+}
+
+function fakeExtractionMany(items: ExtractedItem[]): ExtractionProvider {
+  return {
+    extract: async () => ({
+      detectedLanguage: "ro",
+      items,
       assumptions: [],
       missingInformation: [],
     }),
@@ -456,6 +767,31 @@ async function runAsyncTests() {
     assert.equal(res.items[0]!.status, "unmatched");
   });
 
+  await atest(
+    "explicit specifications cap a strong match at review (generic price must not cover a complex spec)",
+    async () => {
+      const row = labelItem({
+        id: "D1",
+        name: "Construcție perete despărțitor din gips-carton",
+      });
+      const item = extractedItem({
+        concept: "constructie perete despartitor gips-carton",
+        object: "drywall",
+        searchTerms: ["constructie perete despartitor gips-carton"],
+        specifications: ["gips-carton dublu", "pe ambele părți"],
+      });
+      const service = new EstimateAssistantService(
+        fakeExtraction(item),
+        fakeRepo({ lexical: [row] }),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "x");
+      // The candidate is retrieved and suggested, but never auto-matched.
+      assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "D1"));
+      assert.equal(res.items[0]!.status, "review");
+    },
+  );
+
   await atest("embedding failure degrades to lexical-only", async () => {
     const row = labelItem({ id: "L2", name: "Montare gresie pana la 60 cm" });
     const brokenEmbedder: EmbeddingProvider = {
@@ -476,6 +812,98 @@ async function runAsyncTests() {
     // Still returns the lexical candidate despite the embedder throwing.
     assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "L2"));
   });
+
+  await atest(
+    "T8: stated floor area propagates to same-surface floor ops, not to wall perimeter waterproofing",
+    async () => {
+      const floorRemoval = extractedItem({
+        concept: "demontare gresie podea",
+        action: "remove",
+        object: "tiles",
+        surface: "floor",
+        description: "Demontare gresie de pe podea",
+        quantity: "5",
+        unit: "m2",
+      });
+      const floorWaterproofing = extractedItem({
+        concept: "hidroizolatie podea",
+        object: "waterproofing",
+        surface: "floor",
+        description: "Aplicare hidroizolație pe podea",
+        quantity: null,
+        unit: "m2",
+      });
+      const floorTile = extractedItem({
+        concept: "montare gresie podea",
+        object: "tiles",
+        surface: "floor",
+        description: "Montare gresie 60x60 pe podea",
+        quantity: null,
+        unit: "m2",
+      });
+      const wallPerimeterWaterproofing = extractedItem({
+        concept: "hidroizolatie perimetru pereti",
+        object: "waterproofing",
+        surface: "wall",
+        description: "Hidroizolație ridicată 20 cm pe pereți pe tot perimetrul",
+        quantity: null,
+        unit: "m2",
+        specifications: ["ridicată 20 cm", "perimetral"],
+      });
+      const service = new EstimateAssistantService(
+        fakeExtractionMany([
+          floorRemoval,
+          floorWaterproofing,
+          floorTile,
+          wallPerimeterWaterproofing,
+        ]),
+        fakeRepo({}),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "baie");
+      const q = (i: number) => res.items[i]!.item.quantity;
+      assert.equal(q(0), "5"); // explicit, untouched
+      assert.equal(q(1), "5"); // floor waterproofing gets the floor area
+      assert.equal(q(2), "5"); // new floor tile gets the floor area
+      assert.equal(q(3), null); // wall perimeter waterproofing stays unknown
+    },
+  );
+
+  await atest(
+    "T9: a new-point request ranks 'Executare punct electric' above 'Montare priză'",
+    async () => {
+      const pointRow = labelItem({
+        id: "E1",
+        name: "Executare punct electric",
+        unit: "pcs",
+      });
+      const mechRow = labelItem({
+        id: "E2",
+        name: "Montare priză sau întrerupător",
+        unit: "pcs",
+      });
+      const item = extractedItem({
+        concept: "punct nou priza",
+        action: "install",
+        object: "socket",
+        unit: "pcs",
+        quantity: "8",
+        description: "Montare 8 puncte noi pentru prize, cu cablu și doză",
+        rawText: "8 puncte noi pentru prize, cu cablu și doză",
+        searchTerms: ["priza", "punct electric", "punct nou"],
+        specifications: ["cu cablu și doză"],
+      });
+      const service = new EstimateAssistantService(
+        fakeExtraction(item),
+        fakeRepo({ lexical: [mechRow, pointRow] }),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "x");
+      // Both candidates survive (never excluded), but the full point ranks top.
+      assert.equal(res.items[0]!.candidates[0]!.catalogItemId, "E1");
+      assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "E2"));
+    },
+  );
 }
 
 runAsyncTests()

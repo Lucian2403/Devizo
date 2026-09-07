@@ -14,9 +14,19 @@ import {
 } from "./matching";
 import {
   expandJargon,
+  hasMountTypeConflict,
+  hasProfileRoleConflict,
   hasStrongConflict,
+  hasThicknessConflict,
+  parseElectricalScope,
+  parseMountType,
+  parseThicknessMm,
+  pickSurface,
+  tagProfileRoles,
   tagText,
 } from "./concepts";
+import type { WorkSurface } from "./concepts";
+import { computeSurfaceArea } from "@/domain/quotes/geometry";
 import type {
   ExtractedItem,
   ExtractionResult,
@@ -38,6 +48,15 @@ const WEIGHT_SEMANTIC = 0.4;
 // A top candidate with lexical support below this is treated as semantic-only
 // and may not be auto-selected (capped at review), per requirement 6.
 const LEXICAL_MIN_FOR_MATCH = 0.15;
+
+// A partial-surface item does NOT cover the whole surface, so a stated
+// full-surface area must not be propagated onto it (e.g. waterproofing raised
+// a fixed band up the walls around the perimeter). Detected from explicit
+// perimeter/raised-band wording in the item's own text.
+function isPartialSurfaceScope(item: ExtractedItem): boolean {
+  const text = `${item.description} ${item.rawText} ${item.specifications.join(" ")}`.toLowerCase();
+  return /perimetr|ridic|brau|brâu|banda|bandă|plint|\bcm\b/u.test(text);
+}
 
 /**
  * Orchestrates AI-assisted extraction:
@@ -67,6 +86,11 @@ export class EstimateAssistantService {
     const extraction = await this.extractionProvider.extract(text, {
       catalogLanguage,
     });
+
+    // Deterministic take-off first, so an explicit surface area computed for
+    // one operation can be reused by other operations on the SAME surface.
+    for (const item of extraction.items) this.applyGeometry(item);
+    this.propagateSurfaceAreas(extraction.items);
 
     const items: MatchedItem[] = [];
     for (const item of extraction.items) {
@@ -115,6 +139,13 @@ export class EstimateAssistantService {
         suggestedCatalogItemId &&
         !lexicallySupportedIds.has(suggestedCatalogItemId)
       ) {
+        status = "review";
+      }
+
+      // A generic catalog price must not silently represent a more complex,
+      // explicitly specified assembly. When the item carries explicit
+      // specifications (e.g. double boarding, both sides), force review.
+      if (status === "matched" && item.specifications.length > 0) {
         status = "review";
       }
 
@@ -187,6 +218,33 @@ export class EstimateAssistantService {
     }
 
     const queryTokens = buildQueryTokens(item);
+    // The single canonical surface this item acts on (wall/floor/ceiling), if
+    // clear. Used to block wrong-surface catalog rows (floor vs wall tile).
+    const itemSurface = pickSurface(
+      `${item.surface ?? ""} ${item.description} ${item.concept}`,
+    );
+    // Drywall profile role of the requirement (partition vs ceiling), when the
+    // text is clearly about a profile. Blocks CD/UD ceiling profiles from
+    // matching a partition-wall profile requirement, and vice-versa.
+    const itemProfileRoles = tagProfileRoles(
+      `${item.concept} ${item.description} ${item.rawText} ${item.searchTerms.join(" ")}`,
+    );
+    // Required material thickness (mm), when explicitly specified. Blocks a
+    // technically wrong thickness (e.g. a 50 mm board for a required 75 mm one).
+    const itemThicknessMm = parseThicknessMm(
+      `${item.specifications.join(" ")} ${item.description} ${item.rawText}`,
+    );
+    // Required sanitary mounting type (wall-hung vs floor), when specified.
+    // Blocks a WC suspendat/încastrat from matching a floor-mounted WC row.
+    const itemMountType = parseMountType(
+      `${item.specifications.join(" ")} ${item.description} ${item.rawText}`,
+    );
+    // Electrical installation scope: a complete new point (cable+box) vs only
+    // the final mechanism. Lets a "punct electric" row outrank a "montare
+    // priză" row when the request explicitly involves cabling/box/new point.
+    const itemElectricalScope = parseElectricalScope(
+      `${item.concept} ${item.specifications.join(" ")} ${item.description} ${item.rawText}`,
+    );
     const scored: MatchCandidate[] = [];
     const lexicallySupportedIds = new Set<string>();
     for (const row of byId.values()) {
@@ -194,8 +252,15 @@ export class EstimateAssistantService {
       const rowTags = tagText(rowText);
 
       // Deterministic guards run AFTER merge and are never overridden by
-      // similarity: strong action/object conflict, then the hard unit gate.
-      if (hasStrongConflict(item.action, item.object, rowTags)) continue;
+      // similarity: strong action/object/surface conflict, then the unit gate.
+      if (hasStrongConflict(item.action, item.object, rowTags, itemSurface))
+        continue;
+      if (
+        hasProfileRoleConflict(itemProfileRoles, tagProfileRoles(rowText))
+      )
+        continue;
+      if (hasThicknessConflict(itemThicknessMm, rowText)) continue;
+      if (hasMountTypeConflict(itemMountType, rowText)) continue;
       if (item.unit && row.unit !== item.unit) continue;
 
       const nameScore = scoreTokens(queryTokens, row.name);
@@ -216,15 +281,25 @@ export class EstimateAssistantService {
       if (item.action !== "other" && rowTags.actions.has(item.action)) {
         bonus += 0.15;
       }
-      if (item.surface) {
-        const surfaceHit = tokenize(item.surface).some((t) =>
-          scoreTokens([t], rowText) > 0,
-        );
-        if (surfaceHit) bonus += 0.1;
+      if (itemSurface && rowTags.surfaces.has(itemSurface)) {
+        bonus += 0.1;
+      }
+
+      // Installation-depth ranking: when the request is a complete new point,
+      // reward point rows and demote mechanism-only rows (and vice-versa). Only
+      // reorders within the electrical family; never excludes a candidate.
+      if (itemElectricalScope) {
+        const rowScope = parseElectricalScope(rowText);
+        if (rowScope) {
+          bonus += rowScope === itemElectricalScope ? 0.3 : -0.3;
+        }
       }
 
       const base = WEIGHT_LEXICAL * lexScore + WEIGHT_SEMANTIC * semScore;
-      const score = Math.min(1, base + bonus);
+      // The electrical demotion is a ranking signal, not an exclusion: keep a
+      // small positive floor for any row that had real support before bonuses.
+      const floor = base > 0 ? 0.01 : 0;
+      const score = Math.min(1, Math.max(floor, base + bonus));
       if (score <= 0) continue;
       scored.push({
         catalogItemId: row.id,
@@ -245,6 +320,38 @@ export class EstimateAssistantService {
     return { candidates, lexicallySupportedIds, descriptions };
   }
 
+  // Contextual quantity propagation: an area the user stated for one full-surface
+  // operation (e.g. floor = 5 m²) is deterministically reused by other
+  // full-surface operations on the SAME surface that have no quantity yet
+  // (floor demolition, floor waterproofing, new floor tiling). This is factual
+  // reuse of a stated measurement, not a fabricated assumption. Partial-scope
+  // items (e.g. perimeter waterproofing raised 20 cm on walls) are excluded, and
+  // an existing quantity is never overwritten.
+  private propagateSurfaceAreas(items: ExtractedItem[]): void {
+    const surfaceOf = (item: ExtractedItem): WorkSurface | null =>
+      pickSurface(`${item.surface ?? ""} ${item.description} ${item.concept}`);
+
+    // A reference net area per surface, taken from a full-surface m² item that
+    // already carries an explicit quantity.
+    const referenceArea = new Map<WorkSurface, string>();
+    for (const item of items) {
+      if (item.unit !== "m2" || !item.quantity) continue;
+      if (isPartialSurfaceScope(item)) continue;
+      const surface = surfaceOf(item);
+      if (!surface || surface === "other") continue;
+      if (!referenceArea.has(surface)) referenceArea.set(surface, item.quantity);
+    }
+
+    for (const item of items) {
+      if (item.quantity || item.unit !== "m2") continue;
+      if (isPartialSurfaceScope(item)) continue;
+      const surface = surfaceOf(item);
+      if (!surface || surface === "other") continue;
+      const ref = referenceArea.get(surface);
+      if (ref) item.quantity = ref;
+    }
+  }
+
   // Builds the text embedded for semantic search on the query side. Mirrors the
   // catalog embed-text's spirit (concept + description + terms) without a
   // category, which the extracted item does not have.
@@ -258,6 +365,27 @@ export class EstimateAssistantService {
     ]
       .filter((part) => part && part.trim().length > 0)
       .join("\n");
+  }
+
+  // Deterministic take-off: when the item carries geometry with enough
+  // dimensions, compute the exact NET area (m²) and set it as the quantity,
+  // overriding any AI-guessed number. No-op when geometry is absent/incomplete
+  // so a missing dimension never silently produces a wrong quantity.
+  private applyGeometry(item: ExtractedItem): void {
+    if (!item.geometry) return;
+    const area = computeSurfaceArea(item.geometry.shape, {
+      length: item.geometry.length,
+      width: item.geometry.width,
+      height: item.geometry.height,
+      openings: item.geometry.openings.map((o) => ({
+        width: o.width,
+        height: o.height,
+        count: o.count ?? 1,
+      })),
+    });
+    if (area === null) return;
+    item.quantity = area;
+    item.unit = "m2";
   }
 
   // Uses the model's catalog-language search terms plus concept/description

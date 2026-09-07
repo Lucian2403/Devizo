@@ -252,6 +252,19 @@ export function AiAssistant({
                   </span>
                 </div>
 
+                {matched.item.specifications.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {matched.item.specifications.map((spec, i) => (
+                      <span
+                        key={i}
+                        className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700"
+                      >
+                        {spec}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
                     <Label className="text-xs">Cantitate</Label>

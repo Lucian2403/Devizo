@@ -4,6 +4,7 @@ import type {
   SupportedUnit,
 } from "@/domain/shared/types";
 import type { WorkAction, WorkObject } from "./concepts";
+import type { SurfaceShape } from "@/domain/quotes/geometry";
 
 /**
  * Types for AI-assisted estimate extraction. The AI layer NEVER handles money:
@@ -13,6 +14,24 @@ import type { WorkAction, WorkObject } from "./concepts";
 
 // A language the extractor may report, plus "unknown" when it cannot tell.
 export type DetectedLanguage = SupportedLanguage | "unknown";
+
+// A single opening (window/door) subtracted from a surface area.
+export interface ExtractedOpening {
+  width: number;
+  height: number;
+  count: number | null;
+}
+
+// Raw dimensions the AI extracted for deterministic area take-off. The AI must
+// NEVER compute the area itself — it only reports the shape and measurements;
+// domain code computes the net m² (see domain/quotes/geometry.ts).
+export interface ExtractedGeometry {
+  shape: SurfaceShape;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  openings: ExtractedOpening[];
+}
 
 // One work item the AI extracted from free text. Quantity is a decimal STRING
 // (or null) — never a JS float — so it flows cleanly into the pricing layer.
@@ -43,6 +62,16 @@ export interface ExtractedItem {
   // Search terms/synonyms in the organization's catalog language, used to
   // retrieve real catalog candidates server-side (multilingual bridge).
   searchTerms: string[];
+  // Explicit, non-priceable scope attributes stated by the user that qualify
+  // this item but are not separate priced lines (e.g. "double boarding", "both
+  // sides"). They survive as structured data instead of melting into the
+  // description, and force the match to review (a generic price must not
+  // silently cover a more complex specification).
+  specifications: string[];
+  // Optional raw dimensions for deterministic area take-off. When present and
+  // computable, domain code fills `quantity` (in m²) from these, overriding any
+  // AI-guessed number so arithmetic is always exact.
+  geometry: ExtractedGeometry | null;
 }
 
 // The full validated extraction returned by the provider.

@@ -42,6 +42,35 @@ const detectedLanguageSchema = z.union([
   z.literal("unknown"),
 ]);
 
+// A finite positive measurement in metres, or null when not stated.
+const dimensionSchema = z
+  .union([z.number(), z.null()])
+  .refine((v) => v === null || (Number.isFinite(v) && v > 0), "Invalid dimension.");
+
+const openingSchema = z.object({
+  width: z.number().positive(),
+  height: z.number().positive(),
+  count: z
+    .union([z.number().int().positive(), z.null()])
+    .transform((c) => c ?? 1),
+});
+
+// Optional raw dimensions for deterministic take-off. Areas are computed in
+// domain code, never here and never by the AI. Absent → null (no geometry).
+const geometrySchema = z
+  .union([
+    z.object({
+      shape: z.enum(["wall_rectangle", "room_walls", "floor", "ceiling"]),
+      length: dimensionSchema,
+      width: dimensionSchema,
+      height: dimensionSchema,
+      openings: z.array(openingSchema).max(20),
+    }),
+    z.null(),
+  ])
+  .optional()
+  .transform((g) => g ?? null);
+
 export const extractedItemSchema = z.object({
   concept: z.string().trim().min(1).max(120),
   kind: z.enum(CATALOG_ITEM_TYPES),
@@ -59,6 +88,14 @@ export const extractedItemSchema = z.object({
   searchTerms: z
     .array(z.string().trim().min(1).max(120))
     .transform((terms) => terms.slice(0, 10)),
+  // Explicit non-priceable scope attributes (e.g. "double boarding", "both
+  // sides"). Optional for backward compatibility; capped at 20.
+  specifications: z
+    .array(z.string().trim().min(1).max(160))
+    .max(20)
+    .optional()
+    .transform((s) => s ?? []),
+  geometry: geometrySchema,
 });
 
 export const jobExtractionSchema = z.object({
