@@ -71,6 +71,83 @@ const geometrySchema = z
   .optional()
   .transform((g) => g ?? null);
 
+const missingTargetTypeSchema = z.enum([
+  "item_quantity",
+  "geometry_dimension",
+  "geometry_perimeter",
+  "specification",
+  "decision",
+]);
+
+const missingTargetKeySchema = z.enum([
+  "length",
+  "width",
+  "height",
+  "perimeter",
+  "tile_size",
+  "thickness_mm",
+  "mount_type",
+  "material_type",
+  "scope_included",
+  "yes_no",
+]);
+
+const missingInfoTargetSchema = z
+  .object({
+    type: missingTargetTypeSchema,
+    key: z.union([missingTargetKeySchema, z.null()]).optional().transform((k) => k ?? null),
+  })
+  .superRefine((target, ctx) => {
+    const has = (key: string) => target.key === key;
+    if (target.type === "item_quantity" && target.key !== null) {
+      ctx.addIssue({ code: "custom", message: "item_quantity must not define key." });
+      return;
+    }
+    if (
+      target.type === "geometry_dimension" &&
+      !(has("length") || has("width") || has("height"))
+    ) {
+      ctx.addIssue({ code: "custom", message: "geometry_dimension key must be length/width/height." });
+      return;
+    }
+    if (target.type === "geometry_perimeter" && !has("perimeter")) {
+      ctx.addIssue({ code: "custom", message: "geometry_perimeter key must be perimeter." });
+      return;
+    }
+    if (
+      target.type === "specification" &&
+      !(has("tile_size") || has("thickness_mm") || has("mount_type") || has("material_type"))
+    ) {
+      ctx.addIssue({ code: "custom", message: "specification key is invalid." });
+      return;
+    }
+    if (
+      target.type === "decision" &&
+      !(has("scope_included") || has("yes_no"))
+    ) {
+      ctx.addIssue({ code: "custom", message: "decision key is invalid." });
+    }
+  });
+
+const missingInfoOptionSchema = z.object({
+  value: z.string().trim().min(1).max(120),
+  label: z.string().trim().min(1).max(160),
+});
+
+export const missingInformationFieldSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  question: z.string().trim().min(1).max(400),
+  relatedItemIndex: z
+    .union([z.number().int().min(0), z.null()])
+    .optional()
+    .transform((v) => v ?? null),
+  target: missingInfoTargetSchema,
+  inputType: z.enum(["number", "select", "boolean", "text"]),
+  unit: z.union([z.string().trim().min(1).max(24), z.null()]).optional().transform((v) => v ?? null),
+  options: z.array(missingInfoOptionSchema).max(20).optional().transform((v) => v ?? []),
+  required: z.boolean(),
+});
+
 export const extractedItemSchema = z.object({
   concept: z.string().trim().min(1).max(120),
   kind: z.enum(CATALOG_ITEM_TYPES),
@@ -102,7 +179,14 @@ export const jobExtractionSchema = z.object({
   detectedLanguage: detectedLanguageSchema,
   items: z.array(extractedItemSchema).max(100),
   assumptions: z.array(z.string().trim().max(500)).max(50),
-  missingInformation: z.array(z.string().trim().max(500)).max(50),
+  // New structured, actionable missing-information entries.
+  missingInformation: z.array(missingInformationFieldSchema).max(50),
+  // Legacy fallback channel: plain text notes (informational only).
+  missingInformationText: z
+    .array(z.string().trim().max(500))
+    .max(50)
+    .optional()
+    .transform((v) => v ?? []),
 });
 
 export type JobExtractionParsed = z.infer<typeof jobExtractionSchema>;

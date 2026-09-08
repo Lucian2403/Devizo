@@ -16,6 +16,29 @@ import {
 import type { JobExtraction } from "@/domain/ai/extraction.types";
 import { chatCompletion, readOpenAIConfig, type OpenAIConfig } from "./client";
 
+const MISSING_TARGET_TYPES = [
+  "item_quantity",
+  "geometry_dimension",
+  "geometry_perimeter",
+  "specification",
+  "decision",
+] as const;
+
+const MISSING_TARGET_KEYS = [
+  "length",
+  "width",
+  "height",
+  "perimeter",
+  "tile_size",
+  "thickness_mm",
+  "mount_type",
+  "material_type",
+  "scope_included",
+  "yes_no",
+] as const;
+
+const MISSING_INPUT_TYPES = ["number", "select", "boolean", "text"] as const;
+
 // Human names help the model detect and label languages consistently.
 const LANGUAGE_NAMES: Record<string, string> = {
   ro: "Romanian",
@@ -77,9 +100,61 @@ const EXTRACTION_JSON_SCHEMA = {
         },
       },
       assumptions: { type: "array", items: { type: "string" } },
-      missingInformation: { type: "array", items: { type: "string" } },
+      missingInformation: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            label: { type: "string" },
+            question: { type: "string" },
+            relatedItemIndex: { type: ["number", "null"] },
+            target: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                type: { type: "string", enum: [...MISSING_TARGET_TYPES] },
+                key: { type: ["string", "null"], enum: [...MISSING_TARGET_KEYS, null] },
+              },
+              required: ["type", "key"],
+            },
+            inputType: { type: "string", enum: [...MISSING_INPUT_TYPES] },
+            unit: { type: ["string", "null"] },
+            options: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  value: { type: "string" },
+                  label: { type: "string" },
+                },
+                required: ["value", "label"],
+              },
+            },
+            required: { type: "boolean" },
+          },
+          required: [
+            "label",
+            "question",
+            "relatedItemIndex",
+            "target",
+            "inputType",
+            "unit",
+            "options",
+            "required",
+          ],
+        },
+      },
+      missingInformationText: { type: "array", items: { type: "string" } },
     },
-    required: ["detectedLanguage", "items", "assumptions", "missingInformation"],
+    required: [
+      "detectedLanguage",
+      "items",
+      "assumptions",
+      "missingInformation",
+      "missingInformationText",
+    ],
   },
 } as const;
 
@@ -109,7 +184,16 @@ function buildSystemPrompt(catalogLanguage: string): string {
     "- confidence: a number between 0 and 1 reflecting how sure you are about the item.",
     `- searchTerms: 1-6 short catalog lookup terms translated into ${catalogName} (the company's catalog language). Use the real catalog word for the object plus synonyms.`,
     "- description: a short human description of the item in the detected input language.",
-    "- assumptions: anything you inferred. missingInformation: what the contractor should clarify.",
+    "MISSING INFORMATION OUTPUT (structured, not free text bullets):",
+    "- missingInformation must contain actionable fields whenever user input can resolve uncertainty.",
+    "- Never output item ids. Use relatedItemIndex (0-based index in `items`) or null if global.",
+    "- target.type must be one of: item_quantity, geometry_dimension, geometry_perimeter, specification, decision.",
+    "- target.key rules: geometry_dimension -> length/width/height; geometry_perimeter -> perimeter; specification -> tile_size/thickness_mm/mount_type/material_type; decision -> scope_included/yes_no; item_quantity -> key null.",
+    "- inputType must be one of: number, select, boolean, text.",
+    "- options: include values for select/boolean when known, else [].",
+    "- required: true when quote cannot be finalized accurately without it.",
+    "- missingInformationText: plain informational notes only when not actionable; otherwise [].",
+    "- assumptions: anything you inferred.",
   ].join("\n");
 }
 
@@ -163,10 +247,31 @@ export class OpenAIExtractionProvider implements ExtractionProvider {
 
 // The Zod output already matches the domain shape; this keeps the boundary explicit.
 function toDomain(parsed: JobExtractionParsed): JobExtraction {
+  const items = parsed.items.map((item, index) => ({
+    id: `item-${index + 1}`,
+    ...item,
+  }));
+
+  const missingInformation = parsed.missingInformation.map((field, index) => ({
+    id: `missing-${index + 1}`,
+    label: field.label,
+    question: field.question,
+    relatedItemId:
+      field.relatedItemIndex != null && items[field.relatedItemIndex]
+        ? items[field.relatedItemIndex]!.id
+        : null,
+    target: field.target,
+    inputType: field.inputType,
+    unit: field.unit,
+    options: field.options,
+    required: field.required,
+  }));
+
   return {
     detectedLanguage: parsed.detectedLanguage,
-    items: parsed.items,
+    items,
     assumptions: parsed.assumptions,
-    missingInformation: parsed.missingInformation,
+    missingInformation,
+    missingInformationText: parsed.missingInformationText,
   };
 }

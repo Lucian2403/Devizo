@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getEstimateAssistantService } from "@/server/container";
 import { ExtractionError } from "@/domain/ai/providers";
@@ -15,6 +16,11 @@ const MAX_INPUT_CHARS = 4000;
 export type ExtractState =
   | { ok: true; result: ExtractionResult }
   | { ok: false; error: string };
+
+const recalculatePayloadSchema = z.object({
+  result: z.any(),
+  values: z.record(z.union([z.string(), z.number(), z.boolean()])),
+});
 
 // Runs AI extraction + multilingual catalog matching for typed text. Nothing is
 // persisted; the client reviews and explicitly confirms before items are added.
@@ -58,6 +64,36 @@ export async function extractFromText(text: string): Promise<ExtractState> {
     // Don't leak provider/internal details to the client.
     console.error("AI extraction failed:", error);
     return { ok: false, error: "Asistentul AI nu este disponibil momentan." };
+  }
+}
+
+// Applies user-provided missing-information values to the current extraction,
+// then deterministically recalculates geometry/matching where needed.
+// This avoids rerunning full extraction for measurable/decidable gaps.
+export async function recalculateFromMissingInformation(input: {
+  result: ExtractionResult;
+  values: Record<string, string | number | boolean>;
+}): Promise<ExtractState> {
+  const { org } = await requireCurrentOrg();
+
+  const parsed = recalculatePayloadSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Date invalide pentru recalculare." };
+  }
+
+  try {
+    const result = await getEstimateAssistantService().recalculateWithMissingInformation(
+      org.id,
+      parsed.data.result as ExtractionResult,
+      parsed.data.values,
+    );
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof ExtractionError) {
+      return { ok: false, error: error.message };
+    }
+    console.error("Missing-info recalculation failed:", error);
+    return { ok: false, error: "Nu s-a putut recalcula devizul." };
   }
 }
 

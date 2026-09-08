@@ -2,10 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { StatusPill } from "@/components/ui/status-pill";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { formatMoney } from "@/lib/i18n/money";
 import type { SupportedUnit } from "@/domain/shared/types";
@@ -13,8 +12,13 @@ import type {
   ExtractionResult,
   MatchedItem,
 } from "@/domain/ai/extraction.types";
-import { extractFromText, recordMatchFeedback } from "../../ai-actions";
+import {
+  extractFromText,
+  recalculateFromMissingInformation,
+  recordMatchFeedback,
+} from "../../ai-actions";
 import { VoiceRecorder } from "./voice-recorder";
+import { MissingInformationPanel } from "./missing-information-panel";
 
 // A line the assistant hands back to the editor once the user confirms.
 export interface AssistantLine {
@@ -42,11 +46,11 @@ const MATCH_LABELS: Record<MatchedItem["status"], string> = {
   unmatched: "Fără potrivire",
 };
 
-const MATCH_CLASSES: Record<MatchedItem["status"], string> = {
-  matched: "bg-emerald-100 text-emerald-700",
-  review: "bg-amber-100 text-amber-800",
-  low: "bg-slate-100 text-slate-600",
-  unmatched: "bg-slate-100 text-slate-600",
+const MATCH_TONES: Record<MatchedItem["status"], "ok" | "warn" | "neutral"> = {
+  matched: "ok",
+  review: "warn",
+  low: "neutral",
+  unmatched: "neutral",
 };
 
 export function AiAssistant({
@@ -65,7 +69,52 @@ export function AiAssistant({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractionResult | null>(null);
   const [decisions, setDecisions] = useState<RowDecision[]>([]);
+  const [missingValues, setMissingValues] = useState<
+    Record<string, string | number | boolean>
+  >({});
   const [pending, startTransition] = useTransition();
+  const [recalcPending, startRecalcTransition] = useTransition();
+
+  function seedDecisions(
+    nextResult: ExtractionResult,
+    previousResult?: ExtractionResult | null,
+    previousDecisions?: RowDecision[],
+  ) {
+    if (!previousResult || !previousDecisions) {
+      return nextResult.items.map((m) => ({
+        include: m.status !== "unmatched",
+        catalogItemId: m.suggestedCatalogItemId ?? "",
+        quantity: m.item.quantity ?? "",
+        manualPrice: "",
+      }));
+    }
+
+    const previousByItemId = new Map(
+      previousResult.items.map((m, index) => [m.item.id, previousDecisions[index]]),
+    );
+
+    return nextResult.items.map((m) => {
+      const prev = previousByItemId.get(m.item.id);
+      if (!prev) {
+        return {
+          include: m.status !== "unmatched",
+          catalogItemId: m.suggestedCatalogItemId ?? "",
+          quantity: m.item.quantity ?? "",
+          manualPrice: "",
+        };
+      }
+      const candidateIds = new Set(m.candidates.map((c) => c.catalogItemId));
+      const catalogItemId = candidateIds.has(prev.catalogItemId)
+        ? prev.catalogItemId
+        : m.suggestedCatalogItemId ?? "";
+      return {
+        include: prev.include,
+        catalogItemId,
+        quantity: prev.quantity || m.item.quantity || "",
+        manualPrice: prev.manualPrice,
+      };
+    });
+  }
 
   function analyze() {
     setError(null);
@@ -75,20 +124,40 @@ export function AiAssistant({
         setError(res.error);
         setResult(null);
         setDecisions([]);
+        setMissingValues({});
         return;
       }
       setResult(res.result);
-      // Seed decisions. Only HIGH/MEDIUM preselect a catalog item; LOW and
-      // NO_MATCH leave the catalog empty so the user chooses deliberately.
-      // Quantity stays empty when the user didn't state one (never defaulted to 1).
-      setDecisions(
-        res.result.items.map((m) => ({
-          include: m.status !== "unmatched",
-          catalogItemId: m.suggestedCatalogItemId ?? "",
-          quantity: m.item.quantity ?? "",
-          manualPrice: "",
-        })),
+      setDecisions(seedDecisions(res.result));
+      setMissingValues({});
+    });
+  }
+
+  function recalculateMissingInformation() {
+    if (!result) return;
+    const previousResult = result;
+    setError(null);
+    startRecalcTransition(async () => {
+      const res = await recalculateFromMissingInformation({
+        result: previousResult,
+        values: missingValues,
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setDecisions((previousDecisions) =>
+        seedDecisions(res.result, previousResult, previousDecisions),
       );
+      setResult(res.result);
+      setMissingValues((previous) => {
+        const allowed = new Set(res.result.missingInformation.map((f) => f.id));
+        const next: Record<string, string | number | boolean> = {};
+        for (const [key, value] of Object.entries(previous)) {
+          if (allowed.has(key)) next[key] = value;
+        }
+        return next;
+      });
     });
   }
 
@@ -160,31 +229,45 @@ export function AiAssistant({
     setError(null);
     setResult(null);
     setDecisions([]);
+    setMissingValues({});
   }
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        ✨ Asistent AI
-      </Button>
+      <div className="rounded-lg border border-border bg-card p-4 shadow-card">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-[15px] font-semibold text-heading">
+              Descrie lucrările
+            </h3>
+            <p className="text-[12.5px] text-muted-foreground">
+              Scrie sau dictează, iar AI pregătește devizul.
+            </p>
+          </div>
+          <Button type="button" onClick={() => setOpen(true)}>
+            Deschide asistentul
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+    <div className="space-y-4 rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Asistent AI</h3>
+        <h3 className="text-[15px] font-semibold text-heading">
+          Descrie lucrările
+        </h3>
         <button
           type="button"
           onClick={reset}
-          className="text-sm text-muted-foreground hover:underline"
+          className="text-[12.5px] text-muted-foreground hover:text-heading"
         >
           Închide
         </button>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="ai-text">Descrie lucrarea</Label>
         {/* Voice is just another way to fill this textarea. The transcript is
             appended and stays editable; analysis reuses the same text flow. */}
         <VoiceRecorder
@@ -215,7 +298,7 @@ export function AiAssistant({
       </div>
 
       {result && (
-        <div className="space-y-4 border-t pt-4">
+        <div className="space-y-2 border-t pt-3">
           {result.items.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Nu am identificat lucrări. Reformulează și încearcă din nou.
@@ -225,39 +308,39 @@ export function AiAssistant({
           {result.items.map((matched, index) => {
             const decision = decisions[index]!;
             return (
-              <div key={index} className="rounded-lg border bg-background/60 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <label className="flex items-start gap-2">
+              <div
+                key={index}
+                className="rounded-md border border-border bg-background/60 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <label className="flex min-w-0 items-center gap-2">
                     <input
                       type="checkbox"
-                      className="mt-1"
                       checked={decision.include}
                       onChange={(e) =>
                         updateDecision(index, { include: e.target.checked })
                       }
                     />
-                    <span>
-                      <span className="font-medium">
+                    <span className="min-w-0 truncate text-[13px]">
+                      <span className="font-medium text-heading">
                         {matched.item.description || matched.item.concept}
                       </span>
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-1.5 text-[12px] text-muted-foreground">
                         „{matched.item.rawText}"
                       </span>
                     </span>
                   </label>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${MATCH_CLASSES[matched.status]}`}
-                  >
+                  <StatusPill tone={MATCH_TONES[matched.status]}>
                     {MATCH_LABELS[matched.status]}
-                  </span>
+                  </StatusPill>
                 </div>
 
                 {matched.item.specifications.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="mt-1.5 flex flex-wrap gap-1 pl-6">
                     {matched.item.specifications.map((spec, i) => (
                       <span
                         key={i}
-                        className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700"
+                        className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-secondary-foreground"
                       >
                         {spec}
                       </span>
@@ -265,80 +348,68 @@ export function AiAssistant({
                   </div>
                 )}
 
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div>
-                    <Label className="text-xs">Cantitate</Label>
-                    <Input
-                      inputMode="decimal"
-                      value={decision.quantity}
-                      onChange={(e) =>
-                        updateDecision(index, { quantity: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">Sursă preț</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-                      value={decision.catalogItemId}
-                      onChange={(e) =>
-                        updateDecision(index, { catalogItemId: e.target.value })
-                      }
-                    >
-                      {matched.candidates.map((c) => (
-                        <option key={c.catalogItemId} value={c.catalogItemId}>
-                          {c.name} · {formatMoney(c.sellingPrice, currency)} /{" "}
-                          {UNIT_LABELS[c.unit]}
-                        </option>
-                      ))}
-                      <option value="">Manual (preț introdus)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {decision.catalogItemId === "" && (
-                  <div className="mt-2">
-                    <Label className="text-xs">Preț unitar (manual)</Label>
-                    <Input
+                <div className="mt-1.5 flex items-center gap-2 pl-6">
+                  <input
+                    inputMode="decimal"
+                    value={decision.quantity}
+                    placeholder="Cant."
+                    onChange={(e) =>
+                      updateDecision(index, { quantity: e.target.value })
+                    }
+                    className="h-8 w-20 rounded-md border border-border bg-background px-2 text-[13px] tabular-nums focus:border-border-strong focus:outline-none"
+                  />
+                  <select
+                    className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[13px]"
+                    value={decision.catalogItemId}
+                    onChange={(e) =>
+                      updateDecision(index, { catalogItemId: e.target.value })
+                    }
+                  >
+                    {matched.candidates.map((c) => (
+                      <option key={c.catalogItemId} value={c.catalogItemId}>
+                        {c.name} · {formatMoney(c.sellingPrice, currency)} /{" "}
+                        {UNIT_LABELS[c.unit]}
+                      </option>
+                    ))}
+                    <option value="">Manual (preț introdus)</option>
+                  </select>
+                  {decision.catalogItemId === "" && (
+                    <input
                       inputMode="decimal"
                       value={decision.manualPrice}
-                      placeholder="0"
+                      placeholder="Preț"
                       onChange={(e) =>
                         updateDecision(index, { manualPrice: e.target.value })
                       }
+                      className="h-8 w-24 rounded-md border border-border bg-background px-2 text-[13px] tabular-nums focus:border-border-strong focus:outline-none"
                     />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}
 
-          {(result.assumptions.length > 0 ||
-            result.missingInformation.length > 0) && (
-            <div className="space-y-2 rounded-lg border border-dashed bg-muted/20 p-3 text-sm">
-              {result.missingInformation.length > 0 && (
-                <div>
-                  <div className="font-medium">Lipsește</div>
-                  <ul className="list-disc pl-5 text-muted-foreground">
-                    {result.missingInformation.map((m, i) => (
-                      <li key={i}>{m}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {result.assumptions.length > 0 && (
-                <div>
-                  <div className="font-medium">Presupuneri</div>
-                  <ul className="list-disc pl-5 text-muted-foreground">
-                    {result.assumptions.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          {result.assumptions.length > 0 && (
+            <div className="rounded-md border border-border bg-secondary/40 p-2 text-[12px] text-muted-foreground">
+              <p className="mb-1 font-medium text-secondary-foreground">Presupuneri</p>
+              <ul className="list-disc pl-4">
+                {result.assumptions.map((assumption, index) => (
+                  <li key={`${assumption}-${index}`}>{assumption}</li>
+                ))}
+              </ul>
             </div>
           )}
+
+          <MissingInformationPanel
+            fields={result.missingInformation}
+            values={missingValues}
+            legacyNotes={result.missingInformationText}
+            pending={recalcPending}
+            onValueChange={(fieldId, value) =>
+              setMissingValues((previous) => ({ ...previous, [fieldId]: value }))
+            }
+            onRecalculate={recalculateMissingInformation}
+          />
 
           {result.items.length > 0 && (
             <Button type="button" onClick={confirm}>

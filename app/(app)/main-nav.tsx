@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
 const links = [
-  { href: "/", label: "Panou" },
   { href: "/projects", label: "Proiecte" },
   { href: "/catalog", label: "Catalog" },
   { href: "/customers", label: "Clienți" },
+  { href: null, label: "Rapoarte" },
   { href: "/settings", label: "Setări" },
 ];
 
@@ -27,24 +27,36 @@ export function MainNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-1 text-sm">
+    <nav className="flex items-center gap-1 text-[13.5px]">
       {links.map((link) => {
         const active =
-          link.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(link.href);
+          link.href === null
+            ? false
+            : link.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(link.href);
+
+        const className = cn(
+          "relative flex items-center px-3 py-3 font-medium transition-colors",
+          active
+            ? "text-heading after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+            : "text-secondary-foreground hover:text-heading",
+        );
+
+        if (link.href === null) {
+          return (
+            <span
+              key={link.label}
+              aria-disabled="true"
+              className={cn(className, "cursor-not-allowed opacity-60")}
+            >
+              {link.label}
+            </span>
+          );
+        }
 
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={cn(
-              "relative flex items-center rounded-md px-3 py-1.5 font-medium transition-colors",
-              active
-                ? "text-foreground after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-accent"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-            )}
-          >
+          <Link key={link.href} href={link.href} className={className}>
             {link.label}
             <NavPending />
           </Link>

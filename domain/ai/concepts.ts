@@ -615,46 +615,116 @@ export function hasMountTypeConflict(
   return candidate !== required;
 }
 
-// Installation depth/scope for electrical work. A brand-new electrical POINT
-// (wiring + box + final mechanism) is a different, costlier operation than
-// installing only the final socket/switch MECHANISM into an existing box.
-// Used to rank a "punct electric" catalog row above a "montare priză" row when
-// the request explicitly involves cabling/box/routing/new point.
-export type ElectricalScope = "full_point" | "mechanism" | null;
+/**
+ * Electrical intent taxonomy. Electrical requests differ by the OPERATION, not
+ * just the object: a brand-new point, moving an existing one, a wall switch, a
+ * panel breaker and a cable run are distinct catalog operations with different
+ * prices. Both the extracted item and each catalog row are tagged, and matching
+ * uses the intent as a STRONG compatibility gate so explicit action semantics
+ * outrank generic token similarity.
+ */
+export const ELECTRICAL_INTENTS = [
+  "new_point", // new point incl. wiring/box/prep → "Executare punct electric"
+  "relocate", // move an existing point/socket → "Mutare punct electric"
+  "remove", // demolish/remove a point → "Demontare priză"
+  "mechanism", // fit socket/wall switch mechanism → "Montare priză/întrerupător"
+  "circuit_breaker", // panel breaker/automat → "Montare întrerupător automat"
+  "cable_route", // run/lay cable → "Pozare cablu electric"
+] as const;
+export type ElectricalIntent = (typeof ELECTRICAL_INTENTS)[number];
 
-// Signals that the request/row is about a COMPLETE new point (labor incl. cable
-// + box), not just fitting the mechanism.
-const FULL_POINT_KEYWORDS = [
-  "punct nou",
-  "puncte noi",
-  "punct electric",
-  "puncte electrice",
-  "executare punct",
-  "cablu",
-  "cablare",
-  "traseu",
-  "trasee",
-];
-// Signals a mechanism-only fit into an already-prepared box.
-const MECHANISM_KEYWORDS = [
+// Words that anchor a text as electrical at all. Without one of these the text
+// is not electrical and gets no intent (so non-electrical rows never gate).
+const ELECTRICAL_ANCHORS = [
   "priza",
   "prize",
   "intrerupator",
   "intrerupatoare",
-  "mecanism",
+  "punct electric",
+  "puncte electrice",
+  "punct nou",
+  "puncte noi",
+  "cablu",
+  "doza",
+  "doze",
+  "automat",
+  "disjunctor",
+  "circuit",
+  "tablou",
+  "выключател",
+  "розет",
+  "автомат",
 ];
 
-// Derives the electrical installation scope from text, or null when it is not
-// clearly electrical. Full-point signals win over mechanism signals, because a
-// point always also contains a mechanism.
-export function parseElectricalScope(text: string): ElectricalScope {
+// Derives the electrical intent from arbitrary text (item or catalog row), or
+// null when the text is not clearly electrical. Order matters: more specific
+// operations are tested first so a shared word (e.g. "punct", "întrerupător")
+// does not leak into a broader bucket ("Mutare punct" is relocate, not a new
+// point; "întrerupător automat" is a breaker, not a wall switch).
+export function parseElectricalIntent(text: string): ElectricalIntent | null {
   const n = normalizeText(text);
-  if (FULL_POINT_KEYWORDS.some((kw) => textMatchesKeyword(n, kw))) {
-    return "full_point";
+  if (!ELECTRICAL_ANCHORS.some((a) => n.includes(a))) return null;
+  const has = (kw: string) => textMatchesKeyword(n, kw);
+  const any = (kws: string[]) => kws.some(has);
+
+  // 1) Panel breaker — "automat"/"disjunctor" must win over the generic
+  //    "întrerupător" so a breaker never reads as a wall switch.
+  if (has("automat") || has("disjunctor") || n.includes("автомат")) {
+    return "circuit_breaker";
   }
-  if (MECHANISM_KEYWORDS.some((kw) => textMatchesKeyword(n, kw))) {
+  // 2) Relocation — checked before new_point/mechanism because it also mentions
+  //    a point/socket ("Mutare punct electric", "mutăm priza").
+  if (any(["mutare", "mutarea", "mutam", "muta", "mutat", "deplasare", "deplasam"]) ||
+      n.includes("перенос") || n.includes("перемещ")) {
+    return "relocate";
+  }
+  // 3) Removal — explicit demolition of an electrical point.
+  if (any(["demontare", "demontaj", "demontam", "demolare", "scoatere", "desfacere"]) ||
+      n.includes("демонтаж") || n.includes("снят")) {
+    return "remove";
+  }
+  // 4) New point — explicit "new" point/socket/box, or a socket/point combined
+  //    with pulling cable (wiring + box + mechanism as one operation).
+  const newPoint = any([
+    "punct nou",
+    "puncte noi",
+    "punct electric",
+    "puncte electrice",
+    "executare punct",
+    "priza noua",
+    "prize noi",
+    "doza noua",
+    "doze noi",
+  ]);
+  const mentionsSocketOrPoint = any(["priza", "prize", "punct", "puncte", "doza", "doze"]);
+  const mentionsCable = has("cablu") || has("tras") || has("tragem");
+  if (newPoint || (mentionsSocketOrPoint && mentionsCable)) return "new_point";
+
+  // 5) Cable run — laying/routing cable or a circuit to the panel, with no
+  //    socket/point target of its own.
+  if (has("pozare") || has("cablu") || has("traseu") ||
+      (has("circuit") && n.includes("tablou"))) {
+    return "cable_route";
+  }
+  // 6) Mechanism — fitting a socket or a (non-automatic) wall switch.
+  if (mentionsSocketOrPoint || has("intrerupator") || has("intrerupatoare") ||
+      n.includes("выключател")) {
     return "mechanism";
   }
   return null;
+}
+
+// True when an item's electrical intent and a candidate row's electrical intent
+// are both known and different. Acts as a strong compatibility gate: a new point
+// never matches relocation/removal/mechanism, a wall switch never matches a
+// breaker, etc. Unknown intent on either side never conflicts.
+export function hasElectricalIntentConflict(
+  itemIntent: ElectricalIntent | null,
+  candidateText: string,
+): boolean {
+  if (itemIntent === null) return false;
+  const candidate = parseElectricalIntent(candidateText);
+  if (candidate === null) return false;
+  return candidate !== itemIntent;
 }
 

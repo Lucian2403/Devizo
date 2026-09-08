@@ -14,11 +14,12 @@ import {
 } from "./matching";
 import {
   expandJargon,
+  hasElectricalIntentConflict,
   hasMountTypeConflict,
   hasProfileRoleConflict,
   hasStrongConflict,
   hasThicknessConflict,
-  parseElectricalScope,
+  parseElectricalIntent,
   parseMountType,
   parseThicknessMm,
   pickSurface,
@@ -33,6 +34,9 @@ import type {
   MatchCandidate,
   MatchedItem,
 } from "./extraction.types";
+import type { MissingInformationField } from "./extraction.types";
+import { SUPPORTED_UNITS } from "@/domain/shared/types";
+import Decimal from "decimal.js";
 
 // How many catalog rows to pull per search term, and how many candidates to
 // surface per extracted item after scoring.
@@ -94,62 +98,7 @@ export class EstimateAssistantService {
 
     const items: MatchedItem[] = [];
     for (const item of extraction.items) {
-      const { candidates, lexicallySupportedIds, descriptions } =
-        await this.matchItem(organizationId, item);
-      let { status, suggestedCatalogItemId } = classify(candidates);
-
-      // Optional LLM rerank: may reorder to a better candidate or force
-      // NO_MATCH. It can only choose from the retrieved list; invalid answers
-      // come back as null. Deterministic guards already excluded bad rows.
-      if (this.rerankProvider && candidates.length > 0) {
-        try {
-          const chosen = await this.rerankProvider.rerank(
-            text,
-            item.rawText,
-            candidates.map((c) => ({
-              catalogItemId: c.catalogItemId,
-              name: c.name,
-              unit: c.unit,
-              description: descriptions.get(c.catalogItemId) ?? null,
-            })),
-          );
-          if (chosen === null) {
-            status = "unmatched";
-            suggestedCatalogItemId = null;
-          } else {
-            const idx = candidates.findIndex(
-              (c) => c.catalogItemId === chosen,
-            );
-            if (idx > 0) candidates.unshift(candidates.splice(idx, 1)[0]!);
-            suggestedCatalogItemId = chosen;
-            if (status === "low" || status === "unmatched") status = "review";
-          }
-        } catch (error) {
-          console.error(
-            "Rerank failed; keeping deterministic ranking:",
-            error,
-          );
-        }
-      }
-
-      // Semantic-only safety: a candidate the lexical layer did not support may
-      // never be auto-selected. Downgrade HIGH to review so the user confirms.
-      if (
-        status === "matched" &&
-        suggestedCatalogItemId &&
-        !lexicallySupportedIds.has(suggestedCatalogItemId)
-      ) {
-        status = "review";
-      }
-
-      // A generic catalog price must not silently represent a more complex,
-      // explicitly specified assembly. When the item carries explicit
-      // specifications (e.g. double boarding, both sides), force review.
-      if (status === "matched" && item.specifications.length > 0) {
-        status = "review";
-      }
-
-      items.push({ item, status, candidates, suggestedCatalogItemId });
+      items.push(await this.buildMatchedItem(organizationId, item, text));
     }
 
     return {
@@ -157,7 +106,207 @@ export class EstimateAssistantService {
       items,
       assumptions: extraction.assumptions,
       missingInformation: extraction.missingInformation,
+      missingInformationText: extraction.missingInformationText,
     };
+  }
+
+  // Applies user-entered missing-information values deterministically, without
+  // re-running extraction. Only affected matching is re-evaluated.
+  async recalculateWithMissingInformation(
+    organizationId: OrganizationId,
+    result: ExtractionResult,
+    values: Record<string, string | number | boolean>,
+  ): Promise<ExtractionResult> {
+    const items = result.items.map((m) => ({
+      ...m.item,
+      specifications: [...m.item.specifications],
+      geometry: m.item.geometry
+        ? {
+            ...m.item.geometry,
+            openings: m.item.geometry.openings.map((o) => ({ ...o })),
+          }
+        : null,
+    }));
+
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const needsRematch = new Set<string>();
+    const unresolved: MissingInformationField[] = [];
+
+    for (const field of result.missingInformation) {
+      const raw = values[field.id];
+      const resolved = this.applyMissingField(field, raw, byId, needsRematch);
+      if (!resolved) unresolved.push(field);
+    }
+
+    for (const item of items) this.applyGeometry(item);
+    this.propagateSurfaceAreas(items);
+
+    const rematched = new Map<string, MatchedItem>();
+    for (const itemId of needsRematch) {
+      const item = byId.get(itemId);
+      if (!item) continue;
+      rematched.set(itemId, await this.buildMatchedItem(organizationId, item, item.rawText));
+    }
+
+    const nextItems = result.items.map((prev) => {
+      const updated = byId.get(prev.item.id) ?? prev.item;
+      return rematched.get(updated.id) ?? { ...prev, item: updated };
+    });
+
+    return {
+      detectedLanguage: result.detectedLanguage,
+      items: nextItems,
+      assumptions: result.assumptions,
+      missingInformation: unresolved,
+      missingInformationText: result.missingInformationText,
+    };
+  }
+
+  private applyMissingField(
+    field: MissingInformationField,
+    raw: string | number | boolean | undefined,
+    byId: Map<string, ExtractedItem>,
+    needsRematch: Set<string>,
+  ): boolean {
+    if (raw == null || raw === "") return !field.required;
+
+    const related = field.relatedItemId ? byId.get(field.relatedItemId) ?? null : null;
+    if (field.relatedItemId && !related) return false;
+
+    const parsePositive = (value: string | number | boolean): string | null => {
+      const source = typeof value === "string" ? value.trim() : String(value);
+      if (source.length === 0) return null;
+      try {
+        const dec = new Decimal(source);
+        if (!dec.isFinite() || dec.lte(0)) return null;
+        return dec.toString();
+      } catch {
+        return null;
+      }
+    };
+
+    const parseText = (value: string | number | boolean): string | null => {
+      const text = String(value).trim();
+      return text.length > 0 ? text : null;
+    };
+
+    const parseBoolean = (value: string | number | boolean): boolean | null => {
+      if (typeof value === "boolean") return value;
+      const normalized = String(value).trim().toLowerCase();
+      if (["true", "yes", "da", "1"].includes(normalized)) return true;
+      if (["false", "no", "nu", "0"].includes(normalized)) return false;
+      return null;
+    };
+
+    switch (field.target.type) {
+      case "item_quantity": {
+        if (!related) return false;
+        const quantity = parsePositive(raw);
+        if (!quantity) return false;
+        related.quantity = quantity;
+        if (
+          field.unit &&
+          (SUPPORTED_UNITS as readonly string[]).includes(field.unit)
+        ) {
+          related.unit = field.unit as ExtractedItem["unit"];
+        }
+        return true;
+      }
+      case "geometry_dimension": {
+        if (!related || !related.geometry || !field.target.key) return false;
+        const value = parsePositive(raw);
+        if (!value) return false;
+        const numeric = Number(value);
+        if (field.target.key === "length") related.geometry.length = numeric;
+        if (field.target.key === "width") related.geometry.width = numeric;
+        if (field.target.key === "height") related.geometry.height = numeric;
+        return true;
+      }
+      case "geometry_perimeter": {
+        if (!related) return false;
+        const value = parsePositive(raw);
+        if (!value) return false;
+        related.quantity = value;
+        related.unit = "m";
+        return true;
+      }
+      case "specification": {
+        if (!related || !field.target.key) return false;
+        const value = parseText(raw);
+        if (!value) return false;
+        const prefix = `${field.target.key}:`;
+        related.specifications = related.specifications.filter(
+          (spec) => !spec.startsWith(prefix),
+        );
+        related.specifications.push(`${prefix}${value}`);
+        needsRematch.add(related.id);
+        return true;
+      }
+      case "decision": {
+        if (!related || !field.target.key) return false;
+        const value = field.inputType === "boolean" ? parseBoolean(raw) : parseText(raw);
+        if (value == null) return false;
+        const prefix = `decision:${field.target.key}=`;
+        related.specifications = related.specifications.filter(
+          (spec) => !spec.startsWith(prefix),
+        );
+        related.specifications.push(`${prefix}${String(value)}`);
+        needsRematch.add(related.id);
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
+  private async buildMatchedItem(
+    organizationId: OrganizationId,
+    item: ExtractedItem,
+    sourceText: string,
+  ): Promise<MatchedItem> {
+    const { candidates, lexicallySupportedIds, descriptions } =
+      await this.matchItem(organizationId, item);
+    let { status, suggestedCatalogItemId } = classify(candidates);
+
+    if (this.rerankProvider && candidates.length > 0) {
+      try {
+        const chosen = await this.rerankProvider.rerank(
+          sourceText,
+          item.rawText,
+          candidates.map((c) => ({
+            catalogItemId: c.catalogItemId,
+            name: c.name,
+            unit: c.unit,
+            description: descriptions.get(c.catalogItemId) ?? null,
+          })),
+        );
+        if (chosen === null) {
+          status = "unmatched";
+          suggestedCatalogItemId = null;
+        } else {
+          const idx = candidates.findIndex((c) => c.catalogItemId === chosen);
+          if (idx > 0) candidates.unshift(candidates.splice(idx, 1)[0]!);
+          suggestedCatalogItemId = chosen;
+          if (status === "low" || status === "unmatched") status = "review";
+        }
+      } catch (error) {
+        console.error("Rerank failed; keeping deterministic ranking:", error);
+      }
+    }
+
+    if (
+      status === "matched" &&
+      suggestedCatalogItemId &&
+      !lexicallySupportedIds.has(suggestedCatalogItemId)
+    ) {
+      status = "review";
+    }
+
+    if (status === "matched" && item.specifications.length > 0) {
+      status = "review";
+    }
+
+    return { item, status, candidates, suggestedCatalogItemId };
   }
 
   // Retrieves real catalog rows for an item via HYBRID retrieval (lexical +
@@ -239,10 +388,10 @@ export class EstimateAssistantService {
     const itemMountType = parseMountType(
       `${item.specifications.join(" ")} ${item.description} ${item.rawText}`,
     );
-    // Electrical installation scope: a complete new point (cable+box) vs only
-    // the final mechanism. Lets a "punct electric" row outrank a "montare
-    // priză" row when the request explicitly involves cabling/box/new point.
-    const itemElectricalScope = parseElectricalScope(
+    // Electrical intent (new point / relocate / remove / mechanism / breaker /
+    // cable): a strong compatibility gate so a new point never matches a
+    // relocation, a wall switch never matches a breaker, etc.
+    const itemElectricalIntent = parseElectricalIntent(
       `${item.concept} ${item.specifications.join(" ")} ${item.description} ${item.rawText}`,
     );
     const scored: MatchCandidate[] = [];
@@ -261,6 +410,7 @@ export class EstimateAssistantService {
         continue;
       if (hasThicknessConflict(itemThicknessMm, rowText)) continue;
       if (hasMountTypeConflict(itemMountType, rowText)) continue;
+      if (hasElectricalIntentConflict(itemElectricalIntent, rowText)) continue;
       if (item.unit && row.unit !== item.unit) continue;
 
       const nameScore = scoreTokens(queryTokens, row.name);
@@ -284,22 +434,15 @@ export class EstimateAssistantService {
       if (itemSurface && rowTags.surfaces.has(itemSurface)) {
         bonus += 0.1;
       }
-
-      // Installation-depth ranking: when the request is a complete new point,
-      // reward point rows and demote mechanism-only rows (and vice-versa). Only
-      // reorders within the electrical family; never excludes a candidate.
-      if (itemElectricalScope) {
-        const rowScope = parseElectricalScope(rowText);
-        if (rowScope) {
-          bonus += rowScope === itemElectricalScope ? 0.3 : -0.3;
-        }
+      // Reward a row whose electrical intent matches the request, so the right
+      // operation ranks first among the (already gate-filtered) candidates.
+      if (itemElectricalIntent &&
+          parseElectricalIntent(rowText) === itemElectricalIntent) {
+        bonus += 0.3;
       }
 
       const base = WEIGHT_LEXICAL * lexScore + WEIGHT_SEMANTIC * semScore;
-      // The electrical demotion is a ranking signal, not an exclusion: keep a
-      // small positive floor for any row that had real support before bonuses.
-      const floor = base > 0 ? 0.01 : 0;
-      const score = Math.min(1, Math.max(floor, base + bonus));
+      const score = Math.min(1, base + bonus);
       if (score <= 0) continue;
       scored.push({
         catalogItemId: row.id,

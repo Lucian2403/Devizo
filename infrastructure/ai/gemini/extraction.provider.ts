@@ -21,6 +21,29 @@ import {
   type GeminiResponseSchema,
 } from "./client";
 
+const MISSING_TARGET_TYPES = [
+  "item_quantity",
+  "geometry_dimension",
+  "geometry_perimeter",
+  "specification",
+  "decision",
+] as const;
+
+const MISSING_TARGET_KEYS = [
+  "length",
+  "width",
+  "height",
+  "perimeter",
+  "tile_size",
+  "thickness_mm",
+  "mount_type",
+  "material_type",
+  "scope_included",
+  "yes_no",
+] as const;
+
+const MISSING_INPUT_TYPES = ["number", "select", "boolean", "text"] as const;
+
 // Human names help the model detect and label languages consistently.
 const LANGUAGE_NAMES: Record<string, string> = {
   ro: "Romanian",
@@ -106,9 +129,58 @@ const EXTRACTION_RESPONSE_SCHEMA: GeminiResponseSchema = {
       },
     },
     assumptions: { type: "ARRAY", items: { type: "STRING" } },
-    missingInformation: { type: "ARRAY", items: { type: "STRING" } },
+    missingInformation: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          label: { type: "STRING" },
+          question: { type: "STRING" },
+          relatedItemIndex: { type: "NUMBER", nullable: true },
+          target: {
+            type: "OBJECT",
+            properties: {
+              type: { type: "STRING", enum: [...MISSING_TARGET_TYPES] },
+              key: { type: "STRING", nullable: true, enum: [...MISSING_TARGET_KEYS] },
+            },
+            required: ["type", "key"],
+          },
+          inputType: { type: "STRING", enum: [...MISSING_INPUT_TYPES] },
+          unit: { type: "STRING", nullable: true },
+          options: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                value: { type: "STRING" },
+                label: { type: "STRING" },
+              },
+              required: ["value", "label"],
+            },
+          },
+          required: { type: "BOOLEAN" },
+        },
+        required: [
+          "label",
+          "question",
+          "relatedItemIndex",
+          "target",
+          "inputType",
+          "unit",
+          "options",
+          "required",
+        ],
+      },
+    },
+    missingInformationText: { type: "ARRAY", items: { type: "STRING" } },
   },
-  required: ["detectedLanguage", "items", "assumptions", "missingInformation"],
+  required: [
+    "detectedLanguage",
+    "items",
+    "assumptions",
+    "missingInformation",
+    "missingInformationText",
+  ],
 };
 
 function buildSystemPrompt(catalogLanguage: string): string {
@@ -159,12 +231,15 @@ function buildSystemPrompt(catalogLanguage: string): string {
     "- Doors/windows are geometry openings for area take-off. Do NOT create a line to INSTALL a door unless the user clearly asked to install/supply the door itself; if intent is unclear, add a note to missingInformation instead of assuming.",
     "- specifications: array of short explicit qualifier phrases for this item, or an empty array. Never invent qualifiers.",
     "",
-    "INSTALLATION DEPTH/SCOPE: distinguish how much work a request covers, because it changes the catalog operation and price.",
-    "- A NEW electrical POINT that explicitly includes wiring/box/routing/'punct nou' (cablu, doză, traseu) is the COMPLETE point labor (concept like 'new electrical point'), NOT just fitting the mechanism. Keep the qualifier (e.g. 'cu cablu și doză') in specifications and description, and use searchTerms like 'punct electric', 'executare punct'.",
-    "- Installing only the final mechanism into an already-prepared box (e.g. 'montăm priza în doza pregătită') is the mechanism-only labor (searchTerms 'montare priză/întrerupător'). Do not upgrade it to a full point.",
-    "- Sockets (prize) and switches (întrerupătoare) stay separate items with their own counts even when installed as new points.",
+    "ELECTRICAL INTENT (classify the OPERATION, not just the object — it changes the catalog match and price):",
+    "- NEW_ELECTRICAL_POINT: a new point incl. wiring/box/prep/route (punct nou, priză nouă cu cablu, doză nouă, tras cablu pentru priză). searchTerms 'punct electric', 'executare punct'. Keep qualifiers like 'cu cablu și doză' in specifications+description. NOT a mechanism-only fit and NOT a relocation.",
+    "- RELOCATE_ELECTRICAL_POINT: move an existing point/socket/switch (mutăm priza, mutare punct, deplasare priză). searchTerms 'mutare punct electric'. Not a removal.",
+    "- WALL_SWITCH: a normal wall/light switch (întrerupător, întrerupător de lumină, выключатель). searchTerms 'montare priză sau întrerupător'. NOT a panel breaker.",
+    "- CIRCUIT_BREAKER: panel/automatic breaker (automat 20A, disjunctor, întrerupător automat, автомат). searchTerms 'montare întrerupător automat'. Put the rating (e.g. '20A') in specifications.",
+    "- CABLE_ROUTE: run/lay cable or a circuit to the panel (pozare cablu, tragem un circuit până în tablou). searchTerms 'pozare cablu electric'. Quantity null when the length is unknown, plus a missingInformation note.",
+    "- Sockets (prize) and switches (întrerupătoare) stay separate items with their own counts even as new points.",
     "",
-    "ELECTRICAL COMPOUND SPLIT: when one phrase names multiple independently priced electrical operations, emit them as SEPARATE atomic items. Example: 'tragem un circuit separat până în tablou și punem un automat de 20A' → (1) labor cable routing/'pozare cablu/traseu' with quantity null when the length is unknown, plus a missingInformation note that the cable length is not measured; (2) labor 'montare întrerupător automat', quantity 1, specification '20A'. Never merge them just because they belong to the same circuit.",
+    "ELECTRICAL COMPOUND SPLIT: when one phrase names multiple independently priced electrical operations, emit them as SEPARATE atomic items. Example: 'tragem un circuit separat până în tablou și punem un automat de 20A' → (1) CABLE_ROUTE 'pozare cablu' with quantity null when the length is unknown, plus a missingInformation note that the cable length is not measured; (2) CIRCUIT_BREAKER 'montare întrerupător automat', quantity 1, specification '20A'. Never merge them just because they belong to the same circuit.",
     "",
     "GEOMETRY (deterministic take-off): when the user gives room/wall dimensions, DO NOT compute areas yourself. Instead fill the `geometry` object with raw measurements in metres and leave `quantity` null — the app computes the exact m². Set geometry.shape to: \"room_walls\" for all walls of a room (needs length,width,height); \"ceiling\" or \"floor\" for a room slab (needs length,width); \"wall_rectangle\" for one wall panel (needs width,height). Put windows/doors in geometry.openings (width,height,count). When there are no usable dimensions, set geometry to null.",
     "",
@@ -174,7 +249,16 @@ function buildSystemPrompt(catalogLanguage: string): string {
     "- confidence: a number between 0 and 1 reflecting how sure you are about the item.",
     `- searchTerms: 1-6 short catalog lookup terms translated into ${catalogName} (the company's catalog language). Include the real catalog word for the object (e.g. use \"glet\" for putty, \"tapet\" for wallpaper) plus common synonyms.`,
     "- description: a short human description of the item in the detected input language.",
-    "- assumptions: anything you inferred. missingInformation: what the contractor should clarify.",
+    "MISSING INFORMATION OUTPUT (structured, not free text bullets):",
+    "- missingInformation must contain actionable fields whenever user input can resolve uncertainty.",
+    "- Never output item ids. Use relatedItemIndex (0-based index in `items`) or null if global.",
+    "- target.type must be one of: item_quantity, geometry_dimension, geometry_perimeter, specification, decision.",
+    "- target.key rules: geometry_dimension -> length/width/height; geometry_perimeter -> perimeter; specification -> tile_size/thickness_mm/mount_type/material_type; decision -> scope_included/yes_no; item_quantity -> key null.",
+    "- inputType must be one of: number, select, boolean, text.",
+    "- options: include values for select/boolean when known, else [].",
+    "- required: true when quote cannot be finalized accurately without it.",
+    "- missingInformationText: plain informational notes only when not actionable; otherwise [].",
+    "- assumptions: anything you inferred.",
   ].join("\n");
 }
 
@@ -222,10 +306,31 @@ export class GeminiExtractionProvider implements ExtractionProvider {
 
 // The Zod output already matches the domain shape; this keeps the boundary explicit.
 function toDomain(parsed: JobExtractionParsed): JobExtraction {
+  const items = parsed.items.map((item, index) => ({
+    id: `item-${index + 1}`,
+    ...item,
+  }));
+
+  const missingInformation = parsed.missingInformation.map((field, index) => ({
+    id: `missing-${index + 1}`,
+    label: field.label,
+    question: field.question,
+    relatedItemId:
+      field.relatedItemIndex != null && items[field.relatedItemIndex]
+        ? items[field.relatedItemIndex]!.id
+        : null,
+    target: field.target,
+    inputType: field.inputType,
+    unit: field.unit,
+    options: field.options,
+    required: field.required,
+  }));
+
   return {
     detectedLanguage: parsed.detectedLanguage,
-    items: parsed.items,
+    items,
     assumptions: parsed.assumptions,
-    missingInformation: parsed.missingInformation,
+    missingInformation,
+    missingInformationText: parsed.missingInformationText,
   };
 }

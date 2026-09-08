@@ -4,28 +4,46 @@
 
 @layer base {
   :root {
-    /* Warm off-white background inspired by the Devizo logo backdrop. */
-    --background: 45 33% 96%;
-    --foreground: 222 22% 16%;
+    /* Devizo — mature, neutral, professional estimating palette. */
+    /* Cool almost-white background instead of beige (#F7F8FA). */
+    --background: 220 20% 98%;
+    /* Alternative section background (#F3F5F7). */
+    --muted-section: 210 20% 96%;
+    --foreground: 214 60% 16%; /* deep navy #10233F */
+    --heading: 214 65% 14%; /* stronger heading #0B1F3A */
     --card: 0 0% 100%;
-    --card-foreground: 222 22% 16%;
-    /* Amber/yellow from the logo is the primary action color. Solid buttons are
-       yellow with dark text for contrast (yellow is too light for white text). */
-    --primary: 42 96% 55%;
-    --primary-foreground: 222 30% 14%;
-    --secondary: 42 22% 91%;
-    --secondary-foreground: 222 22% 16%;
-    --muted: 42 20% 92%;
-    --muted-foreground: 220 12% 42%;
-    /* A deeper gold accent for hovers, links and highlights. */
-    --accent: 38 95% 50%;
-    --accent-foreground: 222 30% 14%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 45 33% 97%;
-    --border: 42 18% 85%;
-    --input: 42 18% 85%;
-    --ring: 42 96% 50%;
-    --radius: 0.7rem;
+    --card-foreground: 214 60% 16%;
+    /* Devizo orange for important actions (#F79009). */
+    --primary: 33 96% 51%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 27 96% 44%; /* #DC6803 */
+    --secondary: 220 16% 96%; /* neutral #F2F4F7 */
+    --secondary-foreground: 218 20% 33%; /* #475467 */
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 12% 46%; /* secondary text #667085 */
+    --accent: 33 96% 51%;
+    --accent-foreground: 0 0% 100%;
+    --accent-soft: 33 100% 96%; /* very light orange #FFF7ED */
+    --destructive: 4 74% 49%; /* #B42318 text base */
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 90%; /* #E4E7EC */
+    --border-strong: 216 15% 84%; /* #D0D5DD */
+    --input: 220 16% 90%;
+    --ring: 33 96% 51%;
+    --radius: 0.6rem;
+
+    /* Status tokens. */
+    --status-ok-bg: 152 76% 96%; /* #ECFDF3 */
+    --status-ok-fg: 158 96% 24%; /* #027A48 */
+    --status-ok-dot: 152 82% 39%; /* #12B76A */
+    --status-warn-bg: 45 100% 96%; /* #FFFAEB */
+    --status-warn-fg: 27 92% 37%; /* #B54708 */
+    --status-warn-dot: 33 96% 51%; /* #F79009 */
+    --status-error-bg: 4 86% 97%; /* #FEF3F2 */
+    --status-error-fg: 4 74% 49%; /* #B42318 */
+    --status-error-dot: 4 87% 60%; /* #F04438 */
+    --status-neutral-bg: 220 16% 96%; /* #F2F4F7 */
+    --status-neutral-fg: 218 20% 33%; /* #475467 */
   }
 }
 
@@ -35,18 +53,5 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Soft warm glow anchored top-left so the flat background feels less generic. */
-    background-image:
-      radial-gradient(
-        70rem 40rem at -10% -10%,
-        hsl(42 96% 55% / 0.14),
-        transparent 60%
-      ),
-      radial-gradient(
-        55rem 35rem at 110% 0%,
-        hsl(38 95% 50% / 0.08),
-        transparent 55%
-      );
-    background-attachment: fixed;
   }
 }

@@ -16,8 +16,10 @@ import {
   hasThicknessConflict,
   parseMountType,
   hasMountTypeConflict,
-  parseElectricalScope,
-} from "../domain/ai/concepts";import { jobExtractionSchema } from "../schemas/domain/aiExtraction";
+  parseElectricalIntent,
+  hasElectricalIntentConflict,
+} from "../domain/ai/concepts";
+import { jobExtractionSchema } from "../schemas/domain/aiExtraction";
 import {
   rectangleArea,
   roomWallArea,
@@ -31,6 +33,8 @@ import type { ExtractionProvider } from "../domain/ai/providers";
 import type {
   ExtractedItem,
   MatchCandidate,
+  MatchedItem,
+  MissingInformationField,
 } from "../domain/ai/extraction.types";
 
 let passed = 0;
@@ -198,6 +202,65 @@ test("valid extraction parses; quantity stays a string", () => {
   });
   assert.equal(parsed.items[0]!.quantity, "18");
   assert.equal(typeof parsed.items[0]!.quantity, "string");
+});
+
+test("structured missingInformation parses without currentValue", () => {
+  const parsed = jobExtractionSchema.parse({
+    detectedLanguage: "ro",
+    items: [
+      {
+        concept: "INSTALL_PIPES",
+        kind: "labor",
+        action: "install",
+        object: "pipe",
+        surface: null,
+        normalizedConcept: "install pipes",
+        rawText: "țevi noi",
+        description: "Montaj țevi noi",
+        quantity: null,
+        unit: "m",
+        confidence: 0.7,
+        searchTerms: ["montaj tevi"],
+      },
+    ],
+    assumptions: [],
+    missingInformation: [
+      {
+        label: "Lungimea țevii de apă rece",
+        question: "Introdu lungimea traseului de apă rece",
+        relatedItemIndex: 0,
+        target: { type: "item_quantity", key: null },
+        inputType: "number",
+        unit: "m",
+        options: [],
+        required: true,
+      },
+    ],
+  });
+  assert.equal(parsed.missingInformation.length, 1);
+  assert.equal(parsed.missingInformation[0]!.target.type, "item_quantity");
+});
+
+test("invalid missing target key is rejected", () => {
+  assert.throws(() =>
+    jobExtractionSchema.parse({
+      detectedLanguage: "ro",
+      items: [],
+      assumptions: [],
+      missingInformation: [
+        {
+          label: "Dimensiune",
+          question: "x",
+          relatedItemIndex: null,
+          target: { type: "geometry_dimension", key: "tile_size" },
+          inputType: "number",
+          unit: "m",
+          options: [],
+          required: true,
+        },
+      ],
+    }),
+  );
 });
 
 test("unsupported unit is rejected (no silent coercion)", () => {
@@ -408,8 +471,9 @@ test("T4: compound drywall input decomposes into labor + explicit materials + sp
       },
     ],
     assumptions: [],
-    // Door install intent is unclear → flagged, not turned into a line.
-    missingInformation: ["Nu este clar dacă montajul ușii este inclus."],
+    missingInformation: [],
+    // Door install intent is unclear → informational legacy note.
+    missingInformationText: ["Nu este clar dacă montajul ușii este inclus."],
   });
   // Labor + two explicit materials survive as separate structured items.
   assert.equal(parsed.items.length, 3);
@@ -539,24 +603,48 @@ test("T8: WC suspendat/încastrat must block a floor-mounted WC row", () => {
   assert.ok(!hasMountTypeConflict(required, "Montare WC"));
 });
 
-// TEST 9 — electrical installation depth: new point vs mechanism only.
-test("T9: 'punct nou cu cablu și doză' is a full point; bare priza is mechanism", () => {
+// TEST 9 — electrical intent taxonomy (Golden Test 4).
+test("T9: intent taxonomy classifies each electrical operation distinctly", () => {
   assert.equal(
-    parseElectricalScope("Montare puncte noi pentru prize, cu cablu și doză"),
-    "full_point",
+    parseElectricalIntent("Montare puncte noi pentru prize, cu cablu și doză"),
+    "new_point",
   );
   assert.equal(
-    parseElectricalScope("montăm priza în doza deja pregătită"),
-    "mechanism",
+    parseElectricalIntent("La două prize existente mutăm punctul cu 60 cm"),
+    "relocate",
+  );
+  assert.equal(parseElectricalIntent("Montare 3 întrerupătoare de lumină"), "mechanism");
+  assert.equal(parseElectricalIntent("punem un automat de 20A"), "circuit_breaker");
+  assert.equal(
+    parseElectricalIntent("tragem un circuit separat până în tablou"),
+    "cable_route",
   );
   // Catalog rows tag the same way.
-  assert.equal(parseElectricalScope("Executare punct electric"), "full_point");
-  assert.equal(
-    parseElectricalScope("Montare priză sau întrerupător"),
-    "mechanism",
-  );
+  assert.equal(parseElectricalIntent("Executare punct electric"), "new_point");
+  assert.equal(parseElectricalIntent("Mutare punct electric"), "relocate");
+  assert.equal(parseElectricalIntent("Demontare priză sau întrerupător"), "remove");
+  assert.equal(parseElectricalIntent("Montare priză sau întrerupător"), "mechanism");
+  assert.equal(parseElectricalIntent("Montare întrerupător automat"), "circuit_breaker");
+  assert.equal(parseElectricalIntent("Pozare cablu electric"), "cable_route");
   // Non-electrical text is untagged.
-  assert.equal(parseElectricalScope("Montare gresie pe podea"), null);
+  assert.equal(parseElectricalIntent("Montare gresie pe podea"), null);
+});
+
+test("T9: intent acts as a strong compatibility gate", () => {
+  // New point must NOT match relocation, removal or mechanism-only.
+  assert.ok(hasElectricalIntentConflict("new_point", "Mutare punct electric"));
+  assert.ok(hasElectricalIntentConflict("new_point", "Demontare priză sau întrerupător"));
+  assert.ok(hasElectricalIntentConflict("new_point", "Montare priză sau întrerupător"));
+  assert.ok(!hasElectricalIntentConflict("new_point", "Executare punct electric"));
+  // Relocation must NOT match demolition.
+  assert.ok(hasElectricalIntentConflict("relocate", "Demontare priză sau întrerupător"));
+  assert.ok(!hasElectricalIntentConflict("relocate", "Mutare punct electric"));
+  // Wall switch must NOT match a panel breaker.
+  assert.ok(hasElectricalIntentConflict("mechanism", "Montare întrerupător automat"));
+  assert.ok(!hasElectricalIntentConflict("mechanism", "Montare priză sau întrerupător"));
+  // Unknown intent on either side never conflicts.
+  assert.ok(!hasElectricalIntentConflict(null, "Montare întrerupător automat"));
+  assert.ok(!hasElectricalIntentConflict("mechanism", "Montare spot LED încastrat"));
 });
 
 console.log("Item-type / quantity semantics:");
@@ -588,7 +676,8 @@ test("B: unknown pipe length parses as quantity null (not 1)", () => {
       },
     ],
     assumptions: [],
-    missingInformation: ["Lungimea țevilor este necunoscută."],
+    missingInformation: [],
+    missingInformationText: ["Lungimea țevilor este necunoscută."],
   });
   assert.equal(parsed.items[0]!.quantity, null);
 });
@@ -671,6 +760,7 @@ function labelItem(overrides: Partial<CatalogItem>): CatalogItem {
 
 function extractedItem(overrides: Partial<ExtractedItem>): ExtractedItem {
   return {
+    id: "item-1",
     concept: "xyzzy",
     kind: "labor",
     action: "install",
@@ -713,6 +803,7 @@ function fakeExtraction(item: ExtractedItem): ExtractionProvider {
       items: [item],
       assumptions: [],
       missingInformation: [],
+      missingInformationText: [],
     }),
   } as unknown as ExtractionProvider;
 }
@@ -724,6 +815,22 @@ function fakeExtractionMany(items: ExtractedItem[]): ExtractionProvider {
       items,
       assumptions: [],
       missingInformation: [],
+      missingInformationText: [],
+    }),
+  } as unknown as ExtractionProvider;
+}
+
+function fakeExtractionWithMissing(
+  item: ExtractedItem,
+  missingInformation: MissingInformationField[],
+): ExtractionProvider {
+  return {
+    extract: async () => ({
+      detectedLanguage: "ro",
+      items: [item],
+      assumptions: [],
+      missingInformation,
+      missingInformationText: [],
     }),
   } as unknown as ExtractionProvider;
 }
@@ -870,38 +977,140 @@ async function runAsyncTests() {
   );
 
   await atest(
-    "T9: a new-point request ranks 'Executare punct electric' above 'Montare priză'",
+    "T9 (Golden Test 4): each electrical intent routes to its own catalog operation",
     async () => {
-      const pointRow = labelItem({
-        id: "E1",
-        name: "Executare punct electric",
-        unit: "pcs",
-      });
-      const mechRow = labelItem({
-        id: "E2",
-        name: "Montare priză sau întrerupător",
-        unit: "pcs",
-      });
+      // Shared electrical catalog (subset of the real one, all pcs unless noted).
+      const catalog = [
+        labelItem({ id: "E_POINT", name: "Executare punct electric", unit: "pcs" }),
+        labelItem({ id: "E_MOVE", name: "Mutare punct electric", unit: "pcs" }),
+        labelItem({ id: "E_REMOVE", name: "Demontare priză sau întrerupător", unit: "pcs" }),
+        labelItem({ id: "E_MECH", name: "Montare priză sau întrerupător", unit: "pcs" }),
+        labelItem({ id: "E_AUTO", name: "Montare întrerupător automat", unit: "pcs" }),
+        labelItem({ id: "E_CABLE", name: "Pozare cablu electric", unit: "m" }),
+        labelItem({ id: "E_LED", name: "Montare spot LED încastrat", unit: "pcs" }),
+      ];
+      const service = (item: ExtractedItem) =>
+        new EstimateAssistantService(
+          fakeExtraction(item),
+          fakeRepo({ lexical: catalog }),
+          fakeEmbedder,
+        );
+      const top = async (item: ExtractedItem) => {
+        const res = await service(item).assist("org", "ro", "x");
+        return res.items[0]!;
+      };
+      const has = (row: MatchedItem, id: string) =>
+        row.candidates.some((c) => c.catalogItemId === id);
+
+      // 8 new points → Executare punct electric; never relocate/remove/mechanism.
+      const newPoint = await top(
+        extractedItem({
+          concept: "punct nou priza", object: "socket", unit: "pcs", quantity: "8",
+          description: "Montare 8 puncte noi pentru prize, cu cablu și doză",
+          rawText: "8 puncte noi pentru prize, cu cablu și doză",
+          searchTerms: ["priza", "punct electric", "punct nou"],
+          specifications: ["cu cablu și doză"],
+        }),
+      );
+      assert.equal(newPoint.candidates[0]!.catalogItemId, "E_POINT");
+      assert.ok(!has(newPoint, "E_MOVE") && !has(newPoint, "E_REMOVE") && !has(newPoint, "E_MECH"));
+
+      // 2 relocated sockets → Mutare punct electric; never demolition.
+      const relocate = await top(
+        extractedItem({
+          concept: "mutare priza", object: "socket", unit: "pcs", quantity: "2",
+          description: "Mutarea a 2 prize existente cu aproximativ 60 cm",
+          rawText: "La două prize existente mutăm punctul cu aproximativ 60 cm",
+          searchTerms: ["priza", "mutare punct"],
+        }),
+      );
+      assert.equal(relocate.candidates[0]!.catalogItemId, "E_MOVE");
+      assert.ok(!has(relocate, "E_REMOVE"));
+
+      // 3 wall switches → Montare priză sau întrerupător; never the breaker.
+      const wallSwitch = await top(
+        extractedItem({
+          concept: "montare intrerupator", object: "socket", unit: "pcs", quantity: "3",
+          description: "Montare 3 întrerupătoare de lumină",
+          rawText: "Mai punem 3 întrerupătoare de lumină",
+          searchTerms: ["intrerupator", "priza"],
+        }),
+      );
+      assert.equal(wallSwitch.candidates[0]!.catalogItemId, "E_MECH");
+      assert.ok(!has(wallSwitch, "E_AUTO"));
+
+      // cable circuit → Pozare cablu electric (unit m), quantity unknown.
+      const cable = await top(
+        extractedItem({
+          concept: "pozare cablu", object: null, unit: "m", quantity: null,
+          description: "Pozare circuit separat pentru cuptor până în tablou",
+          rawText: "Pentru cuptor tragem un circuit separat până în tablou",
+          searchTerms: ["cablu", "circuit", "traseu"],
+        }),
+      );
+      assert.equal(cable.candidates[0]!.catalogItemId, "E_CABLE");
+
+      // 1 breaker 20A → Montare întrerupător automat; never the wall-switch row.
+      const breaker = await top(
+        extractedItem({
+          concept: "montare automat", object: null, unit: "pcs", quantity: "1",
+          description: "Montare întrerupător automat de 20A",
+          rawText: "și punem un automat de 20A",
+          searchTerms: ["automat", "disjunctor"],
+          specifications: ["20A"],
+        }),
+      );
+      assert.equal(breaker.candidates[0]!.catalogItemId, "E_AUTO");
+      assert.ok(!has(breaker, "E_MECH"));
+
+      // 2 LED spots → Montare spot LED (no electrical intent gate applies).
+      const led = await top(
+        extractedItem({
+          concept: "montare spot led", object: null, unit: "pcs", quantity: "2",
+          description: "Montare 2 spoturi LED deasupra blatului",
+          rawText: "Și montăm 2 spoturi LED deasupra blatului",
+          searchTerms: ["spot led", "spot"],
+        }),
+      );
+      assert.equal(led.candidates[0]!.catalogItemId, "E_LED");
+    },
+  );
+
+  await atest(
+    "missing-information recalc updates quantity deterministically without re-extraction",
+    async () => {
       const item = extractedItem({
-        concept: "punct nou priza",
-        action: "install",
-        object: "socket",
-        unit: "pcs",
-        quantity: "8",
-        description: "Montare 8 puncte noi pentru prize, cu cablu și doză",
-        rawText: "8 puncte noi pentru prize, cu cablu și doză",
-        searchTerms: ["priza", "punct electric", "punct nou"],
-        specifications: ["cu cablu și doză"],
+        id: "item-1",
+        concept: "pozare teava apa rece",
+        object: "pipe",
+        unit: "m",
+        quantity: null,
       });
+      const missingField: MissingInformationField = {
+        id: "missing-1",
+        label: "Lungimea țevii de apă rece",
+        question: "Introduceți lungimea",
+        relatedItemId: "item-1",
+        target: { type: "item_quantity", key: null },
+        inputType: "number",
+        unit: "m",
+        options: [],
+        required: true,
+      };
       const service = new EstimateAssistantService(
-        fakeExtraction(item),
-        fakeRepo({ lexical: [mechRow, pointRow] }),
+        fakeExtractionWithMissing(item, [missingField]),
+        fakeRepo({}),
         fakeEmbedder,
       );
-      const res = await service.assist("org", "ro", "x");
-      // Both candidates survive (never excluded), but the full point ranks top.
-      assert.equal(res.items[0]!.candidates[0]!.catalogItemId, "E1");
-      assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "E2"));
+      const before = await service.assist("org", "ro", "țevi");
+      const after = await service.recalculateWithMissingInformation(
+        "org",
+        before,
+        { "missing-1": "12" },
+      );
+      assert.equal(after.items[0]!.item.quantity, "12");
+      assert.equal(after.items[0]!.item.unit, "m");
+      assert.equal(after.missingInformation.length, 0);
     },
   );
 }

@@ -36,6 +36,8 @@ export interface ExtractedGeometry {
 // One work item the AI extracted from free text. Quantity is a decimal STRING
 // (or null) — never a JS float — so it flows cleanly into the pricing layer.
 export interface ExtractedItem {
+  // Server-assigned deterministic id for stable references in UI/actions.
+  id: string;
   // A canonical-ish concept label, e.g. "REMOVE_FLOOR_TILES". Free text.
   concept: string;
   // Whether the requirement is LABOR (a work operation) or MATERIAL (a product).
@@ -74,12 +76,59 @@ export interface ExtractedItem {
   geometry: ExtractedGeometry | null;
 }
 
+export type MissingInputType = "number" | "select" | "boolean" | "text";
+
+export type MissingTargetType =
+  | "item_quantity"
+  | "geometry_dimension"
+  | "geometry_perimeter"
+  | "specification"
+  | "decision";
+
+export type MissingTargetKey =
+  | "length"
+  | "width"
+  | "height"
+  | "perimeter"
+  | "tile_size"
+  | "thickness_mm"
+  | "mount_type"
+  | "material_type"
+  | "scope_included"
+  | "yes_no";
+
+export interface MissingInformationOption {
+  value: string;
+  label: string;
+}
+
+// Structured request for user input needed before precise deterministic
+// quantity/matching can be finalized.
+export interface MissingInformationField {
+  // Server-assigned deterministic id for UI value binding.
+  id: string;
+  label: string;
+  question: string;
+  relatedItemId: string | null;
+  target: {
+    type: MissingTargetType;
+    key: MissingTargetKey | null;
+  };
+  inputType: MissingInputType;
+  unit: string | null;
+  options: MissingInformationOption[];
+  required: boolean;
+}
+
 // The full validated extraction returned by the provider.
 export interface JobExtraction {
   detectedLanguage: DetectedLanguage;
   items: ExtractedItem[];
   assumptions: string[];
-  missingInformation: string[];
+  missingInformation: MissingInformationField[];
+  // Backward compatibility only: unresolved informational notes that came from
+  // legacy plain-text providers.
+  missingInformationText: string[];
 }
 
 // One catalog candidate offered for an extracted item. Price/unit come from the
@@ -114,5 +163,6 @@ export interface ExtractionResult {
   detectedLanguage: DetectedLanguage;
   items: MatchedItem[];
   assumptions: string[];
-  missingInformation: string[];
+  missingInformation: MissingInformationField[];
+  missingInformationText: string[];
 }
