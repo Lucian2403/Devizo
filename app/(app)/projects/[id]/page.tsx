@@ -13,6 +13,7 @@ import type { QuoteStatus } from "@/domain/shared/types";
 import { ProjectForm } from "../project-form";
 import { updateProject } from "../actions";
 import { createQuoteForProject } from "@/app/(app)/quotes/actions";
+import { QuoteRowActions } from "./quote-row-actions";
 
 const STATUS_LABELS: Record<QuoteStatus, string> = {
   draft: "Schiță",
@@ -23,10 +24,13 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
 
 export default async function EditProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const { id } = await params;
+  const { view } = await searchParams;
   const { org } = await requireCurrentOrg();
 
   let project;
@@ -38,7 +42,11 @@ export default async function EditProjectPage({
   }
 
   const customers = await getCustomerService().listCustomers(org.id);
-  const quotes = await getQuoteService().listByProject(org.id, id);
+  const currentView = view === "confirmed" ? "confirmed" : "all";
+  const quotes =
+    currentView === "confirmed"
+      ? await getQuoteService().listByProjectStatuses(org.id, id, ["sent", "accepted"])
+      : await getQuoteService().listByProject(org.id, id);
 
   // Bind the project id so the form action has the (state, formData) shape.
   const action = updateProject.bind(null, id);
@@ -62,7 +70,19 @@ export default async function EditProjectPage({
 
       <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Devize</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">Devize</h2>
+            <Button asChild size="sm" variant={currentView === "all" ? "default" : "outline"}>
+              <Link href={`/projects/${id}`}>Toate</Link>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              variant={currentView === "confirmed" ? "default" : "outline"}
+            >
+              <Link href={`/projects/${id}?view=confirmed`}>Confirmate</Link>
+            </Button>
+          </div>
           <span className="text-sm text-muted-foreground">
             {quotes.length} {quotes.length === 1 ? "deviz" : "devize"}
           </span>
@@ -70,29 +90,34 @@ export default async function EditProjectPage({
 
         {quotes.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
-            Niciun deviz încă.
+            {currentView === "confirmed"
+              ? "Nu există devize confirmate sau acceptate pentru acest proiect."
+              : "Niciun deviz încă."}
           </div>
         ) : (
           <ul className="space-y-3">
             {quotes.map((q) => (
-              <li key={q.quoteId}>
-                <Link
-                  href={`/quotes/${q.quoteId}`}
-                  className="flex items-center justify-between gap-4 rounded-xl border bg-background/60 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-secondary/20"
-                >
-                  <div>
-                    <div className="font-medium">Versiunea {q.versionNumber}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {STATUS_LABELS[q.status]}
+              <li key={q.versionId}>
+                <div className="flex items-center gap-3 rounded-xl border bg-background/60 px-4 py-3">
+                  <Link
+                    href={`/quotes/${q.quoteId}/versions/${q.versionId}`}
+                    className="flex flex-1 items-center justify-between gap-4 transition-colors hover:text-primary"
+                  >
+                    <div>
+                      <div className="font-medium">Versiunea {q.versionNumber}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {STATUS_LABELS[q.status]}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Total</div>
-                    <div className="tabular-nums font-semibold">
-                      {formatMoney(q.total, q.currency)}
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Total</div>
+                      <div className="tabular-nums font-semibold">
+                        {formatMoney(q.total, q.currency)}
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                  <QuoteRowActions quoteId={q.quoteId} projectId={id} view={currentView} />
+                </div>
               </li>
             ))}
           </ul>

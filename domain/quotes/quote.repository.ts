@@ -2,9 +2,10 @@ import type {
   OrganizationId,
   ProjectId,
   QuoteId,
-  QuoteVersionId,
   QuoteStatus,
+  QuoteVersionId,
   SupportedUnit,
+  UserId,
 } from "@/domain/shared/types";
 
 /**
@@ -46,6 +47,22 @@ export interface QuoteVersion {
   customerPhone: string | null;
   projectName: string | null;
   projectAddress: string | null;
+  // Company/document metadata frozen at finalize time (NULL for drafts).
+  companyName: string | null;
+  companyLegalName: string | null;
+  companyTaxVatId: string | null;
+  companyEmail: string | null;
+  companyPhone: string | null;
+  companyAddress: string | null;
+  companyCountry: string | null;
+  documentLanguage: string | null;
+  paymentTerms: string | null;
+  executionDuration: string | null;
+  inclusions: string | null;
+  exclusions: string | null;
+  companyTerms: string | null;
+  sentAt: Date | null;
+  validUntil: Date | null;
   notes: string | null;
   validityDays: number | null;
   discountPct: string;
@@ -74,6 +91,25 @@ export interface QuoteSnapshot {
   customerPhone?: string | null;
   projectName?: string | null;
   projectAddress?: string | null;
+}
+
+// Company/document metadata frozen onto a version when it is finalized (sent).
+// Captured from the live organization at send time so the customer-facing
+// document never changes if org settings are edited afterwards.
+export interface CompanySnapshot {
+  companyName: string;
+  companyLegalName: string | null;
+  companyTaxVatId: string | null;
+  companyEmail: string | null;
+  companyPhone: string | null;
+  companyAddress: string | null;
+  companyCountry: string | null;
+  documentLanguage: string;
+  paymentTerms: string | null;
+  executionDuration: string | null;
+  inclusions: string | null;
+  exclusions: string | null;
+  companyTerms: string | null;
 }
 
 // Data to create a new quote plus its first draft version.
@@ -165,8 +201,37 @@ export interface QuoteRepository {
     projectId: ProjectId,
   ): Promise<QuoteSummary[]>;
 
+  // Lists ALL versions in the given statuses for a project (not only latest).
+  listByProjectStatuses(
+    organizationId: OrganizationId,
+    projectId: ProjectId,
+    statuses: QuoteStatus[],
+  ): Promise<QuoteSummary[]>;
+
+  // Freezes a draft version as 'sent' and records a quote_sent audit event in
+  // the SAME transaction. Also freezes the company/document snapshot, sent_at
+  // and valid_until onto the version. Throws if missing or not a draft.
+  markVersionSent(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+    actorUserId: UserId,
+    snapshot: CompanySnapshot,
+    validUntil: Date | null,
+  ): Promise<void>;
+
+  // Clones a source version's snapshot + items into a NEW draft version whose
+  // number is (max version number for the quote) + 1. The source is untouched.
+  // Returns the new draft version id.
+  createDraftFromVersion(
+    organizationId: OrganizationId,
+    sourceVersionId: QuoteVersionId,
+  ): Promise<QuoteVersionId>;
+
   // Aggregated quote figures per project across the whole organization.
   listProjectQuoteSummaries(
     organizationId: OrganizationId,
   ): Promise<ProjectQuoteSummary[]>;
+
+  // Deletes a quote container and all dependent rows via DB cascades.
+  deleteQuote(organizationId: OrganizationId, quoteId: QuoteId): Promise<void>;
 }

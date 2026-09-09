@@ -10,6 +10,11 @@ export interface Organization {
   address: string | null;
   country: string | null;
   vatNumber: string | null;
+  paymentTerms: string | null;
+  executionDuration: string | null;
+  inclusions: string | null;
+  exclusions: string | null;
+  legalTerms: string | null;
   vatRate: string | null;
   defaultCurrency: string;
   defaultLanguage: string;
@@ -34,6 +39,11 @@ export interface CompanySettingsInput {
   address?: string;
   country?: string;
   vatNumber?: string;
+  paymentTerms?: string;
+  executionDuration?: string;
+  inclusions?: string;
+  exclusions?: string;
+  legalTerms?: string;
   vatRate?: number;
   defaultCurrency: string;
   defaultLanguage: string;

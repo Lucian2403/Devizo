@@ -5,6 +5,7 @@ import {
   quotes,
   quoteVersions,
   quoteItems,
+  auditEvents,
 } from "@/infrastructure/db/schema";
 import type {
   OrganizationId,
@@ -13,9 +14,11 @@ import type {
   QuoteVersionId,
   QuoteStatus,
   SupportedUnit,
+  UserId,
 } from "@/domain/shared/types";
 import type {
   CreateQuoteData,
+  CompanySnapshot,
   DraftUpdate,
   ProjectQuoteSummary,
   Quote,
@@ -67,6 +70,21 @@ function versionToDomain(
     customerPhone: row.customerPhone,
     projectName: row.projectName,
     projectAddress: row.projectAddress,
+    companyName: row.companyName,
+    companyLegalName: row.companyLegalName,
+    companyTaxVatId: row.companyTaxVatId,
+    companyEmail: row.companyEmail,
+    companyPhone: row.companyPhone,
+    companyAddress: row.companyAddress,
+    companyCountry: row.companyCountry,
+    documentLanguage: row.documentLanguage,
+    paymentTerms: row.paymentTerms,
+    executionDuration: row.executionDuration,
+    inclusions: row.inclusions,
+    exclusions: row.exclusions,
+    companyTerms: row.companyTerms,
+    sentAt: row.sentAt,
+    validUntil: row.validUntil,
     notes: row.notes,
     validityDays: row.validityDays,
     discountPct: row.discountPct,
@@ -269,6 +287,175 @@ export class DrizzleQuoteRepository implements QuoteRepository {
     });
   }
 
+  async markVersionSent(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+    actorUserId: UserId,
+    snapshot: CompanySnapshot,
+    validUntil: Date | null,
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Re-read under the transaction and guard the draft precondition, so two
+      // concurrent sends can never both freeze the same version.
+      const [versionRow] = await tx
+        .select({
+          quoteId: quoteVersions.quoteId,
+          status: quoteVersions.status,
+        })
+        .from(quoteVersions)
+        .where(
+          and(
+            eq(quoteVersions.organizationId, organizationId),
+            eq(quoteVersions.id, versionId),
+          ),
+        )
+        .limit(1);
+
+      if (!versionRow) throw new Error("Quote version not found.");
+      if (versionRow.status !== "draft") {
+        throw new Error("Only draft quote versions can be sent.");
+      }
+
+      const now = new Date();
+      await tx
+        .update(quoteVersions)
+        .set({
+          status: "sent",
+          companyName: snapshot.companyName,
+          companyLegalName: snapshot.companyLegalName,
+          companyTaxVatId: snapshot.companyTaxVatId,
+          companyEmail: snapshot.companyEmail,
+          companyPhone: snapshot.companyPhone,
+          companyAddress: snapshot.companyAddress,
+          companyCountry: snapshot.companyCountry,
+          documentLanguage: snapshot.documentLanguage,
+          paymentTerms: snapshot.paymentTerms,
+          executionDuration: snapshot.executionDuration,
+          inclusions: snapshot.inclusions,
+          exclusions: snapshot.exclusions,
+          companyTerms: snapshot.companyTerms,
+          sentAt: now,
+          validUntil,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(quoteVersions.organizationId, organizationId),
+            eq(quoteVersions.id, versionId),
+          ),
+        );
+
+      await tx.insert(auditEvents).values({
+        organizationId,
+        quoteId: versionRow.quoteId,
+        quoteVersionId: versionId,
+        actorUserId,
+        eventType: "quote_sent",
+      });
+    });
+  }
+
+  async createDraftFromVersion(
+    organizationId: OrganizationId,
+    sourceVersionId: QuoteVersionId,
+  ): Promise<QuoteVersionId> {
+    return db.transaction(async (tx) => {
+      const [source] = await tx
+        .select()
+        .from(quoteVersions)
+        .where(
+          and(
+            eq(quoteVersions.organizationId, organizationId),
+            eq(quoteVersions.id, sourceVersionId),
+          ),
+        )
+        .limit(1);
+      if (!source) throw new Error("Quote version not found.");
+
+      // Next version number = current max for this quote + 1.
+      const [{ latest } = { latest: null }] = await tx
+        .select({ latest: max(quoteVersions.versionNumber) })
+        .from(quoteVersions)
+        .where(
+          and(
+            eq(quoteVersions.organizationId, organizationId),
+            eq(quoteVersions.quoteId, source.quoteId),
+          ),
+        );
+      const nextNumber = (latest ?? source.versionNumber) + 1;
+
+      // Clone the version snapshot as a fresh draft. Computed totals are carried
+      // over verbatim; they are recomputed on the next saveDraft anyway.
+      const [newVersion] = await tx
+        .insert(quoteVersions)
+        .values({
+          organizationId,
+          quoteId: source.quoteId,
+          versionNumber: nextNumber,
+          status: "draft",
+          currency: source.currency,
+          customerName: source.customerName,
+          customerEmail: source.customerEmail,
+          customerPhone: source.customerPhone,
+          projectName: source.projectName,
+          projectAddress: source.projectAddress,
+          notes: source.notes,
+          validityDays: source.validityDays,
+          discountPct: source.discountPct,
+          vatRate: source.vatRate,
+          subtotal: source.subtotal,
+          discountAmount: source.discountAmount,
+          taxableAmount: source.taxableAmount,
+          vatAmount: source.vatAmount,
+          total: source.total,
+        })
+        .returning();
+
+      // Clone all item snapshots into the new draft version.
+      const sourceItems = await tx
+        .select()
+        .from(quoteItems)
+        .where(
+          and(
+            eq(quoteItems.organizationId, organizationId),
+            eq(quoteItems.quoteVersionId, sourceVersionId),
+          ),
+        )
+        .orderBy(quoteItems.sortOrder);
+
+      if (sourceItems.length > 0) {
+        await tx.insert(quoteItems).values(
+          sourceItems.map((item) => ({
+            organizationId,
+            quoteVersionId: newVersion!.id,
+            sortOrder: item.sortOrder,
+            catalogItemId: item.catalogItemId,
+            name: item.name,
+            description: item.description,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            discountPct: item.discountPct,
+            lineTotal: item.lineTotal,
+          })),
+        );
+      }
+
+      // Touch the parent quote so list ordering reflects the new draft.
+      await tx
+        .update(quotes)
+        .set({ updatedAt: new Date() })
+        .where(
+          and(
+            eq(quotes.organizationId, organizationId),
+            eq(quotes.id, source.quoteId),
+          ),
+        );
+
+      return newVersion!.id;
+    });
+  }
+
   async listByProject(
     organizationId: OrganizationId,
     projectId: ProjectId,
@@ -335,6 +522,62 @@ export class DrizzleQuoteRepository implements QuoteRepository {
       });
     }
     return summaries;
+  }
+
+  async listByProjectStatuses(
+    organizationId: OrganizationId,
+    projectId: ProjectId,
+    statuses: QuoteStatus[],
+  ): Promise<QuoteSummary[]> {
+    if (statuses.length === 0) return [];
+
+    const rows = await db
+      .select({
+        quoteId: quoteVersions.quoteId,
+        versionId: quoteVersions.id,
+        versionNumber: quoteVersions.versionNumber,
+        status: quoteVersions.status,
+        currency: quoteVersions.currency,
+        total: quoteVersions.total,
+        updatedAt: quoteVersions.updatedAt,
+      })
+      .from(quoteVersions)
+      .innerJoin(
+        quotes,
+        and(
+          eq(quotes.id, quoteVersions.quoteId),
+          eq(quotes.organizationId, quoteVersions.organizationId),
+        ),
+      )
+      .where(
+        and(
+          eq(quoteVersions.organizationId, organizationId),
+          eq(quotes.projectId, projectId),
+          inArray(quoteVersions.status, statuses),
+        ),
+      )
+      .orderBy(desc(quoteVersions.updatedAt), desc(quoteVersions.versionNumber));
+
+    return rows.map((row) => ({
+      quoteId: row.quoteId,
+      versionId: row.versionId,
+      versionNumber: row.versionNumber,
+      status: row.status as QuoteStatus,
+      currency: row.currency,
+      total: row.total,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async deleteQuote(
+    organizationId: OrganizationId,
+    quoteId: QuoteId,
+  ): Promise<void> {
+    await db
+      .delete(quotes)
+      .where(
+        and(eq(quotes.organizationId, organizationId), eq(quotes.id, quoteId)),
+      );
   }
 
   async listProjectQuoteSummaries(

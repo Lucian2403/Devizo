@@ -10,7 +10,12 @@ import {
   getQuoteService,
 } from "@/server/container";
 import { draftUpdateSchema } from "@/schemas/domain/quoteVersion";
-import { QuoteNotEditableError } from "@/domain/quotes/quote.service";
+import {
+  QuoteNotEditableError,
+  QuoteNotSendableError,
+  QuoteVersionNotCloneableError,
+  QuoteVersionNotFoundError,
+} from "@/domain/quotes/quote.service";
 import type { SupportedUnit } from "@/domain/shared/types";
 
 // --- Catalog search (for the editor's search-as-you-type picker) ----------
@@ -128,4 +133,101 @@ export async function saveDraft(
 
   revalidatePath(`/quotes`);
   return { ok: true };
+}
+
+// --- Send a draft version (freeze it as the commercial document) -----------
+
+export type SendQuoteState = { error: string } | null;
+
+// Freezes the exact saved QuoteVersion as 'sent'. Validates against the saved
+// snapshot only (never the AI assistant's unresolved state). On success the
+// user is redirected to the now-immutable version view.
+export async function sendQuoteVersion(
+  quoteId: string,
+  versionId: string,
+  _prev: SendQuoteState,
+  _formData: FormData,
+): Promise<SendQuoteState> {
+  const { userId, org } = await requireCurrentOrg();
+
+  try {
+    // Freeze the company/document metadata from the live org NOW, at finalize
+    // time. After this the PDF renders only from the frozen version snapshot.
+    await getQuoteService().sendQuoteVersion(org.id, versionId, userId, {
+      companyName: org.name,
+      companyLegalName: org.legalName,
+      companyTaxVatId: org.vatNumber,
+      companyEmail: org.email,
+      companyPhone: org.phone,
+      companyAddress: org.address,
+      companyCountry: org.country,
+      documentLanguage: org.customerDocumentLanguage,
+      paymentTerms: org.paymentTerms,
+      executionDuration: org.executionDuration,
+      inclusions: org.inclusions,
+      exclusions: org.exclusions,
+      companyTerms: org.legalTerms,
+    });
+  } catch (error) {
+    if (error instanceof QuoteVersionNotFoundError) {
+      return { error: "Versiunea nu a fost găsită." };
+    }
+    if (error instanceof QuoteNotSendableError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+
+  revalidatePath(`/quotes`);
+  revalidatePath(`/quotes/${quoteId}/versions/${versionId}`);
+  redirect(`/quotes/${quoteId}/versions/${versionId}`);
+}
+
+// --- Create a new draft version from a sent/rejected version ----------------
+
+// Clones a frozen version into a new draft (version + 1) and opens the editor.
+// The source version stays immutable forever.
+export async function createNewVersion(
+  quoteId: string,
+  sourceVersionId: string,
+): Promise<void> {
+  const { org } = await requireCurrentOrg();
+
+  let newVersionId: string;
+  try {
+    newVersionId = await getQuoteService().createDraftFromVersion(
+      org.id,
+      sourceVersionId,
+    );
+  } catch (error) {
+    if (
+      error instanceof QuoteVersionNotFoundError ||
+      error instanceof QuoteVersionNotCloneableError
+    ) {
+      redirect(`/quotes/${quoteId}/versions/${sourceVersionId}`);
+    }
+    throw error;
+  }
+
+  revalidatePath(`/quotes`);
+  redirect(`/quotes/${quoteId}/edit`);
+}
+
+// --- Delete a quote from the project view ---------------------------------
+
+export async function deleteQuoteFromProject(
+  quoteId: string,
+  projectId: string,
+  view: "all" | "confirmed",
+): Promise<void> {
+  const { org } = await requireCurrentOrg();
+
+  await getQuoteService().deleteQuote(org.id, quoteId);
+
+  const targetPath =
+    view === "confirmed" ? `/projects/${projectId}?view=confirmed` : `/projects/${projectId}`;
+  revalidatePath(`/projects`);
+  revalidatePath(`/quotes`);
+  revalidatePath(`/projects/${projectId}`);
+  redirect(targetPath);
 }

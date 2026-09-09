@@ -40,6 +40,25 @@ export const quoteVersions = pgTable(
     projectName: text("project_name"),
     projectAddress: text("project_address"),
 
+    // Company/document metadata frozen when the version is finalized (sent), so
+    // the customer-facing PDF never changes if org settings are edited later.
+    // These are NULL for drafts and are captured at send time.
+    companyName: text("company_name"),
+    companyLegalName: text("company_legal_name"),
+    companyTaxVatId: text("company_tax_vat_id"),
+    companyEmail: text("company_email"),
+    companyPhone: text("company_phone"),
+    companyAddress: text("company_address"),
+    companyCountry: text("company_country"),
+    documentLanguage: text("document_language"),
+    paymentTerms: text("payment_terms"),
+    executionDuration: text("execution_duration"),
+    inclusions: text("inclusions"),
+    exclusions: text("exclusions"),
+    companyTerms: text("company_terms"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+
     notes: text("notes"),
     validityDays: integer("validity_days"),
 

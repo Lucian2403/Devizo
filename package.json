@@ -4,7 +4,10 @@
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
+    "pdf:build": "node scripts/build-pdf-renderer.mjs",
+    "predev": "node scripts/build-pdf-renderer.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/build-pdf-renderer.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -16,11 +19,15 @@
     "db:seed": "tsx infrastructure/db/seed.ts",
     "embed:catalog": "tsx scripts/embed-catalog.ts",
     "reclassify:catalog": "tsx scripts/reclassify-catalog.ts",
-    "test:ai": "tsx scripts/test-ai.ts"
+    "test:ai": "tsx scripts/test-ai.ts",
+    "test:quotes": "tsx scripts/test-quotes.ts",
+    "test:pdf": "node scripts/run-pdf-test.mjs",
+    "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "class-variance-authority": "^0.7.0",
@@ -47,6 +54,7 @@
     "autoprefixer": "^10.4.20",
     "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
+    "esbuild": "^0.18.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.4",
     "postcss": "^8.4.49",

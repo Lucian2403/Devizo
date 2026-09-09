@@ -61,3 +61,11 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 // MVP; 'sent'/'accepted'/'rejected' versions become immutable.
 export const QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected"] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+// Audit event types recorded for immutable quote lifecycle decisions (M6).
+export const QUOTE_EVENT_TYPES = [
+  "quote_sent",
+  "quote_accepted",
+  "quote_rejected",
+] as const;
+export type QuoteEventType = (typeof QUOTE_EVENT_TYPES)[number];

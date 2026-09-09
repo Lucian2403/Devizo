@@ -19,3 +19,5 @@ next-env.d.ts
 .DS_Store
 *.log
 .vercel
+.tmp
+lib/pdf/generated

@@ -108,6 +108,53 @@ function FormFields({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="paymentTerms">Condiții de plată (implicit)</Label>
+            <Textarea
+              id="paymentTerms"
+              name="paymentTerms"
+              defaultValue={org.paymentTerms ?? ""}
+              placeholder="Ex: 40% avans, 60% la finalizarea lucrărilor"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="executionDuration">Durată estimată execuție (implicit)</Label>
+            <Input
+              id="executionDuration"
+              name="executionDuration"
+              defaultValue={org.executionDuration ?? ""}
+              placeholder="Ex: 15-20 zile lucrătoare"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="inclusions">Ce este inclus (implicit)</Label>
+              <Textarea
+                id="inclusions"
+                name="inclusions"
+                defaultValue={org.inclusions ?? ""}
+                placeholder="Ex: manoperă, materiale consumabile"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exclusions">Ce nu este inclus (implicit)</Label>
+              <Textarea
+                id="exclusions"
+                name="exclusions"
+                defaultValue={org.exclusions ?? ""}
+                placeholder="Ex: taxe de autorizare, mobilier"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="legalTerms">Termeni comerciali / legali (implicit)</Label>
+            <Textarea
+              id="legalTerms"
+              name="legalTerms"
+              defaultValue={org.legalTerms ?? ""}
+              placeholder="Textul propriu al companiei care apare pe documente"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="country">Țară</Label>
             <Input
               id="country"

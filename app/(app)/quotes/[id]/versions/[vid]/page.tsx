@@ -1,12 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getQuoteService } from "@/server/container";
 import { QuoteVersionNotFoundError } from "@/domain/quotes/quote.service";
-import { Button } from "@/components/ui/button";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { formatMoney } from "@/lib/i18n/money";
 import type { QuoteStatus } from "@/domain/shared/types";
+import { QuoteVersionActions } from "./quote-version-actions";
+import { buildQuoteDocumentNumber } from "@/lib/quotes/document-number";
 
 const STATUS_LABELS: Record<QuoteStatus, string> = {
   draft: "Schiță",
@@ -14,6 +14,15 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted: "Acceptat",
   rejected: "Respins",
 };
+
+function formatDate(value: Date | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("ro-RO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
 
 export default async function QuoteVersionPage({
   params,
@@ -35,6 +44,9 @@ export default async function QuoteVersionPage({
   if (data.quote.id !== id) notFound();
 
   const v = data.version;
+  const docNumber = buildQuoteDocumentNumber(v);
+  const issueDate = formatDate(v.sentAt);
+  const validUntil = formatDate(v.validUntil);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -46,12 +58,11 @@ export default async function QuoteVersionPage({
           <p className="text-sm text-muted-foreground">
             {STATUS_LABELS[v.status]}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {docNumber} · v{v.versionNumber} · {STATUS_LABELS[v.status]} · emis: {issueDate} · valabil până la: {validUntil}
+          </p>
         </div>
-        {v.status === "draft" && (
-          <Button asChild>
-            <Link href={`/quotes/${id}/edit`}>Editează</Link>
-          </Button>
-        )}
+        <QuoteVersionActions quoteId={id} versionId={v.id} status={v.status} />
       </div>
 
       {/* Snapshot header */}

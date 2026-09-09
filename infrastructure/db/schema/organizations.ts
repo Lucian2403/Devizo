@@ -23,6 +23,11 @@ export const organizations = pgTable("organizations", {
   address: text("address"),
   country: text("country"),
   vatNumber: text("vat_number"),
+  paymentTerms: text("payment_terms"),
+  executionDuration: text("execution_duration"),
+  inclusions: text("inclusions"),
+  exclusions: text("exclusions"),
+  legalTerms: text("legal_terms"),
   // VAT percentage, e.g. 20.00. Stored as NUMERIC so it is never a float.
   vatRate: numeric("vat_rate", { precision: 5, scale: 2 }),
   defaultCurrency: text("default_currency").notNull().default("EUR"),
