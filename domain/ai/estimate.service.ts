@@ -1,5 +1,10 @@
+// COMMERCIAL DOMAIN. This AI service extracts work items and matches them
+// against the commercial catalog for commercial offers. It is non-authoritative
+// for money and is not part of the professional norm/resource estimate engine.
+// See docs/architecture/commercial-vs-professional-estimates.md.
 import type {
   OrganizationId,
+  SupportedCurrency,
   SupportedLanguage,
 } from "@/domain/shared/types";
 import type { CatalogItem, CatalogItemRepository } from "@/domain/catalog/item.repository";
@@ -86,6 +91,10 @@ export class EstimateAssistantService {
     organizationId: OrganizationId,
     catalogLanguage: SupportedLanguage,
     text: string,
+    // When set, catalog candidates whose currency differs are excluded so the
+    // AI can never suggest an item that is incompatible with the quote being
+    // edited. AI stays non-authoritative; this is a hard, deterministic gate.
+    quoteCurrency?: SupportedCurrency,
   ): Promise<ExtractionResult> {
     const extraction = await this.extractionProvider.extract(text, {
       catalogLanguage,
@@ -98,7 +107,7 @@ export class EstimateAssistantService {
 
     const items: MatchedItem[] = [];
     for (const item of extraction.items) {
-      items.push(await this.buildMatchedItem(organizationId, item, text));
+      items.push(await this.buildMatchedItem(organizationId, item, text, quoteCurrency));
     }
 
     return {
@@ -116,6 +125,9 @@ export class EstimateAssistantService {
     organizationId: OrganizationId,
     result: ExtractionResult,
     values: Record<string, string | number | boolean>,
+    // Same currency gate as assist(): rematches must stay compatible with the
+    // quote currency.
+    quoteCurrency?: SupportedCurrency,
   ): Promise<ExtractionResult> {
     const items = result.items.map((m) => ({
       ...m.item,
@@ -145,7 +157,7 @@ export class EstimateAssistantService {
     for (const itemId of needsRematch) {
       const item = byId.get(itemId);
       if (!item) continue;
-      rematched.set(itemId, await this.buildMatchedItem(organizationId, item, item.rawText));
+      rematched.set(itemId, await this.buildMatchedItem(organizationId, item, item.rawText, quoteCurrency));
     }
 
     const nextItems = result.items.map((prev) => {
@@ -263,9 +275,10 @@ export class EstimateAssistantService {
     organizationId: OrganizationId,
     item: ExtractedItem,
     sourceText: string,
+    quoteCurrency?: SupportedCurrency,
   ): Promise<MatchedItem> {
     const { candidates, lexicallySupportedIds, descriptions } =
-      await this.matchItem(organizationId, item);
+      await this.matchItem(organizationId, item, quoteCurrency);
     let { status, suggestedCatalogItemId } = classify(candidates);
 
     if (this.rerankProvider && candidates.length > 0) {
@@ -317,6 +330,7 @@ export class EstimateAssistantService {
   private async matchItem(
     organizationId: OrganizationId,
     item: ExtractedItem,
+    quoteCurrency?: SupportedCurrency,
   ): Promise<{
     candidates: MatchCandidate[];
     lexicallySupportedIds: Set<string>;
@@ -397,6 +411,11 @@ export class EstimateAssistantService {
     const scored: MatchCandidate[] = [];
     const lexicallySupportedIds = new Set<string>();
     for (const row of byId.values()) {
+      // Currency gate (M7.1): never suggest a catalog row priced in a currency
+      // that differs from the quote being edited. Runs before scoring so
+      // semantic similarity can never override currency compatibility.
+      if (quoteCurrency && row.currency !== quoteCurrency) continue;
+
       const rowText = `${row.name} ${row.description ?? ""} ${row.code ?? ""}`;
       const rowTags = tagText(rowText);
 

@@ -1,3 +1,8 @@
+// COMMERCIAL DOMAIN. This service owns commercial quotes/offers: catalog- or
+// manually-priced line items, discounts, VAT and immutable commercial quote
+// versions. It is NOT the professional resource-based estimate engine. Unit
+// prices here are explicit company/manual prices, never norm-derived. See
+// docs/architecture/commercial-vs-professional-estimates.md.
 import type {
   OrganizationId,
   QuoteId,

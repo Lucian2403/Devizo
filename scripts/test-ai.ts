@@ -753,6 +753,7 @@ function labelItem(overrides: Partial<CatalogItem>): CatalogItem {
     itemType: "labor",
     sellingPrice: "10.00",
     costPrice: null,
+    currency: "MDL",
     active: true,
     ...overrides,
   };
@@ -873,6 +874,44 @@ async function runAsyncTests() {
     assert.equal(res.items[0]!.candidates.length, 0);
     assert.equal(res.items[0]!.status, "unmatched");
   });
+
+  await atest(
+    "currency gate: EUR catalog item cannot populate an MDL quote",
+    async () => {
+      // Strong lexical match, but the row's currency differs from the quote's.
+      const row = labelItem({
+        id: "C1",
+        name: "gresie",
+        currency: "EUR",
+      });
+      const service = new EstimateAssistantService(
+        fakeExtraction(
+          extractedItem({ concept: "gresie", searchTerms: ["gresie"] }),
+        ),
+        fakeRepo({ lexical: [row] }),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "gresie", "MDL");
+      assert.equal(res.items[0]!.candidates.length, 0);
+      assert.equal(res.items[0]!.status, "unmatched");
+    },
+  );
+
+  await atest(
+    "currency gate: matching row of the quote currency is still allowed",
+    async () => {
+      const row = labelItem({ id: "C2", name: "gresie", currency: "MDL" });
+      const service = new EstimateAssistantService(
+        fakeExtraction(
+          extractedItem({ concept: "gresie", searchTerms: ["gresie"] }),
+        ),
+        fakeRepo({ lexical: [row] }),
+        fakeEmbedder,
+      );
+      const res = await service.assist("org", "ro", "gresie", "MDL");
+      assert.ok(res.items[0]!.candidates.some((c) => c.catalogItemId === "C2"));
+    },
+  );
 
   await atest(
     "explicit specifications cap a strong match at review (generic price must not cover a complex spec)",

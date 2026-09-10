@@ -1,6 +1,11 @@
 import Decimal from "decimal.js";
 
 /**
+ * COMMERCIAL DOMAIN pricing. This is the commercial-offer calculation engine;
+ * it is not the professional norm/resource-derived estimate engine. Unit prices
+ * are explicit company/manual prices, never norm-derived. See
+ * docs/architecture/commercial-vs-professional-estimates.md.
+ *
  * Deterministic pricing for quotes. All money is handled with decimal.js and
  * returned as fixed-2 strings so it maps directly to PostgreSQL NUMERIC(12,2).
  * The LLM never touches these numbers; this is the single source of truth.

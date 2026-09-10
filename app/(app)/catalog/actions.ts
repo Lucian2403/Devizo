@@ -24,6 +24,7 @@ function parseItem(formData: FormData) {
     itemType: formData.get("itemType"),
     sellingPrice: formData.get("sellingPrice"),
     costPrice: formData.get("costPrice"),
+    currency: formData.get("currency"),
     active: formData.get("active"),
   });
 }

@@ -1,8 +1,13 @@
+// COMMERCIAL DOMAIN. A catalog item is a commercial priced service/material;
+// it is NOT an estimate norm and NOT a professional resource. Its selling_price
+// is a commercial price, never a norm-derived unit price. See
+// docs/architecture/commercial-vs-professional-estimates.md.
 import type {
   CatalogCategoryId,
   CatalogItemId,
   CatalogItemType,
   OrganizationId,
+  SupportedCurrency,
   SupportedUnit,
 } from "@/domain/shared/types";
 
@@ -20,6 +25,8 @@ export interface CatalogItem {
   // Money is kept as a canonical decimal string, never a JS float.
   sellingPrice: string;
   costPrice: string | null;
+  // Explicit currency for this item's prices. Never inferred from the org.
+  currency: SupportedCurrency;
   active: boolean;
 }
 
@@ -34,6 +41,7 @@ export interface CatalogItemData {
   itemType: CatalogItemType;
   sellingPrice: string;
   costPrice?: string | null;
+  currency: SupportedCurrency;
   active: boolean;
 }
 

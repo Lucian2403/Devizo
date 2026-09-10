@@ -11,6 +11,7 @@ import {
   syncCatalogEmbeddings,
 } from "@/server/container";
 import type { CatalogItemId } from "@/domain/shared/types";
+import { isSupportedCurrency, type SupportedCurrency } from "@/domain/shared/types";
 import {
   IMPORT_LIMITS,
   validateImportRows,
@@ -23,6 +24,12 @@ import type {
 } from "./types";
 
 // --- Parsing (upload -> rows) --------------------------------------------
+
+// Narrows the org's stored default currency to a supported code. The settings
+// form validates currency, so this only guards against unexpected legacy data.
+function orgDefaultCurrency(value: string): SupportedCurrency {
+  return isSupportedCurrency(value) ? value : "MDL";
+}
 
 // Coerces any spreadsheet cell value to a trimmed string.
 function cellToString(value: unknown): string {
@@ -157,6 +164,7 @@ export async function validateImport(
     decimalFormat: payload.decimalFormat,
     unitMapping: payload.unitMapping,
     defaultItemType: payload.defaultItemType,
+    defaultCurrency: orgDefaultCurrency(org.defaultCurrency),
     existingCodeToId,
   });
 
@@ -193,6 +201,7 @@ export async function runImport(
     decimalFormat: payload.decimalFormat,
     unitMapping: payload.unitMapping,
     defaultItemType: payload.defaultItemType,
+    defaultCurrency: orgDefaultCurrency(org.defaultCurrency),
     existingCodeToId,
   });
 

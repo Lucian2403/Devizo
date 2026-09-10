@@ -1,5 +1,4 @@
 import { and, eq, desc, inArray, max } from "drizzle-orm";
-import Decimal from "decimal.js";
 import { db } from "@/infrastructure/db";
 import {
   quotes,
@@ -28,6 +27,10 @@ import type {
   QuoteVersion,
   QuoteWithVersion,
 } from "@/domain/quotes/quote.repository";
+import {
+  aggregateProjectQuoteSummaries,
+  type LatestQuoteTotal,
+} from "@/domain/quotes/project-summary";
 
 function quoteToDomain(row: typeof quotes.$inferSelect): Quote {
   return {
@@ -624,11 +627,9 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         ),
       );
 
-    // Sum the latest-version totals per project using Decimal for safety.
-    const byProject = new Map<
-      ProjectId,
-      { count: number; total: Decimal; currency: string }
-    >();
+    // Collect each quote's latest-version total, then aggregate per project and
+    // per currency. Mixed currencies are never summed together (no FX).
+    const latestTotals: LatestQuoteTotal[] = [];
     for (const q of withProject) {
       const latestNumber = latestByQuote.get(q.id);
       if (latestNumber == null) continue;
@@ -636,22 +637,13 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         (v) => v.quoteId === q.id && v.versionNumber === latestNumber,
       );
       if (!version) continue;
-      const projectId = q.projectId as ProjectId;
-      const entry = byProject.get(projectId) ?? {
-        count: 0,
-        total: new Decimal(0),
+      latestTotals.push({
+        projectId: q.projectId as ProjectId,
         currency: version.currency,
-      };
-      entry.count += 1;
-      entry.total = entry.total.plus(new Decimal(version.total));
-      byProject.set(projectId, entry);
+        total: version.total,
+      });
     }
 
-    return Array.from(byProject.entries()).map(([projectId, e]) => ({
-      projectId,
-      quoteCount: e.count,
-      total: e.total.toFixed(2),
-      currency: e.currency,
-    }));
+    return aggregateProjectQuoteSummaries(latestTotals);
   }
 }

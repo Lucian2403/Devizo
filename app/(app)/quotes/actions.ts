@@ -16,7 +16,7 @@ import {
   QuoteVersionNotCloneableError,
   QuoteVersionNotFoundError,
 } from "@/domain/quotes/quote.service";
-import type { SupportedUnit } from "@/domain/shared/types";
+import type { SupportedCurrency, SupportedUnit } from "@/domain/shared/types";
 
 // --- Catalog search (for the editor's search-as-you-type picker) ----------
 
@@ -26,6 +26,9 @@ export interface CatalogSearchResult {
   code: string | null;
   unit: SupportedUnit;
   sellingPrice: string;
+  // The item's own currency. The editor blocks adding an item whose currency
+  // differs from the quote version's currency (no silent reinterpretation).
+  currency: SupportedCurrency;
 }
 
 export async function searchCatalog(
@@ -39,6 +42,7 @@ export async function searchCatalog(
     code: item.code,
     unit: item.unit,
     sellingPrice: item.sellingPrice,
+    currency: item.currency,
   }));
 }
 

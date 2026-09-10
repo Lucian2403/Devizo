@@ -34,6 +34,7 @@ const FIELD_LABELS: Record<ImportField, string> = {
   itemType: "Tip (manoperă/material, opțional)",
   sellingPrice: "Preț de vânzare (obligatoriu)",
   costPrice: "Preț de cost",
+  currency: "Monedă (opțional, altfel moneda companiei)",
   category: "Categorie",
 };
 

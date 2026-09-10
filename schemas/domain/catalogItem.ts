@@ -1,6 +1,6 @@
 import { z } from "zod";
 import Decimal from "decimal.js";
-import { CATALOG_ITEM_TYPES, SUPPORTED_UNITS } from "@/domain/shared/types";
+import { CATALOG_ITEM_TYPES, SUPPORTED_CURRENCIES, SUPPORTED_UNITS } from "@/domain/shared/types";
 import { emptyToUndefined } from "@/schemas/shared";
 
 // A money field entered in the manual form (HTML number input uses a dot
@@ -45,6 +45,7 @@ export const catalogItemSchema = z.object({
   itemType: z.enum(CATALOG_ITEM_TYPES),
   sellingPrice: requiredMoney,
   costPrice: optionalMoney,
+  currency: z.enum(SUPPORTED_CURRENCIES),
   active: z.preprocess((v) => v === "on" || v === true, z.boolean()),
 });
 

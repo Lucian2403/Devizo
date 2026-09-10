@@ -5,6 +5,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getEstimateAssistantService } from "@/server/container";
 import { ExtractionError } from "@/domain/ai/providers";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/domain/shared/types";
+import { isSupportedCurrency, type SupportedCurrency } from "@/domain/shared/types";
 import type { ExtractionResult } from "@/domain/ai/extraction.types";
 import { db } from "@/infrastructure/db";
 import { catalogMatchFeedback } from "@/infrastructure/db/schema";
@@ -24,7 +25,10 @@ const recalculatePayloadSchema = z.object({
 
 // Runs AI extraction + multilingual catalog matching for typed text. Nothing is
 // persisted; the client reviews and explicitly confirms before items are added.
-export async function extractFromText(text: string): Promise<ExtractState> {
+export async function extractFromText(
+  text: string,
+  currency?: string,
+): Promise<ExtractState> {
   const { org } = await requireCurrentOrg();
 
   const trimmed = (text ?? "").trim();
@@ -42,11 +46,22 @@ export async function extractFromText(text: string): Promise<ExtractState> {
     ? (org.defaultLanguage as SupportedLanguage)
     : "en";
 
+  // Currency compatibility gate for AI matching (M7.1): only catalog items in
+  // the quote's currency may be suggested. Falls back to the org default when
+  // not provided by the caller.
+  const quoteCurrency: SupportedCurrency | undefined =
+    currency && isSupportedCurrency(currency)
+      ? currency
+      : isSupportedCurrency(org.defaultCurrency)
+        ? org.defaultCurrency
+        : undefined;
+
   try {
     const result = await getEstimateAssistantService().assist(
       org.id,
       catalogLanguage,
       trimmed,
+      quoteCurrency,
     );
     return { ok: true, result };
   } catch (error) {
@@ -73,6 +88,7 @@ export async function extractFromText(text: string): Promise<ExtractState> {
 export async function recalculateFromMissingInformation(input: {
   result: ExtractionResult;
   values: Record<string, string | number | boolean>;
+  currency?: string;
 }): Promise<ExtractState> {
   const { org } = await requireCurrentOrg();
 
@@ -81,11 +97,19 @@ export async function recalculateFromMissingInformation(input: {
     return { ok: false, error: "Date invalide pentru recalculare." };
   }
 
+  const quoteCurrency: SupportedCurrency | undefined =
+    input.currency && isSupportedCurrency(input.currency)
+      ? input.currency
+      : isSupportedCurrency(org.defaultCurrency)
+        ? org.defaultCurrency
+        : undefined;
+
   try {
     const result = await getEstimateAssistantService().recalculateWithMissingInformation(
       org.id,
       parsed.data.result as ExtractionResult,
       parsed.data.values,
+      quoteCurrency,
     );
     return { ok: true, result };
   } catch (error) {

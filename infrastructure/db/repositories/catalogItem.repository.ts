@@ -14,6 +14,7 @@ import type {
   CatalogItemId,
   CatalogItemType,
   OrganizationId,
+  SupportedCurrency,
   SupportedUnit,
 } from "@/domain/shared/types";
 
@@ -41,6 +42,7 @@ function toDomain(row: typeof catalogItems.$inferSelect): CatalogItem {
     itemType: row.itemType as CatalogItemType,
     sellingPrice: row.sellingPrice,
     costPrice: row.costPrice,
+    currency: row.currency as SupportedCurrency,
     active: row.active,
   };
 }
@@ -55,6 +57,7 @@ function toColumns(data: CatalogItemData) {
     itemType: data.itemType,
     sellingPrice: data.sellingPrice,
     costPrice: data.costPrice ?? null,
+    currency: data.currency,
     active: data.active,
   };
 }

@@ -150,12 +150,20 @@ export interface QuoteSummary {
   updatedAt: Date;
 }
 
-// Aggregated quote figures for a project, shown on the projects list.
+// One currency's aggregated total within a project. Amounts in different
+// currencies are NEVER numerically combined (no FX in the commercial domain).
+export interface ProjectCurrencyTotal {
+  currency: string;
+  total: string;
+}
+
+// Aggregated quote figures for a project, shown on the projects list. Totals
+// are broken down per currency; more than one entry means the project mixes
+// currencies and a single combined total is intentionally not available.
 export interface ProjectQuoteSummary {
   projectId: ProjectId;
   quoteCount: number;
-  total: string;
-  currency: string;
+  totals: ProjectCurrencyTotal[];
 }
 
 /**

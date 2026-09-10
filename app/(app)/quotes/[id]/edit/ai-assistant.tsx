@@ -119,7 +119,7 @@ export function AiAssistant({
   function analyze() {
     setError(null);
     startTransition(async () => {
-      const res = await extractFromText(text);
+      const res = await extractFromText(text, currency);
       if (!res.ok) {
         setError(res.error);
         setResult(null);
@@ -141,6 +141,7 @@ export function AiAssistant({
       const res = await recalculateFromMissingInformation({
         result: previousResult,
         values: missingValues,
+        currency,
       });
       if (!res.ok) {
         setError(res.error);

@@ -73,7 +73,7 @@ export default async function CatalogPage() {
                   </td>
                   <td className="whitespace-nowrap px-3 py-1.5">{UNIT_LABELS[item.unit]}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">
-                    {item.sellingPrice}
+                    {item.sellingPrice} {item.currency}
                   </td>
                   <td className="px-3 py-1.5">
                     {item.active ? "Activ" : "Inactiv"}

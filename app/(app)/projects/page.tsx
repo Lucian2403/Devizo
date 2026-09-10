@@ -19,9 +19,19 @@ export default async function ProjectsPage() {
   ]);
 
   const quotesByProject = new Map(quoteSummaries.map((s) => [s.projectId, s]));
-  const totalValue = quoteSummaries.reduce(
-    (sum, item) => sum + Number(item.total || "0"),
-    0,
+  // Aggregate portfolio value per currency. Amounts in different currencies are
+  // never summed together (no FX in the commercial domain).
+  const totalByCurrency = new Map<string, number>();
+  for (const summary of quoteSummaries) {
+    for (const t of summary.totals) {
+      totalByCurrency.set(
+        t.currency,
+        (totalByCurrency.get(t.currency) ?? 0) + Number(t.total || "0"),
+      );
+    }
+  }
+  const portfolioTotals = Array.from(totalByCurrency.entries()).sort((a, b) =>
+    a[0].localeCompare(b[0]),
   );
   const activeCount = projects.filter((project) => project.status === "active")
     .length;
@@ -62,9 +72,22 @@ export default async function ProjectsPage() {
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
             Valoare devize
           </div>
-          <div className="mt-2 text-2xl font-semibold tabular-nums">
-            {formatMoney(String(totalValue), org.defaultCurrency)}
-          </div>
+          {portfolioTotals.length === 0 ? (
+            <div className="mt-2 text-2xl font-semibold tabular-nums">
+              {formatMoney("0", org.defaultCurrency)}
+            </div>
+          ) : (
+            <div className="mt-2 space-y-0.5">
+              {portfolioTotals.map(([currency, value]) => (
+                <div
+                  key={currency}
+                  className="text-2xl font-semibold tabular-nums"
+                >
+                  {formatMoney(String(value), currency)}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -112,8 +135,15 @@ export default async function ProjectsPage() {
                           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                             {quotes.quoteCount} {quotes.quoteCount === 1 ? "deviz" : "devize"}
                           </div>
-                          <div className="mt-1 text-base font-semibold tabular-nums">
-                            {formatMoney(quotes.total, quotes.currency)}
+                          <div className="mt-1 space-y-0.5">
+                            {quotes.totals.map((t) => (
+                              <div
+                                key={t.currency}
+                                className="text-base font-semibold tabular-nums"
+                              >
+                                {formatMoney(t.total, t.currency)}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ) : (

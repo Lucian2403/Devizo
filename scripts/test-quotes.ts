@@ -19,6 +19,7 @@ import {
   QuoteVersionNotCloneableError,
 } from "../domain/quotes/quote.service";
 import { computeTotals } from "../domain/quotes/pricing";
+import { aggregateProjectQuoteSummaries } from "../domain/quotes/project-summary";
 import type {
   CompanySnapshot,
   CreateQuoteData,
@@ -533,6 +534,41 @@ async function run() {
     );
     assert.equal(days, 14);
   });
+
+  await atest(
+    "project summaries sum same-currency quotes per project",
+    () => {
+      const summaries = aggregateProjectQuoteSummaries([
+        { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
+        { projectId: "p1" as ProjectId, currency: "EUR", total: "50.00" },
+      ]);
+      assert.equal(summaries.length, 1);
+      assert.equal(summaries[0]!.quoteCount, 2);
+      assert.equal(summaries[0]!.totals.length, 1);
+      assert.deepEqual(summaries[0]!.totals[0], {
+        currency: "EUR",
+        total: "150.00",
+      });
+    },
+  );
+
+  await atest(
+    "project summaries never combine different currencies",
+    () => {
+      const summaries = aggregateProjectQuoteSummaries([
+        { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
+        { projectId: "p1" as ProjectId, currency: "MDL", total: "2000.00" },
+      ]);
+      assert.equal(summaries.length, 1);
+      assert.equal(summaries[0]!.quoteCount, 2);
+      assert.equal(summaries[0]!.totals.length, 2);
+      // Sorted by currency code: EUR before MDL.
+      assert.deepEqual(summaries[0]!.totals, [
+        { currency: "EUR", total: "100.00" },
+        { currency: "MDL", total: "2000.00" },
+      ]);
+    },
+  );
 
   console.log(`\n${passed} checks passed.`);
 }

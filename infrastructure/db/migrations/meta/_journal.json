@@ -71,6 +71,13 @@
       "when": 1788876254954,
       "tag": "0009_fluffy_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789025438200,
+      "tag": "0010_brown_silver_centurion",
+      "breakpoints": true
     }
   ]
 }

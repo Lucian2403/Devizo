@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { CatalogItem } from "@/domain/catalog/item.repository";
 import type { CatalogItemFormState } from "./actions";
 import { UNIT_OPTIONS } from "@/lib/i18n/units";
+import { SUPPORTED_CURRENCIES } from "@/domain/shared/types";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,7 +107,7 @@ export function CatalogItemForm({
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sellingPrice">Preț de vânzare ({currency})</Label>
+              <Label htmlFor="sellingPrice">Preț de vânzare</Label>
               <Input
                 id="sellingPrice"
                 name="sellingPrice"
@@ -118,7 +119,7 @@ export function CatalogItemForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="costPrice">Preț de cost ({currency})</Label>
+              <Label htmlFor="costPrice">Preț de cost</Label>
               <Input
                 id="costPrice"
                 name="costPrice"
@@ -127,6 +128,21 @@ export function CatalogItemForm({
                 min="0"
                 defaultValue={item?.costPrice ?? ""}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="currency">Monedă</Label>
+              <select
+                id="currency"
+                name="currency"
+                defaultValue={item?.currency ?? currency}
+                className={selectClasses}
+              >
+                {SUPPORTED_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="flex items-center gap-2">

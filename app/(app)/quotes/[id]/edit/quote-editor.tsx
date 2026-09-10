@@ -167,6 +167,10 @@ export function QuoteEditor({
   }
 
   function addCatalogLine(item: CatalogSearchResult) {
+    // Currency safety: a catalog item priced in another currency must never
+    // enter this quote as if its number were in the quote's currency. The
+    // picker already blocks these, but guard here too (no silent conversion).
+    if (item.currency !== currency) return;
     setHasUnsavedChanges(true);
     setLines((prev) => [
       ...prev,
@@ -662,34 +666,60 @@ function CatalogPicker({
       </div>
       {results.length > 0 && (
         <ul className="divide-y divide-border rounded-md border border-border bg-card shadow-card">
-          {results.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] hover:bg-muted-section"
-                onClick={() => {
-                  onPick(item);
-                  setTerm("");
-                  setResults([]);
-                }}
-              >
-                <span>
-                  <span className="font-medium text-heading">{item.name}</span>
-                  {item.code && (
-                    <span className="ml-2 text-muted-foreground">
-                      {item.code}
+          {results.map((item) => {
+            const mismatch = item.currency !== currency;
+            if (mismatch) {
+              return (
+                <li key={item.id}>
+                  <div className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] opacity-60">
+                    <span>
+                      <span className="font-medium text-heading">{item.name}</span>
+                      {item.code && (
+                        <span className="ml-2 text-muted-foreground">
+                          {item.code}
+                        </span>
+                      )}
+                      <span className="ml-2 text-muted-foreground">
+                        / {UNIT_LABELS[item.unit]}
+                      </span>
                     </span>
-                  )}
-                  <span className="ml-2 text-muted-foreground">
-                    / {UNIT_LABELS[item.unit]}
+                    <span className="text-right text-[12px] text-amber-700">
+                      Monedă diferită ({item.currency}) — nu poate fi adăugat în
+                      acest deviz ({currency})
+                    </span>
+                  </div>
+                </li>
+              );
+            }
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] hover:bg-muted-section"
+                  onClick={() => {
+                    onPick(item);
+                    setTerm("");
+                    setResults([]);
+                  }}
+                >
+                  <span>
+                    <span className="font-medium text-heading">{item.name}</span>
+                    {item.code && (
+                      <span className="ml-2 text-muted-foreground">
+                        {item.code}
+                      </span>
+                    )}
+                    <span className="ml-2 text-muted-foreground">
+                      / {UNIT_LABELS[item.unit]}
+                    </span>
                   </span>
-                </span>
-                <span className="tabular-nums text-muted-foreground">
-                  {formatMoney(item.sellingPrice, currency)}
-                </span>
-              </button>
-            </li>
-          ))}
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatMoney(item.sellingPrice, currency)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

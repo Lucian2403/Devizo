@@ -32,6 +32,12 @@ export const SUPPORTED_CURRENCIES = [
 ] as const;
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
+// Narrows an arbitrary string to a supported currency; used at boundaries
+// (imports, form parsing) so unknown currency codes are never stored.
+export function isSupportedCurrency(value: string): value is SupportedCurrency {
+  return (SUPPORTED_CURRENCIES as readonly string[]).includes(value);
+}
+
 // The canonical units the catalog understands. Imported values must be mapped
 // to one of these; arbitrary unit strings are never stored.
 export const SUPPORTED_UNITS = [

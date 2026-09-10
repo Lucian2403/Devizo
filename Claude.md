@@ -16,6 +16,37 @@ The application converts that information into a structured estimate using the c
 
 The product must also manage work added after the original estimate, so additional work can be documented, priced and approved by the customer.
 
+## Commercial Estimates vs Professional Resource-Based Estimates
+
+The product has two **separate bounded contexts** for estimates. They must never
+be conflated. See `docs/architecture/commercial-vs-professional-estimates.md`
+for the authoritative details.
+
+* The **existing quote engine is commercial**. It covers `quotes`,
+  `quote_versions`, `quote_items`, `catalog_categories`, `catalog_items`,
+  `QuoteService`, the commercial pricing engine, current AI catalog matching,
+  discounts, VAT, commercial terms and immutable commercial quote versions. A
+  commercial unit price is an explicit company price or manual price — it is not
+  norm-derived.
+* The **professional estimate engine is a new, additive bounded context** (norms,
+  norm versions, resources, resource consumptions, resource prices,
+  coefficients, calculation contexts and rules, professional calculation
+  snapshots). It uses **new** domain models and **new** persistence. It does not
+  reuse commercial tables or `catalog_items.selling_price`.
+* **AI must remain non-authoritative for all monetary calculations** in both
+  domains. AI transcribes, extracts, classifies and suggests; application code
+  owns every number.
+* **Professional calculations must be deterministic** and reproducible.
+* **Professional source data and regulatory/normative data must preserve
+  provenance and versioning.**
+
+Key invariants: `catalog_item != estimate_norm`,
+`catalog_item != professional_resource`,
+`quote_item != professional_work_item`,
+`selling_price != norm-derived unit price`,
+`Project != necessarily ConstructionObject`, and a commercial `QuoteVersion` is
+not a professional estimate calculation snapshot.
+
 ## Core Problem
 
 Many small and medium renovation companies currently:

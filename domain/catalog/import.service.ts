@@ -1,5 +1,6 @@
 import type { CatalogItemId } from "@/domain/shared/types";
-import type { CatalogItemType, SupportedUnit } from "@/domain/shared/types";
+import type { CatalogItemType, SupportedCurrency, SupportedUnit } from "@/domain/shared/types";
+import { isSupportedCurrency } from "@/domain/shared/types";
 import type { CatalogItemData } from "./item.repository";
 import { normalizePrice, isNonNegative, type DecimalFormat } from "./money";
 import { isSupportedUnit } from "./units";
@@ -19,6 +20,7 @@ export const IMPORT_FIELDS = [
   "itemType",
   "sellingPrice",
   "costPrice",
+  "currency",
   "category",
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
@@ -34,6 +36,10 @@ export interface ImportContext {
   // Explicit default item type chosen by the user for this import. Rows with no
   // (or an unrecognized) item_type cell fall back to this — never inferred.
   defaultItemType: CatalogItemType;
+  // Currency applied to rows without an explicit currency cell. Resolved on the
+  // server from the organization's current default currency at import time.
+  // No FX conversion ever happens — this only labels the numeric prices.
+  defaultCurrency: SupportedCurrency;
   // Existing item codes in the org -> their id, for update matching.
   existingCodeToId: Map<string, CatalogItemId>;
 }
@@ -128,6 +134,19 @@ export function validateImportRows(
     const categoryName = (row.category ?? "").trim() || null;
     const description = (row.description ?? "").trim() || null;
 
+    // Currency: use the row's explicit cell when present (validated against the
+    // supported set), otherwise fall back to the import default. Prices are
+    // never converted — the currency only labels the numeric amounts.
+    let currency: SupportedCurrency = context.defaultCurrency;
+    const rawCurrency = (row.currency ?? "").trim().toUpperCase();
+    if (rawCurrency !== "") {
+      if (isSupportedCurrency(rawCurrency)) {
+        currency = rawCurrency;
+      } else {
+        rowErrors.push(`Currency "${row.currency}" is not supported.`);
+      }
+    }
+
     // Item type: use the row's explicit cell when it clearly says labor/material,
     // otherwise fall back to the user's explicit default. Never inferred from
     // the name or other fields.
@@ -162,6 +181,7 @@ export function validateImportRows(
       itemType,
       sellingPrice: sellingPrice!,
       costPrice,
+      currency,
       active: true,
     };
 

@@ -15,9 +15,10 @@ import { organizations } from "./organizations";
 import { catalogCategories } from "./catalogCategories";
 
 /**
- * A single priced work item. All prices use the organization's default
- * currency (no per-item currency in the MVP). Money is NUMERIC, never a float.
- * The category reference uses a composite foreign key on
+ * A single priced work item (COMMERCIAL DOMAIN). Each item carries its own
+ * explicit `currency` so its prices can never be silently reinterpreted when
+ * the organization's default currency changes later. Money is NUMERIC, never a
+ * float. The category reference uses a composite foreign key on
  * (category_id, organization_id) so an item can never point at a category from
  * another organization.
  */
@@ -36,6 +37,9 @@ export const catalogItems = pgTable(
     itemType: text("item_type").notNull().default("labor"),
     sellingPrice: numeric("selling_price", { precision: 12, scale: 2 }).notNull(),
     costPrice: numeric("cost_price", { precision: 12, scale: 2 }),
+    // Explicit money currency for this item's prices. Never inferred at read
+    // time from the organization default — see M7.1 currency integrity.
+    currency: text("currency").notNull(),
     active: boolean("active").notNull().default(true),
     // --- Semantic search (M5.1) ------------------------------------------
     // Embedding of the item's semantic fields (name/description/category/
@@ -76,6 +80,10 @@ export const catalogItems = pgTable(
     itemTypeCheck: check(
       "catalog_items_item_type_check",
       sql`${table.itemType} in ('labor', 'material')`,
+    ),
+    currencyCheck: check(
+      "catalog_items_currency_check",
+      sql`${table.currency} in ('MDL', 'EUR', 'RON', 'USD', 'GBP')`,
     ),
   }),
 );
