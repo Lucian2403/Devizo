@@ -18,6 +18,7 @@ import { GeminiEmbeddingProvider } from "@/infrastructure/ai/gemini/embedding.pr
 import { GeminiRerankProvider } from "@/infrastructure/ai/gemini/rerank.provider";
 import { GeminiTranscriptionProvider } from "@/infrastructure/ai/gemini/transcription.provider";
 import type { TranscriptionProvider } from "@/domain/ai/transcription.provider";
+import type { SupportedCurrency } from "@/domain/shared/types";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -52,13 +53,14 @@ export function getQuoteService(): QuoteService {
   return new QuoteService(new DrizzleQuoteRepository());
 }
 
-// AI-assisted estimate extraction. The provider is created lazily so pages that
-// don't use AI never require the AI API key to be set. Swapping providers here
-// keeps the domain and application layers untouched.
-export function getEstimateAssistantService(): EstimateAssistantService {
+// AI-assisted estimate extraction. When the quote currency is known, the
+// repository applies it inside its database queries before result limits.
+export function getEstimateAssistantService(
+  quoteCurrency?: SupportedCurrency,
+): EstimateAssistantService {
   return new EstimateAssistantService(
     new GeminiExtractionProvider(),
-    new DrizzleCatalogItemRepository(),
+    new DrizzleCatalogItemRepository(quoteCurrency),
     // Semantic retrieval is best-effort inside the service; if the embedding
     // provider or key is unavailable, matching falls back to lexical-only.
     new GeminiEmbeddingProvider(),

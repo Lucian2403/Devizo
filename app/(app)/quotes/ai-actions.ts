@@ -23,6 +23,21 @@ const recalculatePayloadSchema = z.object({
   values: z.record(z.union([z.string(), z.number(), z.boolean()])),
 });
 
+function resolveQuoteCurrency(
+  requestedCurrency: string | undefined,
+  organizationDefaultCurrency: string,
+): SupportedCurrency | undefined {
+  if (requestedCurrency && isSupportedCurrency(requestedCurrency)) {
+    return requestedCurrency;
+  }
+
+  if (isSupportedCurrency(organizationDefaultCurrency)) {
+    return organizationDefaultCurrency;
+  }
+
+  return undefined;
+}
+
 // Runs AI extraction + multilingual catalog matching for typed text. Nothing is
 // persisted; the client reviews and explicitly confirms before items are added.
 export async function extractFromText(
@@ -39,25 +54,16 @@ export async function extractFromText(
     return { ok: false, error: "Textul este prea lung." };
   }
 
-  // The catalog language biases the search terms the model generates.
   const catalogLanguage = (
     SUPPORTED_LANGUAGES as readonly string[]
   ).includes(org.defaultLanguage)
     ? (org.defaultLanguage as SupportedLanguage)
     : "en";
 
-  // Currency compatibility gate for AI matching (M7.1): only catalog items in
-  // the quote's currency may be suggested. Falls back to the org default when
-  // not provided by the caller.
-  const quoteCurrency: SupportedCurrency | undefined =
-    currency && isSupportedCurrency(currency)
-      ? currency
-      : isSupportedCurrency(org.defaultCurrency)
-        ? org.defaultCurrency
-        : undefined;
+  const quoteCurrency = resolveQuoteCurrency(currency, org.defaultCurrency);
 
   try {
-    const result = await getEstimateAssistantService().assist(
+    const result = await getEstimateAssistantService(quoteCurrency).assist(
       org.id,
       catalogLanguage,
       trimmed,
@@ -68,15 +74,12 @@ export async function extractFromText(
     if (error instanceof ExtractionError) {
       return { ok: false, error: error.message };
     }
-    // A missing API key is a configuration problem, not a model failure —
-    // surface a distinct, actionable message.
     if (error instanceof Error && error.message.includes("API_KEY")) {
       return {
         ok: false,
         error: "Asistentul AI nu este configurat (lipsește cheia API).",
       };
     }
-    // Don't leak provider/internal details to the client.
     console.error("AI extraction failed:", error);
     return { ok: false, error: "Asistentul AI nu este disponibil momentan." };
   }
@@ -84,7 +87,6 @@ export async function extractFromText(
 
 // Applies user-provided missing-information values to the current extraction,
 // then deterministically recalculates geometry/matching where needed.
-// This avoids rerunning full extraction for measurable/decidable gaps.
 export async function recalculateFromMissingInformation(input: {
   result: ExtractionResult;
   values: Record<string, string | number | boolean>;
@@ -97,15 +99,12 @@ export async function recalculateFromMissingInformation(input: {
     return { ok: false, error: "Date invalide pentru recalculare." };
   }
 
-  const quoteCurrency: SupportedCurrency | undefined =
-    input.currency && isSupportedCurrency(input.currency)
-      ? input.currency
-      : isSupportedCurrency(org.defaultCurrency)
-        ? org.defaultCurrency
-        : undefined;
+  const quoteCurrency = resolveQuoteCurrency(input.currency, org.defaultCurrency);
 
   try {
-    const result = await getEstimateAssistantService().recalculateWithMissingInformation(
+    const result = await getEstimateAssistantService(
+      quoteCurrency,
+    ).recalculateWithMissingInformation(
       org.id,
       parsed.data.result as ExtractionResult,
       parsed.data.values,
