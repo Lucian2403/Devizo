@@ -18,7 +18,6 @@ import type {
   SupportedUnit,
 } from "@/domain/shared/types";
 
-// Postgres unique-violation code, raised by the per-org code index.
 const UNIQUE_VIOLATION = "23505";
 
 function isUniqueViolation(error: unknown): boolean {
@@ -63,12 +62,14 @@ function toColumns(data: CatalogItemData) {
 }
 
 function splitSearchTokens(term: string): string[] {
-  return [...new Set(
-    term
-      .trim()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((token) => token.length >= 2),
-  )];
+  return [
+    ...new Set(
+      term
+        .trim()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((token) => token.length >= 2),
+    ),
+  ];
 }
 
 export class DrizzleCatalogItemRepository implements CatalogItemRepository {
@@ -83,6 +84,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         ),
       )
       .orderBy(asc(catalogItems.name));
+
     return rows.map(toDomain);
   }
 
@@ -92,6 +94,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
       .from(catalogItems)
       .where(eq(catalogItems.organizationId, organizationId))
       .orderBy(asc(catalogItems.name));
+
     return rows.map(toDomain);
   }
 
@@ -100,9 +103,8 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     term: string,
     limit: number,
     itemType?: CatalogItemType,
+    currency?: SupportedCurrency,
   ): Promise<CatalogItem[]> {
-    // Retrieval for AI matching must be broader than a single contiguous phrase:
-    // terms like "montaj laminat" should still find "Montare laminat click".
     const pattern = `%${term.trim()}%`;
     const tokenPatterns = splitSearchTokens(term).map((token) => `%${token}%`);
     const searchClauses = [
@@ -115,6 +117,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         ilike(catalogItems.description, tokenPattern),
       ]),
     ];
+
     const rows = await db
       .select()
       .from(catalogItems)
@@ -123,11 +126,13 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           eq(catalogItems.organizationId, organizationId),
           eq(catalogItems.active, true),
           itemType ? eq(catalogItems.itemType, itemType) : undefined,
+          currency ? eq(catalogItems.currency, currency) : undefined,
           or(...searchClauses),
         ),
       )
       .orderBy(asc(catalogItems.name))
       .limit(limit);
+
     return rows.map(toDomain);
   }
 
@@ -145,6 +150,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         ),
       )
       .limit(1);
+
     return row ? toDomain(row) : null;
   }
 
@@ -162,6 +168,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         ),
       )
       .limit(1);
+
     return row ? toDomain(row) : null;
   }
 
@@ -174,6 +181,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
         .insert(catalogItems)
         .values({ organizationId, ...toColumns(data) })
         .returning();
+
       return toDomain(row!);
     } catch (error) {
       if (isUniqueViolation(error) && data.code) {
@@ -199,6 +207,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           ),
         )
         .returning();
+
       return toDomain(row!);
     } catch (error) {
       if (isUniqueViolation(error) && data.code) {
@@ -235,6 +244,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           .insert(catalogItems)
           .values({ organizationId, ...toColumns(data) });
       }
+
       for (const { id, data } of updates) {
         await tx
           .update(catalogItems)
@@ -246,6 +256,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
             ),
           );
       }
+
       return { created: creates.length, updated: updates.length };
     });
   }
@@ -255,10 +266,8 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     queryEmbedding: number[],
     itemType: CatalogItemType,
     limit: number,
+    currency?: SupportedCurrency,
   ): Promise<SemanticCandidate[]> {
-    // pgvector literal, e.g. "[0.1,0.2,...]". Passed as a bound parameter and
-    // cast to vector. Hard filters (org/type/active + has-embedding) run in the
-    // WHERE clause BEFORE ordering by cosine distance.
     const vectorLiteral = `[${queryEmbedding.join(",")}]`;
     const distance = sql<number>`${catalogItems.embedding} <=> ${vectorLiteral}::vector`;
 
@@ -270,16 +279,16 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           eq(catalogItems.organizationId, organizationId),
           eq(catalogItems.active, true),
           eq(catalogItems.itemType, itemType),
+          currency ? eq(catalogItems.currency, currency) : undefined,
           isNotNull(catalogItems.embedding),
         ),
       )
       .orderBy(distance)
       .limit(limit);
 
-    return rows.map(({ row, distance: d }) => ({
+    return rows.map(({ row, distance: value }) => ({
       item: toDomain(row),
-      // Cosine similarity in 0..1 (distance is 0..2 for cosine; clamp defensively).
-      similarity: Math.max(0, Math.min(1, 1 - Number(d))),
+      similarity: Math.max(0, Math.min(1, 1 - Number(value))),
     }));
   }
 
@@ -321,6 +330,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
 
   async saveEmbeddings(rows: EmbeddingWriteRow[]): Promise<void> {
     if (rows.length === 0) return;
+
     await db.transaction(async (tx) => {
       for (const row of rows) {
         await tx
