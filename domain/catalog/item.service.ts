@@ -16,8 +16,9 @@ export class CatalogItemNotFoundError extends Error {
 }
 
 /**
- * Business logic for catalog items. All prices use the organization's default
- * currency; money is handled as decimal strings, never JS floats.
+ * Business logic for commercial catalog items. Each item keeps the currency of
+ * its own prices; changing the organization's default currency does not change
+ * existing catalog prices.
  */
 export class CatalogItemService {
   constructor(private readonly repository: CatalogItemRepository) {}
