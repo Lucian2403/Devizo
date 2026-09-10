@@ -73,6 +73,8 @@ function splitSearchTokens(term: string): string[] {
 }
 
 export class DrizzleCatalogItemRepository implements CatalogItemRepository {
+  constructor(private readonly defaultCurrencyFilter?: SupportedCurrency) {}
+
   async listActive(organizationId: OrganizationId): Promise<CatalogItem[]> {
     const rows = await db
       .select()
@@ -105,6 +107,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     itemType?: CatalogItemType,
     currency?: SupportedCurrency,
   ): Promise<CatalogItem[]> {
+    const currencyFilter = currency ?? this.defaultCurrencyFilter;
     const pattern = `%${term.trim()}%`;
     const tokenPatterns = splitSearchTokens(term).map((token) => `%${token}%`);
     const searchClauses = [
@@ -126,7 +129,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           eq(catalogItems.organizationId, organizationId),
           eq(catalogItems.active, true),
           itemType ? eq(catalogItems.itemType, itemType) : undefined,
-          currency ? eq(catalogItems.currency, currency) : undefined,
+          currencyFilter ? eq(catalogItems.currency, currencyFilter) : undefined,
           or(...searchClauses),
         ),
       )
@@ -268,6 +271,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     limit: number,
     currency?: SupportedCurrency,
   ): Promise<SemanticCandidate[]> {
+    const currencyFilter = currency ?? this.defaultCurrencyFilter;
     const vectorLiteral = `[${queryEmbedding.join(",")}]`;
     const distance = sql<number>`${catalogItems.embedding} <=> ${vectorLiteral}::vector`;
 
@@ -279,7 +283,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
           eq(catalogItems.organizationId, organizationId),
           eq(catalogItems.active, true),
           eq(catalogItems.itemType, itemType),
-          currency ? eq(catalogItems.currency, currency) : undefined,
+          currencyFilter ? eq(catalogItems.currency, currencyFilter) : undefined,
           isNotNull(catalogItems.embedding),
         ),
       )
