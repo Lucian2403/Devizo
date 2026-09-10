@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Decimal from "decimal.js";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProjectService, getQuoteService } from "@/server/container";
 import { archiveProject } from "./actions";
@@ -19,20 +20,22 @@ export default async function ProjectsPage() {
   ]);
 
   const quotesByProject = new Map(quoteSummaries.map((s) => [s.projectId, s]));
-  // Aggregate portfolio value per currency. Amounts in different currencies are
-  // never summed together (no FX in the commercial domain).
-  const totalByCurrency = new Map<string, number>();
+
+  const totalByCurrency = new Map<string, Decimal>();
   for (const summary of quoteSummaries) {
-    for (const t of summary.totals) {
+    for (const currencyTotal of summary.totals) {
+      const currentTotal = totalByCurrency.get(currencyTotal.currency) ?? new Decimal(0);
       totalByCurrency.set(
-        t.currency,
-        (totalByCurrency.get(t.currency) ?? 0) + Number(t.total || "0"),
+        currencyTotal.currency,
+        currentTotal.plus(currencyTotal.total),
       );
     }
   }
-  const portfolioTotals = Array.from(totalByCurrency.entries()).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
+
+  const portfolioTotals = Array.from(totalByCurrency.entries())
+    .map(([currency, total]) => ({ currency, total: total.toFixed(2) }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
   const activeCount = projects.filter((project) => project.status === "active")
     .length;
 
@@ -78,12 +81,12 @@ export default async function ProjectsPage() {
             </div>
           ) : (
             <div className="mt-2 space-y-0.5">
-              {portfolioTotals.map(([currency, value]) => (
+              {portfolioTotals.map(({ currency, total }) => (
                 <div
                   key={currency}
                   className="text-2xl font-semibold tabular-nums"
                 >
-                  {formatMoney(String(value), currency)}
+                  {formatMoney(total, currency)}
                 </div>
               ))}
             </div>
@@ -136,12 +139,12 @@ export default async function ProjectsPage() {
                             {quotes.quoteCount} {quotes.quoteCount === 1 ? "deviz" : "devize"}
                           </div>
                           <div className="mt-1 space-y-0.5">
-                            {quotes.totals.map((t) => (
+                            {quotes.totals.map((currencyTotal) => (
                               <div
-                                key={t.currency}
+                                key={currencyTotal.currency}
                                 className="text-base font-semibold tabular-nums"
                               >
-                                {formatMoney(t.total, t.currency)}
+                                {formatMoney(currencyTotal.total, currencyTotal.currency)}
                               </div>
                             ))}
                           </div>
