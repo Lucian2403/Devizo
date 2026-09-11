@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
-import { getOrganizationService } from "@/server/container";
+import { getCurrentOrg } from "@/lib/auth/current-org";
 import { signOut } from "../(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { MainNav } from "./main-nav";
@@ -18,17 +18,19 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
+  const [user, currentOrg] = await Promise.all([
+    requireUser(),
+    getCurrentOrg(),
+  ]);
 
   // Users without an organization are sent to onboarding first.
-  const orgs = await getOrganizationService().getOrganizationsForUser(user.id);
-  if (orgs.length === 0) redirect("/onboarding");
+  if (!currentOrg.org) redirect("/onboarding");
 
   const displayName =
     (user.user_metadata?.full_name as string | undefined)?.trim() ||
     user.email ||
     "Utilizator";
-  const orgName = orgs[0]?.name ?? "";
+  const orgName = currentOrg.org.name;
 
   return (
     <div className="flex min-h-screen bg-background">
