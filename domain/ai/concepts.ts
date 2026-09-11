@@ -246,8 +246,7 @@ const OBJECT_KEYWORDS: Record<Exclude<WorkObject, "other">, string[]> = {
     "душ",
     "ванна",
     "биде",
-    "смеситель",
-    "смесители",
+    "смесител",
     "кран",
   ],
   pipe: [
