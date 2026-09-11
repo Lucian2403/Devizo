@@ -5,29 +5,38 @@ import type { Organization } from "@/domain/organizations/organization.repositor
 
 const loadCurrentOrganizationForRequest = cache(async (): Promise<{
   userId: string;
-  org: Organization;
+  org: Organization | null;
 }> => {
   const user = await requireUser();
   const organizations = await getOrganizationService().getOrganizationsForUser(user.id);
-  const organization = organizations[0];
 
-  if (!organization) {
-    // Protected app routes normally pass through the app shell first, but keep
-    // this guard here too because server actions may call this function directly.
-    throw new Error("No organization for the current user.");
-  }
-
-  return { userId: user.id, org: organization };
+  return {
+    userId: user.id,
+    org: organizations[0] ?? null,
+  };
 });
 
 /**
- * Returns the current user id and organization for this request.
- * Layouts, pages and server components share the same lookup when they ask for
- * it more than once during one render.
+ * Returns the current user id and organization when one exists.
+ * Layouts and pages share this lookup during one server render.
  */
+export async function getCurrentOrg(): Promise<{
+  userId: string;
+  org: Organization | null;
+}> {
+  return loadCurrentOrganizationForRequest();
+}
+
+/** Returns the current user id and organization, or fails if none exists. */
 export async function requireCurrentOrg(): Promise<{
   userId: string;
   org: Organization;
 }> {
-  return loadCurrentOrganizationForRequest();
+  const current = await getCurrentOrg();
+  if (!current.org) {
+    // Server actions can call this without passing through the app layout first.
+    throw new Error("No organization for the current user.");
+  }
+
+  return { userId: current.userId, org: current.org };
 }
