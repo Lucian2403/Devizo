@@ -238,12 +238,16 @@ const OBJECT_KEYWORDS: Record<Exclude<WorkObject, "other">, string[]> = {
     "cadita",
     "cada",
     "bideu",
+    "robinet",
+    "robineti",
     "унитаз",
     "раковина",
     "умывальник",
     "душ",
     "ванна",
     "биде",
+    "смесител",
+    "кран",
   ],
   pipe: [
     "teava",
@@ -315,6 +319,20 @@ function textMatchesKeyword(normalized: string, keyword: string): boolean {
   return new RegExp(`(?<![a-z0-9])${escaped}`, "u").test(normalized);
 }
 
+const NON_SANITARY_BATTERY_WORDS = [
+  "acumulator",
+  "acumulatori",
+  "litiu",
+  "ups",
+  "radiator",
+  "calorifer",
+];
+
+function textLooksLikeSanitaryMixer(normalized: string): boolean {
+  if (!textMatchesKeyword(normalized, "baterie")) return false;
+  return !NON_SANITARY_BATTERY_WORDS.some((word) => normalized.includes(word));
+}
+
 // Purpose markers introduce a secondary/context clause, not the primary
 // operation: "Glet tavan PENTRU vopsire" is putty, painting is only its intent.
 // Everything from such a marker to the next clause break is dropped before
@@ -362,6 +380,9 @@ export function tagText(text: string): WorkTags {
     ) {
       objects.add(object);
     }
+  }
+  if (textLooksLikeSanitaryMixer(primary)) {
+    objects.add("sanitaryware");
   }
   for (const surface of Object.keys(SURFACE_KEYWORDS) as Exclude<
     WorkSurface,
@@ -603,7 +624,7 @@ export function parseMountType(text: string): MountType {
   return null;
 }
 
-// True when the required mount type and the candidate's known mount type are
+// True when the required mount type and a candidate's known mount type are
 // opposite (suspended vs floor). Unknown on either side never conflicts.
 export function hasMountTypeConflict(
   required: MountType,
@@ -727,4 +748,3 @@ export function hasElectricalIntentConflict(
   if (candidate === null) return false;
   return candidate !== itemIntent;
 }
-

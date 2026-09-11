@@ -19,7 +19,7 @@
     "db:seed": "tsx infrastructure/db/seed.ts",
     "embed:catalog": "tsx scripts/embed-catalog.ts",
     "reclassify:catalog": "tsx scripts/reclassify-catalog.ts",
-    "test:ai": "tsx scripts/test-ai.ts",
+    "test:ai": "tsx scripts/test-ai.ts && tsx scripts/test-ai-sanitary-regression.ts",
     "test:quotes": "tsx scripts/test-quotes.ts",
     "test:pdf": "node scripts/run-pdf-test.mjs",
     "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts"
