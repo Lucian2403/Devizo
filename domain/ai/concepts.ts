@@ -238,12 +238,18 @@ const OBJECT_KEYWORDS: Record<Exclude<WorkObject, "other">, string[]> = {
     "cadita",
     "cada",
     "bideu",
+    "baterie",
+    "robinet",
+    "robineti",
     "унитаз",
     "раковина",
     "умывальник",
     "душ",
     "ванна",
     "биде",
+    "смеситель",
+    "смесители",
+    "кран",
   ],
   pipe: [
     "teava",
@@ -727,4 +733,3 @@ export function hasElectricalIntentConflict(
   if (candidate === null) return false;
   return candidate !== itemIntent;
 }
-
