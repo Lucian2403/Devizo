@@ -624,7 +624,7 @@ export function parseMountType(text: string): MountType {
   return null;
 }
 
-// True when the required mount type and the candidate's known mount type are
+// True when the required mount type and a candidate's known mount type are
 // opposite (suspended vs floor). Unknown on either side never conflicts.
 export function hasMountTypeConflict(
   required: MountType,
