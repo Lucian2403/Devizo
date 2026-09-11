@@ -35,7 +35,7 @@ export default async function CatalogPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Fiecare articol păstrează moneda în care a fost definit prețul.
+        Fiecare articol păstrează valuta în care a fost definit prețul.
       </p>
 
       {items.length === 0 ? (
