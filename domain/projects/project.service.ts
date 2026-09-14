@@ -2,6 +2,7 @@ import type { OrganizationId, ProjectId } from "@/domain/shared/types";
 import type {
   Project,
   ProjectData,
+  ProjectQuoteSnapshot,
   ProjectRepository,
 } from "./project.repository";
 
@@ -34,6 +35,18 @@ export class ProjectService {
     const project = await this.repository.getById(organizationId, projectId);
     if (!project) throw new ProjectNotFoundError();
     return project;
+  }
+
+  async getQuoteSnapshot(
+    organizationId: OrganizationId,
+    projectId: ProjectId,
+  ): Promise<ProjectQuoteSnapshot> {
+    const snapshot = await this.repository.getQuoteSnapshot(
+      organizationId,
+      projectId,
+    );
+    if (!snapshot) throw new ProjectNotFoundError();
+    return snapshot;
   }
 
   createProject(

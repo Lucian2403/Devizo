@@ -18,6 +18,16 @@ export interface Project {
   archivedAt: Date | null;
 }
 
+// Fields needed when a commercial quote freezes the current project/customer data.
+export interface ProjectQuoteSnapshot {
+  projectId: ProjectId;
+  projectName: string;
+  projectAddress: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+}
+
 // Fields a user can set when creating or editing a project.
 export interface ProjectData {
   customerId?: CustomerId;
@@ -38,6 +48,10 @@ export interface ProjectRepository {
     organizationId: OrganizationId,
     projectId: ProjectId,
   ): Promise<Project | null>;
+  getQuoteSnapshot(
+    organizationId: OrganizationId,
+    projectId: ProjectId,
+  ): Promise<ProjectQuoteSnapshot | null>;
   create(organizationId: OrganizationId, data: ProjectData): Promise<Project>;
   update(
     organizationId: OrganizationId,
