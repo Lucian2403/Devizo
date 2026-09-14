@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getCatalogItemService,
-  getCustomerService,
   getProjectService,
   getQuoteService,
 } from "@/server/container";
@@ -52,32 +51,19 @@ export async function createQuoteForProject(formData: FormData): Promise<void> {
   const { org } = await requireCurrentOrg();
   const projectId = String(formData.get("projectId"));
 
-  const project = await getProjectService().getProject(org.id, projectId);
-
-  // Snapshot the customer details, if the project has a customer.
-  let customerName: string | null = project.customerName;
-  let customerEmail: string | null = null;
-  let customerPhone: string | null = null;
-  if (project.customerId) {
-    const customer = await getCustomerService().getCustomer(
-      org.id,
-      project.customerId,
-    );
-    customerName = customer.name;
-    customerEmail = customer.email;
-    customerPhone = customer.phone;
-  }
+  // Load project + customer snapshot data in one database query.
+  const snapshot = await getProjectService().getQuoteSnapshot(org.id, projectId);
 
   const created = await getQuoteService().createQuote(org.id, {
     projectId,
     currency: org.defaultCurrency,
     vatRate: org.vatRate ?? "0",
     snapshot: {
-      customerName,
-      customerEmail,
-      customerPhone,
-      projectName: project.name,
-      projectAddress: project.address,
+      customerName: snapshot.customerName,
+      customerEmail: snapshot.customerEmail,
+      customerPhone: snapshot.customerPhone,
+      projectName: snapshot.projectName,
+      projectAddress: snapshot.projectAddress,
     },
   });
 
