@@ -81,7 +81,11 @@ export async function createQuoteForProject(formData: FormData): Promise<void> {
     },
   });
 
-  redirect(`/quotes/${created.quote.id}/edit`);
+  // We already know the exact draft version we just created. Pass it forward
+  // so the editor does not query the database again just to rediscover it.
+  redirect(
+    `/quotes/${created.quote.id}/edit?versionId=${encodeURIComponent(created.version.id)}`,
+  );
 }
 
 // --- Save a draft version --------------------------------------------------
@@ -214,7 +218,9 @@ export async function createNewVersion(
   }
 
   revalidatePath(`/quotes`);
-  redirect(`/quotes/${quoteId}/edit`);
+  redirect(
+    `/quotes/${quoteId}/edit?versionId=${encodeURIComponent(newVersionId)}`,
+  );
 }
 
 // --- Delete a quote from the project view ---------------------------------
