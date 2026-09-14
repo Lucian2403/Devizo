@@ -4,6 +4,7 @@ import { projects, customers } from "@/infrastructure/db/schema";
 import type {
   Project,
   ProjectData,
+  ProjectQuoteSnapshot,
   ProjectRepository,
 } from "@/domain/projects/project.repository";
 import type {
@@ -90,6 +91,38 @@ export class DrizzleProjectRepository implements ProjectRepository {
       )
       .limit(1);
     return row ? toDomain(row) : null;
+  }
+
+  async getQuoteSnapshot(
+    organizationId: OrganizationId,
+    projectId: ProjectId,
+  ): Promise<ProjectQuoteSnapshot | null> {
+    const [row] = await db
+      .select({
+        projectId: projects.id,
+        projectName: projects.name,
+        projectAddress: projects.address,
+        customerName: customers.name,
+        customerEmail: customers.email,
+        customerPhone: customers.phone,
+      })
+      .from(projects)
+      .leftJoin(
+        customers,
+        and(
+          eq(customers.id, projects.customerId),
+          eq(customers.organizationId, organizationId),
+        ),
+      )
+      .where(
+        and(
+          eq(projects.organizationId, organizationId),
+          eq(projects.id, projectId),
+        ),
+      )
+      .limit(1);
+
+    return row ?? null;
   }
 
   async create(
