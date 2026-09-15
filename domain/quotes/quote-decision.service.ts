@@ -48,6 +48,10 @@ export class QuoteDecisionService {
     actorUserId: UserId,
     decision: QuoteDecision,
   ): Promise<void> {
+    if (!QUOTE_DECISIONS.includes(decision)) {
+      throw new QuoteDecisionNotAllowedError();
+    }
+
     const result = await this.repository.applyDecision(
       organizationId,
       versionId,
