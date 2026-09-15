@@ -4,16 +4,12 @@ import { getQuoteService } from "@/server/container";
 import { QuoteVersionNotFoundError } from "@/domain/quotes/quote.service";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { formatMoney } from "@/lib/i18n/money";
-import type { QuoteStatus } from "@/domain/shared/types";
+import {
+  QUOTE_STATUS_LABELS,
+  QuoteStatusBadge,
+} from "@/components/ui/quote-status-badge";
 import { QuoteVersionActions } from "./quote-version-actions";
 import { buildQuoteDocumentNumber } from "@/lib/quotes/document-number";
-
-const STATUS_LABELS: Record<QuoteStatus, string> = {
-  draft: "Schiță",
-  sent: "Trimis",
-  accepted: "Acceptat",
-  rejected: "Respins",
-};
 
 function formatDate(value: Date | null): string {
   if (!value) return "—";
@@ -55,11 +51,11 @@ export default async function QuoteVersionPage({
           <h1 className="text-2xl font-semibold">
             Deviz · versiunea {v.versionNumber}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {STATUS_LABELS[v.status]}
-          </p>
+          <div className="mt-1">
+            <QuoteStatusBadge status={v.status} />
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {docNumber} · v{v.versionNumber} · {STATUS_LABELS[v.status]} · emis: {issueDate} · valabil până la: {validUntil}
+            {docNumber} · v{v.versionNumber} · {QUOTE_STATUS_LABELS[v.status]} · emis: {issueDate} · valabil până la: {validUntil}
           </p>
         </div>
         <QuoteVersionActions quoteId={id} versionId={v.id} status={v.status} />
