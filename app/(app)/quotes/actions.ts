@@ -6,6 +6,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getCatalogItemService,
   getProjectService,
+  getQuoteDecisionService,
   getQuoteService,
 } from "@/server/container";
 import { draftUpdateSchema } from "@/schemas/domain/quoteVersion";
@@ -15,6 +16,11 @@ import {
   QuoteVersionNotCloneableError,
   QuoteVersionNotFoundError,
 } from "@/domain/quotes/quote.service";
+import {
+  QuoteDecisionNotAllowedError,
+  QuoteDecisionVersionNotFoundError,
+  type QuoteDecision,
+} from "@/domain/quotes/quote-decision.service";
 import type { SupportedCurrency, SupportedUnit } from "@/domain/shared/types";
 
 // --- Catalog search (for the editor's search-as-you-type picker) ----------
@@ -173,6 +179,44 @@ export async function sendQuoteVersion(
   }
 
   revalidatePath(`/quotes`);
+  revalidatePath(`/quotes/${quoteId}/versions/${versionId}`);
+  redirect(`/quotes/${quoteId}/versions/${versionId}`);
+}
+
+// --- Accept or reject a sent version ---------------------------------------
+
+export type QuoteDecisionState = { error: string } | null;
+
+export async function decideQuoteVersion(
+  quoteId: string,
+  versionId: string,
+  decision: QuoteDecision,
+  _prev: QuoteDecisionState,
+  _formData: FormData,
+): Promise<QuoteDecisionState> {
+  const { userId, org } = await requireCurrentOrg();
+
+  try {
+    await getQuoteDecisionService().decide(
+      org.id,
+      versionId,
+      userId,
+      decision,
+    );
+  } catch (error) {
+    if (error instanceof QuoteDecisionVersionNotFoundError) {
+      return { error: "Versiunea nu a fost găsită." };
+    }
+    if (error instanceof QuoteDecisionNotAllowedError) {
+      return {
+        error: "Doar un deviz trimis poate fi marcat ca acceptat sau respins.",
+      };
+    }
+    throw error;
+  }
+
+  revalidatePath(`/quotes`);
+  revalidatePath(`/projects`);
   revalidatePath(`/quotes/${quoteId}/versions/${versionId}`);
   redirect(`/quotes/${quoteId}/versions/${versionId}`);
 }
