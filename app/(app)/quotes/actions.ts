@@ -261,11 +261,34 @@ export async function deleteQuoteFromProject(
   view: "all" | "confirmed",
 ): Promise<void> {
   const { org } = await requireCurrentOrg();
-
-  await getQuoteService().deleteQuote(org.id, quoteId);
-
   const targetPath =
     view === "confirmed" ? `/projects/${projectId}?view=confirmed` : `/projects/${projectId}`;
+
+  // A quote can be removed only while it consists of its first draft. Once a
+  // version has been sent, the frozen history must remain available forever.
+  const quoteService = getQuoteService();
+  const latestVersionId = await quoteService.getLatestVersionId(org.id, quoteId);
+  if (!latestVersionId) {
+    redirect(targetPath);
+  }
+
+  try {
+    const latestVersion = await quoteService.getVersion(org.id, latestVersionId);
+    if (
+      latestVersion.version.status !== "draft" ||
+      latestVersion.version.versionNumber !== 1
+    ) {
+      redirect(targetPath);
+    }
+  } catch (error) {
+    if (error instanceof QuoteVersionNotFoundError) {
+      redirect(targetPath);
+    }
+    throw error;
+  }
+
+  await quoteService.deleteQuote(org.id, quoteId);
+
   revalidatePath(`/projects`);
   revalidatePath(`/quotes`);
   revalidatePath(`/projects/${projectId}`);
