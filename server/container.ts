@@ -9,7 +9,7 @@ import { DrizzleCatalogCategoryRepository } from "@/infrastructure/db/repositori
 import { CatalogItemService } from "@/domain/catalog/item.service";
 import { DrizzleCatalogItemRepository } from "@/infrastructure/db/repositories/catalogItem.repository";
 import { QuoteService } from "@/domain/quotes/quote.service";
-import { DrizzleQuoteRepository } from "@/infrastructure/db/repositories/quote.repository";
+import { JoinedReadDrizzleQuoteRepository } from "@/infrastructure/db/repositories/quote-joined-read.repository";
 import { EstimateAssistantService } from "@/domain/ai/estimate.service";
 import { GeminiExtractionProvider } from "@/infrastructure/ai/gemini/extraction.provider";
 import { CatalogEmbeddingService } from "@/domain/ai/catalogEmbedding";
@@ -50,7 +50,7 @@ export function getCatalogItemRepository(): DrizzleCatalogItemRepository {
 }
 
 export function getQuoteService(): QuoteService {
-  return new QuoteService(new DrizzleQuoteRepository());
+  return new QuoteService(new JoinedReadDrizzleQuoteRepository());
 }
 
 // AI-assisted estimate extraction. When the quote currency is known, the
