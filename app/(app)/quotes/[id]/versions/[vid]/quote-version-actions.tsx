@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   createNewVersion,
+  decideQuoteVersion,
   sendQuoteVersion,
+  type QuoteDecisionState,
   type SendQuoteState,
 } from "../../../actions";
 import type { QuoteStatus } from "@/domain/shared/types";
 
-// Status-driven actions for a single quote version. Draft versions can be
-// edited or sent (with confirmation); frozen versions are view-only, except
-// sent/rejected which can spawn a new draft version. All server-side rules are
-// enforced again in the service — this UI only reflects them.
+// Status-driven actions for one quote version. The server enforces the same
+// lifecycle rules again; this component only exposes the valid next actions.
 export function QuoteVersionActions({
   quoteId,
   versionId,
@@ -29,11 +29,35 @@ export function QuoteVersionActions({
     sendWithIds,
     null,
   );
+
+  const acceptWithIds = decideQuoteVersion.bind(
+    null,
+    quoteId,
+    versionId,
+    "accepted",
+  );
+  const [acceptState, acceptAction] = useActionState<
+    QuoteDecisionState,
+    FormData
+  >(acceptWithIds, null);
+
+  const rejectWithIds = decideQuoteVersion.bind(
+    null,
+    quoteId,
+    versionId,
+    "rejected",
+  );
+  const [rejectState, rejectAction] = useActionState<
+    QuoteDecisionState,
+    FormData
+  >(rejectWithIds, null);
+
   const createWithIds = createNewVersion.bind(null, quoteId, versionId);
+  const decisionError = acceptState?.error ?? rejectState?.error;
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {status === "draft" && (
           <>
             <Button asChild variant="outline">
@@ -41,17 +65,46 @@ export function QuoteVersionActions({
             </Button>
             <form
               action={sendAction}
-              onSubmit={(e) => {
+              onSubmit={(event) => {
                 if (
                   !window.confirm(
                     "Această versiune va fi blocată și nu va mai putea fi editată. După finalizare vei putea genera PDF-ul și trimite devizul clientului.",
                   )
                 ) {
-                  e.preventDefault();
+                  event.preventDefault();
                 }
               }}
             >
-              <SubmitButton pendingLabel="Se confirmă…">Confirmă Devizul</SubmitButton>
+              <SubmitButton pendingLabel="Se confirmă…">
+                Confirmă Devizul
+              </SubmitButton>
+            </form>
+          </>
+        )}
+
+        {status === "sent" && (
+          <>
+            <form
+              action={acceptAction}
+              onSubmit={(event) => {
+                if (!window.confirm("Marchezi acest deviz ca acceptat?")) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <SubmitButton pendingLabel="Se acceptă…">Acceptă</SubmitButton>
+            </form>
+            <form
+              action={rejectAction}
+              onSubmit={(event) => {
+                if (!window.confirm("Marchezi acest deviz ca respins?")) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <SubmitButton pendingLabel="Se respinge…" variant="destructive">
+                Respinge
+              </SubmitButton>
             </form>
           </>
         )}
@@ -77,8 +130,11 @@ export function QuoteVersionActions({
         )}
       </div>
 
-      {sendState && "error" in sendState && (
+      {sendState?.error && (
         <p className="text-[12.5px] text-status-error-fg">{sendState.error}</p>
+      )}
+      {decisionError && (
+        <p className="text-[12.5px] text-status-error-fg">{decisionError}</p>
       )}
     </div>
   );

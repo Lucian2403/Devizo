@@ -6,6 +6,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getCatalogItemService,
   getProjectService,
+  getQuoteDecisionService,
   getQuoteService,
 } from "@/server/container";
 import { draftUpdateSchema } from "@/schemas/domain/quoteVersion";
@@ -15,6 +16,11 @@ import {
   QuoteVersionNotCloneableError,
   QuoteVersionNotFoundError,
 } from "@/domain/quotes/quote.service";
+import {
+  QuoteDecisionNotAllowedError,
+  QuoteDecisionVersionNotFoundError,
+  type QuoteDecision,
+} from "@/domain/quotes/quote-decision.service";
 import type { SupportedCurrency, SupportedUnit } from "@/domain/shared/types";
 
 // --- Catalog search (for the editor's search-as-you-type picker) ----------
@@ -177,6 +183,44 @@ export async function sendQuoteVersion(
   redirect(`/quotes/${quoteId}/versions/${versionId}`);
 }
 
+// --- Accept or reject a sent version ---------------------------------------
+
+export type QuoteDecisionState = { error: string } | null;
+
+export async function decideQuoteVersion(
+  quoteId: string,
+  versionId: string,
+  decision: QuoteDecision,
+  _prev: QuoteDecisionState,
+  _formData: FormData,
+): Promise<QuoteDecisionState> {
+  const { userId, org } = await requireCurrentOrg();
+
+  try {
+    await getQuoteDecisionService().decide(
+      org.id,
+      versionId,
+      userId,
+      decision,
+    );
+  } catch (error) {
+    if (error instanceof QuoteDecisionVersionNotFoundError) {
+      return { error: "Versiunea nu a fost găsită." };
+    }
+    if (error instanceof QuoteDecisionNotAllowedError) {
+      return {
+        error: "Doar un deviz trimis poate fi marcat ca acceptat sau respins.",
+      };
+    }
+    throw error;
+  }
+
+  revalidatePath(`/quotes`);
+  revalidatePath(`/projects`);
+  revalidatePath(`/quotes/${quoteId}/versions/${versionId}`);
+  redirect(`/quotes/${quoteId}/versions/${versionId}`);
+}
+
 // --- Create a new draft version from a sent/rejected version ----------------
 
 // Clones a frozen version into a new draft (version + 1) and opens the editor.
@@ -217,11 +261,34 @@ export async function deleteQuoteFromProject(
   view: "all" | "confirmed",
 ): Promise<void> {
   const { org } = await requireCurrentOrg();
-
-  await getQuoteService().deleteQuote(org.id, quoteId);
-
   const targetPath =
     view === "confirmed" ? `/projects/${projectId}?view=confirmed` : `/projects/${projectId}`;
+
+  // A quote can be removed only while it consists of its first draft. Once a
+  // version has been sent, the frozen history must remain available forever.
+  const quoteService = getQuoteService();
+  const latestVersionId = await quoteService.getLatestVersionId(org.id, quoteId);
+  if (!latestVersionId) {
+    redirect(targetPath);
+  }
+
+  try {
+    const latestVersion = await quoteService.getVersion(org.id, latestVersionId);
+    if (
+      latestVersion.version.status !== "draft" ||
+      latestVersion.version.versionNumber !== 1
+    ) {
+      redirect(targetPath);
+    }
+  } catch (error) {
+    if (error instanceof QuoteVersionNotFoundError) {
+      redirect(targetPath);
+    }
+    throw error;
+  }
+
+  await quoteService.deleteQuote(org.id, quoteId);
+
   revalidatePath(`/projects`);
   revalidatePath(`/quotes`);
   revalidatePath(`/projects/${projectId}`);
