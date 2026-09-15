@@ -8,19 +8,12 @@ import {
 } from "@/server/container";
 import { ProjectNotFoundError } from "@/domain/projects/project.service";
 import { Button } from "@/components/ui/button";
+import { QuoteStatusBadge } from "@/components/ui/quote-status-badge";
 import { formatMoney } from "@/lib/i18n/money";
-import type { QuoteStatus } from "@/domain/shared/types";
 import { ProjectForm } from "../project-form";
 import { updateProject } from "../actions";
 import { createQuoteForProject } from "@/app/(app)/quotes/actions";
 import { QuoteRowActions } from "./quote-row-actions";
-
-const STATUS_LABELS: Record<QuoteStatus, string> = {
-  draft: "Schiță",
-  sent: "Trimis",
-  accepted: "Acceptat",
-  rejected: "Respins",
-};
 
 export default async function EditProjectPage({
   params,
@@ -103,11 +96,9 @@ export default async function EditProjectPage({
                     href={`/quotes/${q.quoteId}/versions/${q.versionId}`}
                     className="flex flex-1 items-center justify-between gap-4 transition-colors hover:text-primary"
                   >
-                    <div>
+                    <div className="space-y-1">
                       <div className="font-medium">Versiunea {q.versionNumber}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {STATUS_LABELS[q.status]}
-                      </div>
+                      <QuoteStatusBadge status={q.status} />
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">Total</div>
