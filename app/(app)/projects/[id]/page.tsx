@@ -116,7 +116,12 @@ export default async function EditProjectPage({
                       </div>
                     </div>
                   </Link>
-                  <QuoteRowActions quoteId={q.quoteId} projectId={id} view={currentView} />
+                  <QuoteRowActions
+                    quoteId={q.quoteId}
+                    projectId={id}
+                    view={currentView}
+                    canDelete={q.status === "draft" && q.versionNumber === 1}
+                  />
                 </div>
               </li>
             ))}
