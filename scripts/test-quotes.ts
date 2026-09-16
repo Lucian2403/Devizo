@@ -20,6 +20,7 @@ import {
 } from "../domain/quotes/quote.service";
 import { computeTotals } from "../domain/quotes/pricing";
 import { aggregateProjectQuoteSummaries } from "../domain/quotes/project-summary";
+import { buildQuoteDocumentNumber } from "../lib/quotes/document-number";
 import type {
   CompanySnapshot,
   CreateQuoteData,
@@ -102,6 +103,9 @@ class FakeQuoteRepository implements QuoteRepository {
       customerPhone: data.snapshot.customerPhone ?? null,
       projectName: data.snapshot.projectName ?? null,
       projectAddress: data.snapshot.projectAddress ?? null,
+      documentNumber: null,
+      documentYear: null,
+      documentSequence: null,
       companyName: null,
       companyLegalName: null,
       companyTaxVatId: null,
@@ -174,7 +178,6 @@ class FakeQuoteRepository implements QuoteRepository {
       (v) => v.organizationId === organizationId && v.id === versionId,
     );
     if (!version) throw new Error("not found");
-    // DB-level guard analog: never allow item writes on a frozen version.
     if (version.status !== "draft") throw new Error("frozen");
 
     this.items.set(
@@ -215,7 +218,23 @@ class FakeQuoteRepository implements QuoteRepository {
     );
     if (!version) throw new Error("not found");
     if (version.status !== "draft") throw new Error("Only draft can be sent.");
+
+    const now = new Date();
+    const documentYear = now.getUTCFullYear();
+    const latestSequence = this.versions
+      .filter(
+        (v) =>
+          v.organizationId === organizationId &&
+          v.documentYear === documentYear &&
+          v.documentSequence != null,
+      )
+      .reduce((latest, v) => Math.max(latest, v.documentSequence ?? 0), 0);
+    const documentSequence = latestSequence + 1;
+
     version.status = "sent";
+    version.documentYear = documentYear;
+    version.documentSequence = documentSequence;
+    version.documentNumber = `DEV-${documentYear}-${String(documentSequence).padStart(6, "0")}`;
     version.companyName = snapshot.companyName;
     version.companyLegalName = snapshot.companyLegalName;
     version.companyTaxVatId = snapshot.companyTaxVatId;
@@ -229,9 +248,9 @@ class FakeQuoteRepository implements QuoteRepository {
     version.inclusions = snapshot.inclusions;
     version.exclusions = snapshot.exclusions;
     version.companyTerms = snapshot.companyTerms;
-    version.sentAt = new Date();
+    version.sentAt = now;
     version.validUntil = validUntil;
-    version.updatedAt = new Date();
+    version.updatedAt = now;
     this.audit.push({
       organizationId,
       quoteId: version.quoteId,
@@ -259,6 +278,24 @@ class FakeQuoteRepository implements QuoteRepository {
       id: nextId(),
       versionNumber: maxNumber + 1,
       status: "draft",
+      documentNumber: null,
+      documentYear: null,
+      documentSequence: null,
+      companyName: null,
+      companyLegalName: null,
+      companyTaxVatId: null,
+      companyEmail: null,
+      companyPhone: null,
+      companyAddress: null,
+      companyCountry: null,
+      documentLanguage: null,
+      paymentTerms: null,
+      executionDuration: null,
+      inclusions: null,
+      exclusions: null,
+      companyTerms: null,
+      sentAt: null,
+      validUntil: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -297,7 +334,6 @@ class FakeQuoteRepository implements QuoteRepository {
 const ORG: OrganizationId = "org-1";
 const USER: UserId = "user-1";
 
-// A representative company snapshot passed at finalize/send time.
 const SNAP: CompanySnapshot = {
   companyName: "Acme SRL",
   companyLegalName: "Acme Construcții SRL",
@@ -344,31 +380,35 @@ async function seedDraftWithItems(
 // --- Tests -----------------------------------------------------------------
 
 async function run() {
-  console.log("M6.1 quote lifecycle:");
+  console.log("M6.1 / M7.3 quote lifecycle:");
 
-  // A: draft can be edited
   await atest("A: a draft version can be edited (saveDraft succeeds)", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
     const { versionId } = await seedDraftWithItems(repo, service);
     const found = await service.getVersion(ORG, versionId);
     assert.equal(found.version.items.length, 1);
-    assert.equal(found.version.total, priced([
-      { unitPrice: "18.00", quantity: "10" },
-    ]).total);
+    assert.equal(
+      found.version.total,
+      priced([{ unitPrice: "18.00", quantity: "10" }]).total,
+    );
+    assert.equal(found.version.documentNumber, null);
+    assert.equal(buildQuoteDocumentNumber(found.version), "—");
   });
 
-  // B: draft can be sent
-  await atest("B: a valid draft can be sent and becomes 'sent'", async () => {
+  await atest("B: a valid draft can be sent and gets an official identity", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
     const { versionId } = await seedDraftWithItems(repo, service);
     await service.sendQuoteVersion(ORG, versionId, USER, SNAP);
     const found = await service.getVersion(ORG, versionId);
     assert.equal(found.version.status, "sent");
+    assert.match(found.version.documentNumber ?? "", /^DEV-\d{4}-\d{6}$/);
+    assert.equal(found.version.documentYear, found.version.sentAt!.getUTCFullYear());
+    assert.equal(found.version.documentSequence, 1);
+    assert.equal(buildQuoteDocumentNumber(found.version), found.version.documentNumber);
   });
 
-  // Send validation: empty quote is blocked.
   await atest("B2: sending a version with zero items is blocked", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -383,7 +423,22 @@ async function run() {
     );
   });
 
-  // C: sent version cannot be edited
+  await atest("B3: document sequences increase within the same organization/year", async () => {
+    const repo = new FakeQuoteRepository();
+    const service = new QuoteService(repo);
+    const first = await seedDraftWithItems(repo, service);
+    const second = await seedDraftWithItems(repo, service);
+
+    await service.sendQuoteVersion(ORG, first.versionId, USER, SNAP);
+    await service.sendQuoteVersion(ORG, second.versionId, USER, SNAP);
+
+    const firstVersion = (await service.getVersion(ORG, first.versionId)).version;
+    const secondVersion = (await service.getVersion(ORG, second.versionId)).version;
+    assert.equal(firstVersion.documentSequence, 1);
+    assert.equal(secondVersion.documentSequence, 2);
+    assert.notEqual(firstVersion.documentNumber, secondVersion.documentNumber);
+  });
+
   await atest("C: a sent version cannot be edited (saveDraft throws)", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -401,7 +456,6 @@ async function run() {
     );
   });
 
-  // C2: sending an already-sent version is blocked.
   await atest("C2: re-sending a sent version is blocked", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -413,13 +467,11 @@ async function run() {
     );
   });
 
-  // D: direct item mutation on a sent version is blocked (repo-level guard).
   await atest("D: direct item write on a sent version is blocked", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
     const { versionId } = await seedDraftWithItems(repo, service);
     await service.sendQuoteVersion(ORG, versionId, USER, SNAP);
-    // Bypass the service and call the repo directly, as a rogue write would.
     await assert.rejects(() =>
       repo.saveDraft(
         ORG,
@@ -430,18 +482,33 @@ async function run() {
     );
   });
 
-  // D2: the database-level immutability guard exists in version control.
   await atest("D2: DB immutability trigger policy file is present", () => {
-    const sql = readFileSync(
+    const policySql = readFileSync(
       join(process.cwd(), "infrastructure/db/policies/0006_quote_immutability.sql"),
       "utf8",
     );
-    assert.ok(sql.includes("quote_versions_immutability"));
-    assert.ok(sql.includes("quote_items_immutability"));
-    assert.ok(sql.includes("audit_events_append_only"));
+    assert.ok(policySql.includes("quote_versions_immutability"));
+    assert.ok(policySql.includes("quote_items_immutability"));
+    assert.ok(policySql.includes("audit_events_append_only"));
   });
 
-  // E: "Create new version" clones a sent version into a v2 draft.
+  await atest("D3: M7.3 migration enforces unique frozen document identity", () => {
+    const migrationSql = readFileSync(
+      join(process.cwd(), "infrastructure/db/migrations/0011_document_identity.sql"),
+      "utf8",
+    );
+    assert.ok(migrationSql.includes("quote_versions_org_document_number_unique"));
+    assert.ok(migrationSql.includes("quote_versions_org_document_sequence_unique"));
+    assert.ok(migrationSql.includes("quote_versions_document_identity_check"));
+    assert.ok(migrationSql.includes("ROW_NUMBER() OVER"));
+
+    const repositorySource = readFileSync(
+      join(process.cwd(), "infrastructure/db/repositories/quote.repository.ts"),
+      "utf8",
+    );
+    assert.ok(repositorySource.includes("pg_advisory_xact_lock"));
+  });
+
   await atest("E: create new version clones sent v1 into a v2 draft", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -453,9 +520,13 @@ async function run() {
     assert.equal(v2.version.status, "draft");
     assert.equal(v2.version.items.length, 1);
     assert.equal(v2.version.items[0]!.name, "Demolare");
+    assert.equal(v2.version.documentNumber, null);
+    assert.equal(v2.version.documentYear, null);
+    assert.equal(v2.version.documentSequence, null);
+    assert.equal(v2.version.sentAt, null);
+    assert.equal(v2.version.companyName, null);
   });
 
-  // E2: cloning a draft is not allowed (edit it in place instead).
   await atest("E2: cloning a draft version is rejected", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -466,12 +537,13 @@ async function run() {
     );
   });
 
-  // F: v1 stays unchanged after editing v2.
   await atest("F: v1 stays immutable after editing the new v2 draft", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
     const { versionId } = await seedDraftWithItems(repo, service);
     await service.sendQuoteVersion(ORG, versionId, USER, SNAP);
+    const originalNumber = (await service.getVersion(ORG, versionId)).version
+      .documentNumber;
     const newId = await service.createDraftFromVersion(ORG, versionId);
     await service.saveDraft(ORG, newId, {
       discountPct: "0",
@@ -484,15 +556,16 @@ async function run() {
     assert.equal(v1.version.status, "sent");
     assert.equal(v1.version.items.length, 1);
     assert.equal(v1.version.items[0]!.name, "Demolare");
-    assert.equal(v1.version.total, priced([
-      { unitPrice: "18.00", quantity: "10" },
-    ]).total);
+    assert.equal(
+      v1.version.total,
+      priced([{ unitPrice: "18.00", quantity: "10" }]).total,
+    );
+    assert.equal(v1.version.documentNumber, originalNumber);
 
     const v2 = await service.getVersion(ORG, newId);
     assert.equal(v2.version.items[0]!.name, "Zugrăvire");
   });
 
-  // G: a quote_sent audit event is recorded on send.
   await atest("G: sending records exactly one quote_sent audit event", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -506,12 +579,10 @@ async function run() {
     assert.equal(events[0]!.organizationId, ORG);
   });
 
-  // H: finalize freezes the company/document snapshot and valid_until.
-  await atest("H: sending freezes the company snapshot and valid_until", async () => {
+  await atest("H: sending freezes company snapshot, identity and valid_until", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
     const { versionId } = await seedDraftWithItems(repo, service);
-    // Give the draft a validity window so valid_until can be frozen.
     await service.saveDraft(ORG, versionId, {
       discountPct: "0",
       validityDays: 14,
@@ -526,49 +597,44 @@ async function run() {
     assert.equal(v.companyName, SNAP.companyName);
     assert.equal(v.companyTaxVatId, SNAP.companyTaxVatId);
     assert.equal(v.documentLanguage, "ro");
+    assert.ok(v.documentNumber);
+    assert.ok(v.documentYear);
+    assert.ok(v.documentSequence);
     assert.ok(v.sentAt instanceof Date);
     assert.ok(v.validUntil instanceof Date);
-    // valid_until must be ~14 days after sent_at.
     const days = Math.round(
       (v.validUntil!.getTime() - v.sentAt!.getTime()) / (24 * 3600 * 1000),
     );
     assert.equal(days, 14);
   });
 
-  await atest(
-    "project summaries sum same-currency quotes per project",
-    () => {
-      const summaries = aggregateProjectQuoteSummaries([
-        { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
-        { projectId: "p1" as ProjectId, currency: "EUR", total: "50.00" },
-      ]);
-      assert.equal(summaries.length, 1);
-      assert.equal(summaries[0]!.quoteCount, 2);
-      assert.equal(summaries[0]!.totals.length, 1);
-      assert.deepEqual(summaries[0]!.totals[0], {
-        currency: "EUR",
-        total: "150.00",
-      });
-    },
-  );
+  await atest("project summaries sum same-currency quotes per project", () => {
+    const summaries = aggregateProjectQuoteSummaries([
+      { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
+      { projectId: "p1" as ProjectId, currency: "EUR", total: "50.00" },
+    ]);
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0]!.quoteCount, 2);
+    assert.equal(summaries[0]!.totals.length, 1);
+    assert.deepEqual(summaries[0]!.totals[0], {
+      currency: "EUR",
+      total: "150.00",
+    });
+  });
 
-  await atest(
-    "project summaries never combine different currencies",
-    () => {
-      const summaries = aggregateProjectQuoteSummaries([
-        { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
-        { projectId: "p1" as ProjectId, currency: "MDL", total: "2000.00" },
-      ]);
-      assert.equal(summaries.length, 1);
-      assert.equal(summaries[0]!.quoteCount, 2);
-      assert.equal(summaries[0]!.totals.length, 2);
-      // Sorted by currency code: EUR before MDL.
-      assert.deepEqual(summaries[0]!.totals, [
-        { currency: "EUR", total: "100.00" },
-        { currency: "MDL", total: "2000.00" },
-      ]);
-    },
-  );
+  await atest("project summaries never combine different currencies", () => {
+    const summaries = aggregateProjectQuoteSummaries([
+      { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },
+      { projectId: "p1" as ProjectId, currency: "MDL", total: "2000.00" },
+    ]);
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0]!.quoteCount, 2);
+    assert.equal(summaries[0]!.totals.length, 2);
+    assert.deepEqual(summaries[0]!.totals, [
+      { currency: "EUR", total: "100.00" },
+      { currency: "MDL", total: "2000.00" },
+    ]);
+  });
 
   console.log(`\n${passed} checks passed.`);
 }
@@ -577,4 +643,3 @@ run().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

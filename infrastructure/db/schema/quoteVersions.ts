@@ -40,6 +40,12 @@ export const quoteVersions = pgTable(
     projectName: text("project_name"),
     projectAddress: text("project_address"),
 
+    // Official commercial document identity. Drafts have no number; all three
+    // fields are assigned once, atomically, when the version is first sent.
+    documentNumber: text("document_number"),
+    documentYear: integer("document_year"),
+    documentSequence: integer("document_sequence"),
+
     // Company/document metadata frozen when the version is finalized (sent), so
     // the customer-facing PDF never changes if org settings are edited later.
     // These are NULL for drafts and are captured at send time.
@@ -109,9 +115,31 @@ export const quoteVersions = pgTable(
       table.id,
       table.organizationId,
     ),
+    documentNumberUnique: unique("quote_versions_org_document_number_unique").on(
+      table.organizationId,
+      table.documentNumber,
+    ),
+    documentSequenceUnique: unique(
+      "quote_versions_org_document_sequence_unique",
+    ).on(table.organizationId, table.documentYear, table.documentSequence),
     statusCheck: check(
       "quote_versions_status_check",
       sql`${table.status} in ('draft', 'sent', 'accepted', 'rejected')`,
+    ),
+    documentIdentityCheck: check(
+      "quote_versions_document_identity_check",
+      sql`(
+        (${table.status} = 'draft'
+          and ${table.documentNumber} is null
+          and ${table.documentYear} is null
+          and ${table.documentSequence} is null)
+        or
+        (${table.status} <> 'draft'
+          and ${table.documentNumber} is not null
+          and ${table.documentYear} is not null
+          and ${table.documentSequence} is not null
+          and ${table.documentSequence} > 0)
+      )`,
     ),
   }),
 );
