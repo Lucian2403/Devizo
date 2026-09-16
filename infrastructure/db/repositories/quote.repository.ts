@@ -5,6 +5,8 @@ import {
   quoteVersions,
   quoteItems,
   auditEvents,
+  projects,
+  customers,
 } from "@/infrastructure/db/schema";
 import type {
   OrganizationId,
@@ -73,6 +75,9 @@ function versionToDomain(
     customerPhone: row.customerPhone,
     projectName: row.projectName,
     projectAddress: row.projectAddress,
+    snapshotCapturedAt: row.snapshotCapturedAt,
+    sourceProjectId: row.sourceProjectId,
+    sourceCustomerId: row.sourceCustomerId,
     documentNumber: row.documentNumber,
     documentYear: row.documentYear,
     documentSequence: row.documentSequence,
@@ -332,6 +337,53 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         throw new Error("Only draft quote versions can be sent.");
       }
 
+      // Draft customer/project fields are only a working copy. Read the current
+      // live source now and freeze it together with its provenance on send.
+      const [sourceRow] = await tx
+        .select({
+          sourceProjectId: quotes.projectId,
+          projectName: projects.name,
+          projectAddress: projects.address,
+          sourceCustomerId: projects.customerId,
+          customerName: customers.name,
+          customerEmail: customers.email,
+          customerPhone: customers.phone,
+        })
+        .from(quotes)
+        .leftJoin(
+          projects,
+          and(
+            eq(projects.id, quotes.projectId),
+            eq(projects.organizationId, organizationId),
+          ),
+        )
+        .leftJoin(
+          customers,
+          and(
+            eq(customers.id, projects.customerId),
+            eq(customers.organizationId, organizationId),
+          ),
+        )
+        .where(
+          and(
+            eq(quotes.organizationId, organizationId),
+            eq(quotes.id, versionRow.quoteId),
+          ),
+        )
+        .limit(1);
+
+      if (!sourceRow) throw new Error("Quote not found.");
+
+      const liveSourceFields = sourceRow.sourceProjectId
+        ? {
+            projectName: sourceRow.projectName,
+            projectAddress: sourceRow.projectAddress,
+            customerName: sourceRow.customerName,
+            customerEmail: sourceRow.customerEmail,
+            customerPhone: sourceRow.customerPhone,
+          }
+        : {};
+
       const [{ latestSequence } = { latestSequence: null }] = await tx
         .select({ latestSequence: max(quoteVersions.documentSequence) })
         .from(quoteVersions)
@@ -352,6 +404,10 @@ export class DrizzleQuoteRepository implements QuoteRepository {
           documentNumber,
           documentYear,
           documentSequence,
+          snapshotCapturedAt: now,
+          sourceProjectId: sourceRow.sourceProjectId,
+          sourceCustomerId: sourceRow.sourceCustomerId,
+          ...liveSourceFields,
           companyName: snapshot.companyName,
           companyLegalName: snapshot.companyLegalName,
           companyTaxVatId: snapshot.companyTaxVatId,
@@ -421,8 +477,8 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         );
       const nextNumber = (latest ?? source.versionNumber) + 1;
 
-      // Clone the content snapshot as a fresh draft, never the finalized
-      // document identity or company/finalization metadata from the source.
+      // Clone content into a fresh working draft. Final identity, company data
+      // and snapshot provenance are intentionally not carried forward.
       const [newVersion] = await tx
         .insert(quoteVersions)
         .values({
