@@ -47,6 +47,11 @@ export interface QuoteVersion {
   customerPhone: string | null;
   projectName: string | null;
   projectAddress: string | null;
+  // Official identity is NULL while the version is a draft and is frozen when
+  // it is first sent. It never changes during accepted/rejected transitions.
+  documentNumber: string | null;
+  documentYear: number | null;
+  documentSequence: number | null;
   // Company/document metadata frozen at finalize time (NULL for drafts).
   companyName: string | null;
   companyLegalName: string | null;
@@ -217,8 +222,8 @@ export interface QuoteRepository {
   ): Promise<QuoteSummary[]>;
 
   // Freezes a draft version as 'sent' and records a quote_sent audit event in
-  // the SAME transaction. Also freezes the company/document snapshot, sent_at
-  // and valid_until onto the version. Throws if missing or not a draft.
+  // the SAME transaction. Also assigns its official document identity and
+  // freezes the company/document snapshot, sent_at and valid_until.
   markVersionSent(
     organizationId: OrganizationId,
     versionId: QuoteVersionId,

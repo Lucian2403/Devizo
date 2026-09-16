@@ -1,4 +1,4 @@
-import { and, eq, desc, inArray, max } from "drizzle-orm";
+import { and, eq, desc, inArray, max, sql } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   quotes,
@@ -73,6 +73,9 @@ function versionToDomain(
     customerPhone: row.customerPhone,
     projectName: row.projectName,
     projectAddress: row.projectAddress,
+    documentNumber: row.documentNumber,
+    documentYear: row.documentYear,
+    documentSequence: row.documentSequence,
     companyName: row.companyName,
     companyLegalName: row.companyLegalName,
     companyTaxVatId: row.companyTaxVatId,
@@ -298,8 +301,18 @@ export class DrizzleQuoteRepository implements QuoteRepository {
     validUntil: Date | null,
   ): Promise<void> {
     await db.transaction(async (tx) => {
-      // Re-read under the transaction and guard the draft precondition, so two
-      // concurrent sends can never both freeze the same version.
+      const now = new Date();
+      const documentYear = now.getUTCFullYear();
+
+      // Serialize document-number allocation for this organization and year.
+      // This keeps two simultaneous sends from receiving the same sequence.
+      const allocationLockKey = `${organizationId}:${documentYear}`;
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${allocationLockKey}, 0))`,
+      );
+
+      // Re-read only after the allocation lock. If the same version was sent by
+      // another request while we waited, it is no longer a draft and we stop.
       const [versionRow] = await tx
         .select({
           quoteId: quoteVersions.quoteId,
@@ -319,11 +332,26 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         throw new Error("Only draft quote versions can be sent.");
       }
 
-      const now = new Date();
-      await tx
+      const [{ latestSequence } = { latestSequence: null }] = await tx
+        .select({ latestSequence: max(quoteVersions.documentSequence) })
+        .from(quoteVersions)
+        .where(
+          and(
+            eq(quoteVersions.organizationId, organizationId),
+            eq(quoteVersions.documentYear, documentYear),
+          ),
+        );
+
+      const documentSequence = Number(latestSequence ?? 0) + 1;
+      const documentNumber = `DEV-${documentYear}-${String(documentSequence).padStart(6, "0")}`;
+
+      const [updatedVersion] = await tx
         .update(quoteVersions)
         .set({
           status: "sent",
+          documentNumber,
+          documentYear,
+          documentSequence,
           companyName: snapshot.companyName,
           companyLegalName: snapshot.companyLegalName,
           companyTaxVatId: snapshot.companyTaxVatId,
@@ -345,8 +373,14 @@ export class DrizzleQuoteRepository implements QuoteRepository {
           and(
             eq(quoteVersions.organizationId, organizationId),
             eq(quoteVersions.id, versionId),
+            eq(quoteVersions.status, "draft"),
           ),
-        );
+        )
+        .returning({ id: quoteVersions.id });
+
+      if (!updatedVersion) {
+        throw new Error("Only draft quote versions can be sent.");
+      }
 
       await tx.insert(auditEvents).values({
         organizationId,
@@ -387,8 +421,8 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         );
       const nextNumber = (latest ?? source.versionNumber) + 1;
 
-      // Clone the version snapshot as a fresh draft. Computed totals are carried
-      // over verbatim; they are recomputed on the next saveDraft anyway.
+      // Clone the content snapshot as a fresh draft, never the finalized
+      // document identity or company/finalization metadata from the source.
       const [newVersion] = await tx
         .insert(quoteVersions)
         .values({
