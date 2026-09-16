@@ -7,11 +7,15 @@ export function QuoteRowActions({
   quoteId,
   projectId,
   view,
+  canDelete,
 }: {
   quoteId: string;
   projectId: string;
   view: "all" | "confirmed";
+  canDelete: boolean;
 }) {
+  if (!canDelete) return null;
+
   const removeAction = deleteQuoteFromProject.bind(null, quoteId, projectId, view);
 
   return (

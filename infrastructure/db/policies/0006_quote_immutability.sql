@@ -1,15 +1,14 @@
--- Database-level immutability guard for frozen quote versions (M6.1).
+-- Database-level immutability guard for quote versions.
 --
--- The application already refuses to edit non-draft versions, but this trigger
--- is a hard safety net against accidental direct writes: once a quote_version
--- leaves 'draft' it can never be edited again, and its items can never be
--- inserted, updated or deleted. The ONLY permitted transition is draft -> a
--- terminal status, plus updating a version that is still a draft.
+-- Drafts are editable. Sending freezes the commercial document. After a version
+-- is sent, the only permitted change is the lifecycle decision sent -> accepted
+-- or sent -> rejected. That decision may change only status and updated_at;
+-- prices, items, snapshots and every other document field stay immutable.
 --
 -- This file is written to be safe to run more than once.
 
--- 1) quote_versions: block any UPDATE whose OLD row is already frozen.
---    A draft may still be edited or transitioned; a frozen version is locked.
+-- 1) quote_versions: allow normal draft edits, draft -> sent, and a status-only
+--    sent -> accepted/rejected decision. Everything else is blocked.
 create or replace function public.enforce_quote_version_immutability()
 returns trigger as $$
 begin
@@ -21,12 +20,28 @@ begin
     return old;
   end if;
 
-  -- UPDATE
-  if old.status <> 'draft' then
-    raise exception 'Quote version % is % and is immutable.',
-      old.id, old.status;
+  -- Drafts may be edited in place and may only leave draft by becoming sent.
+  if old.status = 'draft' then
+    if new.status not in ('draft', 'sent') then
+      raise exception 'Invalid quote version transition: % -> %.',
+        old.status, new.status;
+    end if;
+    return new;
   end if;
-  return new;
+
+  -- A sent document is frozen. Only its lifecycle status may move to one of
+  -- the two customer decisions. updated_at may move with that status change.
+  if old.status = 'sent' and new.status in ('accepted', 'rejected') then
+    if (to_jsonb(new) - 'status' - 'updated_at') is distinct from
+       (to_jsonb(old) - 'status' - 'updated_at') then
+      raise exception 'Quote version % is sent; only its lifecycle status may change.',
+        old.id;
+    end if;
+    return new;
+  end if;
+
+  raise exception 'Quote version % is % and is immutable.',
+    old.id, old.status;
 end;
 $$ language plpgsql;
 
