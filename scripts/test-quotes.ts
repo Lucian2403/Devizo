@@ -34,6 +34,7 @@ import type {
   QuoteWithVersion,
 } from "../domain/quotes/quote.repository";
 import type {
+  CustomerId,
   OrganizationId,
   ProjectId,
   QuoteId,
@@ -62,10 +63,20 @@ const nextId = () => `id-${++idCounter}`;
 
 interface StoredVersion extends Omit<QuoteVersion, "items"> {}
 
+interface FakeLiveSource {
+  projectName: string;
+  projectAddress: string | null;
+  customerId: CustomerId | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+}
+
 class FakeQuoteRepository implements QuoteRepository {
   quotes: Quote[] = [];
   versions: StoredVersion[] = [];
   items = new Map<QuoteVersionId, QuoteItem[]>();
+  liveSources = new Map<ProjectId, FakeLiveSource>();
   audit: {
     organizationId: string;
     quoteId: string;
@@ -76,6 +87,10 @@ class FakeQuoteRepository implements QuoteRepository {
 
   private assembleVersion(v: StoredVersion): QuoteVersion {
     return { ...v, items: this.items.get(v.id) ?? [] };
+  }
+
+  setLiveSource(projectId: ProjectId, source: FakeLiveSource) {
+    this.liveSources.set(projectId, source);
   }
 
   async createQuoteWithFirstVersion(
@@ -103,6 +118,9 @@ class FakeQuoteRepository implements QuoteRepository {
       customerPhone: data.snapshot.customerPhone ?? null,
       projectName: data.snapshot.projectName ?? null,
       projectAddress: data.snapshot.projectAddress ?? null,
+      snapshotCapturedAt: null,
+      sourceProjectId: null,
+      sourceCustomerId: null,
       documentNumber: null,
       documentYear: null,
       documentSequence: null,
@@ -221,6 +239,10 @@ class FakeQuoteRepository implements QuoteRepository {
 
     const now = new Date();
     const documentYear = now.getUTCFullYear();
+    const quote = this.quotes.find((q) => q.id === version.quoteId);
+    const liveSource = quote?.projectId
+      ? this.liveSources.get(quote.projectId)
+      : undefined;
     const latestSequence = this.versions
       .filter(
         (v) =>
@@ -235,6 +257,16 @@ class FakeQuoteRepository implements QuoteRepository {
     version.documentYear = documentYear;
     version.documentSequence = documentSequence;
     version.documentNumber = `DEV-${documentYear}-${String(documentSequence).padStart(6, "0")}`;
+    version.snapshotCapturedAt = now;
+    version.sourceProjectId = quote?.projectId ?? null;
+    version.sourceCustomerId = liveSource?.customerId ?? null;
+    if (liveSource) {
+      version.projectName = liveSource.projectName;
+      version.projectAddress = liveSource.projectAddress;
+      version.customerName = liveSource.customerName;
+      version.customerEmail = liveSource.customerEmail;
+      version.customerPhone = liveSource.customerPhone;
+    }
     version.companyName = snapshot.companyName;
     version.companyLegalName = snapshot.companyLegalName;
     version.companyTaxVatId = snapshot.companyTaxVatId;
@@ -281,6 +313,9 @@ class FakeQuoteRepository implements QuoteRepository {
       documentNumber: null,
       documentYear: null,
       documentSequence: null,
+      snapshotCapturedAt: null,
+      sourceProjectId: null,
+      sourceCustomerId: null,
       companyName: null,
       companyLegalName: null,
       companyTaxVatId: null,
@@ -380,7 +415,7 @@ async function seedDraftWithItems(
 // --- Tests -----------------------------------------------------------------
 
 async function run() {
-  console.log("M6.1 / M7.3 quote lifecycle:");
+  console.log("M6.1 / M7.3 / M7.4 quote lifecycle:");
 
   await atest("A: a draft version can be edited (saveDraft succeeds)", async () => {
     const repo = new FakeQuoteRepository();
@@ -393,6 +428,7 @@ async function run() {
       priced([{ unitPrice: "18.00", quantity: "10" }]).total,
     );
     assert.equal(found.version.documentNumber, null);
+    assert.equal(found.version.snapshotCapturedAt, null);
     assert.equal(buildQuoteDocumentNumber(found.version), "—");
   });
 
@@ -406,8 +442,77 @@ async function run() {
     assert.match(found.version.documentNumber ?? "", /^DEV-\d{4}-\d{6}$/);
     assert.equal(found.version.documentYear, found.version.sentAt!.getUTCFullYear());
     assert.equal(found.version.documentSequence, 1);
+    assert.ok(found.version.snapshotCapturedAt instanceof Date);
+    assert.equal(
+      found.version.snapshotCapturedAt?.getTime(),
+      found.version.sentAt?.getTime(),
+    );
     assert.equal(buildQuoteDocumentNumber(found.version), found.version.documentNumber);
   });
+
+  await atest(
+    "B1.1: finalization refreshes live project/customer data and records provenance",
+    async () => {
+      const repo = new FakeQuoteRepository();
+      const service = new QuoteService(repo);
+      const projectId = "project-live" as ProjectId;
+      const customerId = "customer-live" as CustomerId;
+
+      const created = await service.createQuote(ORG, {
+        projectId,
+        currency: "MDL",
+        vatRate: "20",
+        snapshot: {
+          projectName: "Nume vechi",
+          projectAddress: "Adresa veche",
+          customerName: "Client vechi",
+          customerEmail: "vechi@example.com",
+          customerPhone: "000",
+        },
+      });
+      await service.saveDraft(ORG, created.version.id, {
+        discountPct: "0",
+        items: [
+          { name: "Lucrare", unit: "m2", unitPrice: "10", quantity: "1" },
+        ],
+      });
+
+      repo.setLiveSource(projectId, {
+        projectName: "Nume actual",
+        projectAddress: "Adresa actuală",
+        customerId,
+        customerName: "Client actual",
+        customerEmail: "actual@example.com",
+        customerPhone: "+37360000000",
+      });
+
+      await service.sendQuoteVersion(ORG, created.version.id, USER, SNAP);
+      const finalized = (await service.getVersion(ORG, created.version.id)).version;
+      assert.equal(finalized.projectName, "Nume actual");
+      assert.equal(finalized.projectAddress, "Adresa actuală");
+      assert.equal(finalized.customerName, "Client actual");
+      assert.equal(finalized.customerEmail, "actual@example.com");
+      assert.equal(finalized.sourceProjectId, projectId);
+      assert.equal(finalized.sourceCustomerId, customerId);
+      assert.ok(finalized.snapshotCapturedAt instanceof Date);
+      assert.equal(
+        finalized.snapshotCapturedAt?.getTime(),
+        finalized.sentAt?.getTime(),
+      );
+
+      repo.setLiveSource(projectId, {
+        projectName: "Schimbat după trimitere",
+        projectAddress: "Altă adresă",
+        customerId,
+        customerName: "Alt client",
+        customerEmail: null,
+        customerPhone: null,
+      });
+      const stillFrozen = (await service.getVersion(ORG, created.version.id)).version;
+      assert.equal(stillFrozen.projectName, "Nume actual");
+      assert.equal(stillFrozen.customerName, "Client actual");
+    },
+  );
 
   await atest("B2: sending a version with zero items is blocked", async () => {
     const repo = new FakeQuoteRepository();
@@ -509,6 +614,18 @@ async function run() {
     assert.ok(repositorySource.includes("pg_advisory_xact_lock"));
   });
 
+  await atest("D4: M7.4 migration defines final snapshot provenance", () => {
+    const migrationSql = readFileSync(
+      join(process.cwd(), "infrastructure/db/migrations/0012_snapshot_provenance.sql"),
+      "utf8",
+    );
+    assert.ok(migrationSql.includes("snapshot_captured_at"));
+    assert.ok(migrationSql.includes("source_project_id"));
+    assert.ok(migrationSql.includes("source_customer_id"));
+    assert.ok(migrationSql.includes("quote_versions_snapshot_provenance_check"));
+    assert.ok(migrationSql.includes("DROP TRIGGER IF EXISTS quote_versions_immutability"));
+  });
+
   await atest("E: create new version clones sent v1 into a v2 draft", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -523,6 +640,9 @@ async function run() {
     assert.equal(v2.version.documentNumber, null);
     assert.equal(v2.version.documentYear, null);
     assert.equal(v2.version.documentSequence, null);
+    assert.equal(v2.version.snapshotCapturedAt, null);
+    assert.equal(v2.version.sourceProjectId, null);
+    assert.equal(v2.version.sourceCustomerId, null);
     assert.equal(v2.version.sentAt, null);
     assert.equal(v2.version.companyName, null);
   });
@@ -600,7 +720,9 @@ async function run() {
     assert.ok(v.documentNumber);
     assert.ok(v.documentYear);
     assert.ok(v.documentSequence);
+    assert.ok(v.snapshotCapturedAt instanceof Date);
     assert.ok(v.sentAt instanceof Date);
+    assert.equal(v.snapshotCapturedAt?.getTime(), v.sentAt?.getTime());
     assert.ok(v.validUntil instanceof Date);
     const days = Math.round(
       (v.validUntil!.getTime() - v.sentAt!.getTime()) / (24 * 3600 * 1000),

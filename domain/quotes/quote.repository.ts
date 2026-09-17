@@ -1,4 +1,5 @@
 import type {
+  CustomerId,
   OrganizationId,
   ProjectId,
   QuoteId,
@@ -47,6 +48,11 @@ export interface QuoteVersion {
   customerPhone: string | null;
   projectName: string | null;
   projectAddress: string | null;
+  // Provenance of the snapshot frozen at finalization. These ids are historical
+  // references only, not live relations that can rewrite the document later.
+  snapshotCapturedAt: Date | null;
+  sourceProjectId: ProjectId | null;
+  sourceCustomerId: CustomerId | null;
   // Official identity is NULL while the version is a draft and is frozen when
   // it is first sent. It never changes during accepted/rejected transitions.
   documentNumber: string | null;
@@ -88,8 +94,8 @@ export interface QuoteWithVersion {
   version: QuoteVersion;
 }
 
-// Snapshot fields captured when a quote is created, so later edits to the
-// Customer/Project records never change an existing version.
+// Working customer/project copy used while a version is a draft. At finalization
+// the repository refreshes these fields from the current live source, then freezes them.
 export interface QuoteSnapshot {
   customerName?: string | null;
   customerEmail?: string | null;
@@ -222,8 +228,8 @@ export interface QuoteRepository {
   ): Promise<QuoteSummary[]>;
 
   // Freezes a draft version as 'sent' and records a quote_sent audit event in
-  // the SAME transaction. Also assigns its official document identity and
-  // freezes the company/document snapshot, sent_at and valid_until.
+  // the SAME transaction. It refreshes current project/customer data, records
+  // snapshot provenance, assigns document identity, and freezes company metadata.
   markVersionSent(
     organizationId: OrganizationId,
     versionId: QuoteVersionId,

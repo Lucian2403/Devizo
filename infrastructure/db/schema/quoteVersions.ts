@@ -18,8 +18,8 @@ import { quotes } from "./quotes";
  * time. Money fields are NUMERIC, never floats, and are computed server-side.
  *
  * Document-facing customer/project details are SNAPSHOTTED here so editing the
- * Customer or Project records later never changes an existing version. The live
- * relations (via the parent quote) are only for navigation.
+ * Customer or Project records later never changes an existing finalized version.
+ * The live relations (via the parent quote) are only for navigation.
  */
 export const quoteVersions = pgTable(
   "quote_versions",
@@ -33,12 +33,18 @@ export const quoteVersions = pgTable(
     status: text("status").notNull().default("draft"),
     currency: text("currency").notNull(),
 
-    // Snapshotted document details (see note above).
+    // Working copy while draft; refreshed from live source at finalization.
     customerName: text("customer_name"),
     customerEmail: text("customer_email"),
     customerPhone: text("customer_phone"),
     projectName: text("project_name"),
     projectAddress: text("project_address"),
+
+    // Final snapshot provenance. Source ids are deliberately plain UUID values:
+    // deleting/changing a live source must never mutate historical documents.
+    snapshotCapturedAt: timestamp("snapshot_captured_at", { withTimezone: true }),
+    sourceProjectId: uuid("source_project_id"),
+    sourceCustomerId: uuid("source_customer_id"),
 
     // Official commercial document identity. Drafts have no number; all three
     // fields are assigned once, atomically, when the version is first sent.
@@ -125,6 +131,18 @@ export const quoteVersions = pgTable(
     statusCheck: check(
       "quote_versions_status_check",
       sql`${table.status} in ('draft', 'sent', 'accepted', 'rejected')`,
+    ),
+    snapshotProvenanceCheck: check(
+      "quote_versions_snapshot_provenance_check",
+      sql`(
+        (${table.status} = 'draft'
+          and ${table.snapshotCapturedAt} is null
+          and ${table.sourceProjectId} is null
+          and ${table.sourceCustomerId} is null)
+        or
+        (${table.status} <> 'draft'
+          and ${table.snapshotCapturedAt} is not null)
+      )`,
     ),
     documentIdentityCheck: check(
       "quote_versions_document_identity_check",
