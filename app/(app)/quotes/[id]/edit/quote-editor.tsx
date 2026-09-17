@@ -35,6 +35,7 @@ interface EditorLine {
 
 interface QuoteEditorProps {
   quoteId: string;
+  projectId: string | null;
   versionId: string;
   currency: string;
   vatRate: string;
@@ -74,6 +75,7 @@ function num(value: string): number {
 
 export function QuoteEditor({
   quoteId,
+  projectId,
   versionId,
   currency,
   vatRate,
@@ -225,13 +227,24 @@ export function QuoteEditor({
   return (
     <div className="flex flex-col xl:flex-row">
       {/* Main content column */}
-      <div className="min-w-0 flex-1 px-6 py-5 xl:max-w-[950px]">
+      <div className="min-w-0 flex-1 px-6 py-4 xl:max-w-[950px]">
         {/* Breadcrumb + project header */}
-        <nav className="mb-1 text-[12.5px] text-muted-foreground">
+        <nav className="mb-1 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+          {projectId && (
+            <>
+              <Link
+                href={`/projects/${projectId}`}
+                className="font-medium text-secondary-foreground hover:text-heading"
+              >
+                ← Înapoi la proiect
+              </Link>
+              <span aria-hidden>·</span>
+            </>
+          )}
           <Link href="/projects" className="hover:text-heading">
             Proiecte
           </Link>
-          <span className="mx-1.5">›</span>
+          <span>›</span>
           <span className="text-secondary-foreground">
             {snapshot.projectName ?? "Proiect"}
           </span>
@@ -262,7 +275,7 @@ export function QuoteEditor({
         </div>
 
         {/* Section tabs */}
-        <div className="mt-4 flex gap-1 border-b border-border">
+        <div className="mt-3 flex gap-1 border-b border-border">
           {[
             { label: "Ofertă", active: true, disabled: false },
             { label: "Documente", active: false, disabled: true },
@@ -448,7 +461,7 @@ export function QuoteEditor({
       </div>
 
       {/* Sticky right column */}
-      <aside className="w-full border-t border-border bg-muted-section px-6 py-5 xl:w-[360px] xl:border-l xl:border-t-0">
+      <aside className="w-full border-t border-border bg-muted-section px-6 py-4 xl:w-[360px] xl:border-l xl:border-t-0">
         <div className="xl:sticky xl:top-20 space-y-4">
           {/* Offer summary */}
           <form
