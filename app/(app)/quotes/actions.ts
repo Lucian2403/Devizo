@@ -209,7 +209,7 @@ export async function decideQuoteVersion(
     }
     if (error instanceof QuoteDecisionNotAllowedError) {
       return {
-        error: "Doar un deviz trimis poate fi marcat ca acceptat sau respins.",
+        error: "Doar o ofertă trimisă poate fi marcată ca acceptată sau respinsă.",
       };
     }
     throw error;

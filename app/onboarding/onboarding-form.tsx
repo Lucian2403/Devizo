@@ -26,7 +26,7 @@ export function OnboardingForm() {
       <CardHeader>
         <CardTitle>Creează-ți compania</CardTitle>
         <CardDescription>
-          Configurează organizația pentru a începe să creezi devize.
+          Configurează organizația pentru a începe să creezi oferte comerciale.
         </CardDescription>
       </CardHeader>
       <form action={action}>

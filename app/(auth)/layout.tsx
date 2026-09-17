@@ -14,7 +14,7 @@ export default function AuthLayout({
       />
       <Logo className="scale-110" />
       <p className="max-w-sm text-center text-sm text-muted-foreground">
-        Devize pentru echipe de renovări, gata în câteva minute.
+        Oferte comerciale pentru echipe de renovări, gata în câteva minute.
       </p>
       <div className="w-full max-w-sm">{children}</div>
     </div>

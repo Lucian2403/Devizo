@@ -30,7 +30,7 @@ export function HomeAiCard({ projects }: { projects: ProjectOption[] }) {
     <div className="rounded-2xl border bg-card p-6 shadow-sm">
       <div className="flex items-center gap-2">
         <span className="text-xl">✨</span>
-        <h2 className="text-lg font-semibold">Deviz nou cu AI</h2>
+        <h2 className="text-lg font-semibold">Ofertă nouă cu AI</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Descrie lucrarea în orice limbă. Asistentul extrage articolele și le
@@ -40,7 +40,7 @@ export function HomeAiCard({ projects }: { projects: ProjectOption[] }) {
 
       {!hasProjects ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Creează mai întâi un proiect pentru a începe un deviz.
+          Creează mai întâi un proiect pentru a începe o ofertă.
         </p>
       ) : (
         <form action={createQuoteForProject} onSubmit={handleSubmit} className="mt-4 space-y-3">
@@ -70,7 +70,7 @@ export function HomeAiCard({ projects }: { projects: ProjectOption[] }) {
               disabled={!canSubmit}
               className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              Continuă spre deviz
+              Continuă spre ofertă
             </button>
           </div>
         </form>

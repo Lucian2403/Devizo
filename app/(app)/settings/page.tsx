@@ -9,7 +9,7 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Setări companie</h1>
         <p className="text-muted-foreground">
-          Aceste detalii apar pe devizele și documentele tale.
+          Aceste detalii apar pe ofertele și documentele tale.
         </p>
       </div>
       <SettingsForm org={org} />

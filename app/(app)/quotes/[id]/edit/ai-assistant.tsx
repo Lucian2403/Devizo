@@ -242,7 +242,7 @@ export function AiAssistant({
               Descrie lucrările
             </h3>
             <p className="text-[12.5px] text-muted-foreground">
-              Scrie sau dictează, iar AI pregătește devizul.
+              Scrie sau dictează, iar AI pregătește oferta.
             </p>
           </div>
           <Button type="button" onClick={() => setOpen(true)}>
@@ -414,7 +414,7 @@ export function AiAssistant({
 
           {result.items.length > 0 && (
             <Button type="button" onClick={confirm}>
-              Adaugă în deviz
+              Adaugă în ofertă
             </Button>
           )}
         </div>

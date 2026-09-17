@@ -116,7 +116,7 @@ export async function recalculateFromMissingInformation(input: {
       return { ok: false, error: error.message };
     }
     console.error("Missing-info recalculation failed:", error);
-    return { ok: false, error: "Nu s-a putut recalcula devizul." };
+    return { ok: false, error: "Nu s-a putut recalcula oferta." };
   }
 }
 

@@ -53,7 +53,7 @@ export const UNIT_SYMBOLS: Record<string, string> = {
 
 export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
   ro: {
-    documentTitle: "Deviz",
+    documentTitle: "Ofertă comercială",
     documentNumber: "Număr document",
     versionLabel: "Versiunea",
     issueDate: "Data emiterii",
@@ -92,7 +92,7 @@ export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
     page: "Pagina {n} / {total}",
   },
   ru: {
-    documentTitle: "Смета",
+    documentTitle: "Коммерческое предложение",
     documentNumber: "Номер документа",
     versionLabel: "Версия",
     issueDate: "Дата выпуска",
@@ -131,7 +131,7 @@ export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
     page: "Страница {n} / {total}",
   },
   en: {
-    documentTitle: "Estimate",
+    documentTitle: "Quote",
     documentNumber: "Document number",
     versionLabel: "Version",
     issueDate: "Issue date",
@@ -170,7 +170,7 @@ export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
     page: "Page {n} / {total}",
   },
   it: {
-    documentTitle: "Preventivo",
+    documentTitle: "Offerta commerciale",
     documentNumber: "Numero documento",
     versionLabel: "Versione",
     issueDate: "Data di emissione",
@@ -248,7 +248,7 @@ export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
     page: "Page {n} / {total}",
   },
   de: {
-    documentTitle: "Kostenvoranschlag",
+    documentTitle: "Angebot",
     documentNumber: "Dokumentnummer",
     versionLabel: "Version",
     issueDate: "Ausstellungsdatum",
@@ -287,7 +287,7 @@ export const PDF_STRINGS: Record<SupportedLanguage, QuotePdfStrings> = {
     page: "Seite {n} / {total}",
   },
   es: {
-    documentTitle: "Presupuesto",
+    documentTitle: "Oferta comercial",
     documentNumber: "Número de documento",
     versionLabel: "Versión",
     issueDate: "Fecha de emisión",

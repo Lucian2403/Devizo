@@ -94,7 +94,7 @@ export function Sidebar() {
       <div className="mt-auto space-y-3 p-4">
         <div className="rounded-lg border border-border bg-muted-section p-3 opacity-80">
           <p className="text-[13px] font-semibold text-heading">Plan Pro</p>
-          <p className="mb-2 text-[12px] text-muted-foreground">124 / 200 devize</p>
+          <p className="mb-2 text-[12px] text-muted-foreground">124 / 200 oferte</p>
           <div className="mb-2.5 h-1.5 overflow-hidden rounded-full bg-border">
             <div className="h-full w-[62%] rounded-full bg-primary" />
           </div>

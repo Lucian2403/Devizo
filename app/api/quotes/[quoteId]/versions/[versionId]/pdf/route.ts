@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 // Build a deterministic, customer-friendly, filesystem-safe filename.
 function buildFilename(title: string, projectName: string | null, version: number) {
-  const base = projectName?.trim() ? projectName.trim() : "deviz";
+  const base = projectName?.trim() ? projectName.trim() : "oferta";
   const safe = base
     .normalize("NFKD")
     // Keep letters/numbers/space/dash; replace everything else with a dash.
@@ -18,7 +18,7 @@ function buildFilename(title: string, projectName: string | null, version: numbe
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60);
-  return `${title}-${safe || "deviz"}-v${version}.pdf`;
+  return `${title}-${safe || "oferta"}-v${version}.pdf`;
 }
 
 /**

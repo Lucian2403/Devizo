@@ -73,7 +73,7 @@ export default async function ProjectsPage() {
         </div>
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            Valoare devize
+            Valoare oferte
           </div>
           {portfolioTotals.length === 0 ? (
             <div className="mt-2 text-2xl font-semibold tabular-nums">
@@ -136,7 +136,7 @@ export default async function ProjectsPage() {
                       {quotes ? (
                         <div className="min-w-[150px] rounded-xl border bg-card px-3 py-2 text-right">
                           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            {quotes.quoteCount} {quotes.quoteCount === 1 ? "deviz" : "devize"}
+                            {quotes.quoteCount} {quotes.quoteCount === 1 ? "ofertă" : "oferte"}
                           </div>
                           <div className="mt-1 space-y-0.5">
                             {quotes.totals.map((currencyTotal) => (
@@ -151,7 +151,7 @@ export default async function ProjectsPage() {
                         </div>
                       ) : (
                         <div className="rounded-xl border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                          Fără devize
+                          Fără oferte
                         </div>
                       )}
 
