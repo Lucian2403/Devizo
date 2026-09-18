@@ -22,7 +22,7 @@ export default function SignUpPage() {
     <Card>
       <CardHeader>
         <CardTitle>Creează cont</CardTitle>
-        <CardDescription>Începe să creezi devize mai rapid.</CardDescription>
+        <CardDescription>Începe să creezi oferte mai rapid.</CardDescription>
       </CardHeader>
       <form action={action}>
         <CardContent className="space-y-4">

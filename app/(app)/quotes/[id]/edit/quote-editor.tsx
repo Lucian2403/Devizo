@@ -35,6 +35,7 @@ interface EditorLine {
 
 interface QuoteEditorProps {
   quoteId: string;
+  projectId: string | null;
   versionId: string;
   currency: string;
   vatRate: string;
@@ -74,6 +75,7 @@ function num(value: string): number {
 
 export function QuoteEditor({
   quoteId,
+  projectId,
   versionId,
   currency,
   vatRate,
@@ -225,13 +227,24 @@ export function QuoteEditor({
   return (
     <div className="flex flex-col xl:flex-row">
       {/* Main content column */}
-      <div className="min-w-0 flex-1 px-6 py-5 xl:max-w-[950px]">
+      <div className="min-w-0 flex-1 px-6 py-4 xl:max-w-[950px]">
         {/* Breadcrumb + project header */}
-        <nav className="mb-1 text-[12.5px] text-muted-foreground">
+        <nav className="mb-1 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+          {projectId && (
+            <>
+              <Link
+                href={`/projects/${projectId}`}
+                className="font-medium text-secondary-foreground hover:text-heading"
+              >
+                ← Înapoi la proiect
+              </Link>
+              <span aria-hidden>·</span>
+            </>
+          )}
           <Link href="/projects" className="hover:text-heading">
             Proiecte
           </Link>
-          <span className="mx-1.5">›</span>
+          <span>›</span>
           <span className="text-secondary-foreground">
             {snapshot.projectName ?? "Proiect"}
           </span>
@@ -240,7 +253,7 @@ export function QuoteEditor({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-[26px] font-semibold leading-tight text-heading">
-              {snapshot.projectName ?? "Deviz nou"}
+              {snapshot.projectName ?? "Ofertă nouă"}
             </h1>
             <p className="mt-1 text-[13px] text-muted-foreground">
               {[snapshot.customerName, snapshot.projectAddress]
@@ -262,9 +275,9 @@ export function QuoteEditor({
         </div>
 
         {/* Section tabs */}
-        <div className="mt-4 flex gap-1 border-b border-border">
+        <div className="mt-3 flex gap-1 border-b border-border">
           {[
-            { label: "Deviz", active: true, disabled: false },
+            { label: "Ofertă", active: true, disabled: false },
             { label: "Documente", active: false, disabled: true },
             { label: "Notițe", active: false, disabled: true },
             { label: "Activitate", active: false, disabled: true },
@@ -299,7 +312,7 @@ export function QuoteEditor({
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="text-[15px] font-semibold text-heading">
-                  Lucrări în deviz
+                  Lucrări în ofertă
                 </h2>
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-[12px] font-medium text-secondary-foreground">
                   {lineCount} {lineCount === 1 ? "lucrare" : "lucrări"}
@@ -448,9 +461,9 @@ export function QuoteEditor({
       </div>
 
       {/* Sticky right column */}
-      <aside className="w-full border-t border-border bg-muted-section px-6 py-5 xl:w-[360px] xl:border-l xl:border-t-0">
+      <aside className="w-full border-t border-border bg-muted-section px-6 py-4 xl:w-[360px] xl:border-l xl:border-t-0">
         <div className="xl:sticky xl:top-20 space-y-4">
-          {/* Deviz summary */}
+          {/* Offer summary */}
           <form
             action={formAction}
             className="rounded-lg border border-border bg-card p-4 shadow-card"
@@ -461,7 +474,7 @@ export function QuoteEditor({
             <input type="hidden" name="notes" value={notes} />
 
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold text-heading">Deviz</h2>
+              <h2 className="text-[15px] font-semibold text-heading">Ofertă</h2>
               <StatusPill tone="neutral">Schiță</StatusPill>
             </div>
 
@@ -535,7 +548,7 @@ export function QuoteEditor({
             <div className="space-y-3">
               <div>
                 <Label htmlFor="discountPct" className="text-[12px]">
-                  Reducere deviz %
+                  Reducere ofertă %
                 </Label>
                 <Input
                   id="discountPct"
@@ -685,7 +698,7 @@ function CatalogPicker({
                     </span>
                     <span className="text-right text-[12px] text-amber-700">
                       Monedă diferită ({item.currency}) — nu poate fi adăugat în
-                      acest deviz ({currency})
+                      această ofertă ({currency})
                     </span>
                   </div>
                 </li>

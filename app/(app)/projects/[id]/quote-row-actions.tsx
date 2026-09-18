@@ -22,7 +22,7 @@ export function QuoteRowActions({
     <form
       action={removeAction}
       onSubmit={(event) => {
-        if (!window.confirm("Ștergi acest deviz? Acțiunea nu poate fi anulată.")) {
+        if (!window.confirm("Ștergi această ofertă? Acțiunea nu poate fi anulată.")) {
           event.preventDefault();
         }
       }}

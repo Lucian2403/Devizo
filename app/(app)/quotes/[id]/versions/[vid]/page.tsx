@@ -49,7 +49,7 @@ export default async function QuoteVersionPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
-            Deviz · versiunea {v.versionNumber}
+            Ofertă · versiunea {v.versionNumber}
           </h1>
           <div className="mt-1">
             <QuoteStatusBadge status={v.status} />

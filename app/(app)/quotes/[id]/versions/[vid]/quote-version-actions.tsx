@@ -68,15 +68,15 @@ export function QuoteVersionActions({
               onSubmit={(event) => {
                 if (
                   !window.confirm(
-                    "Această versiune va fi blocată și nu va mai putea fi editată. După finalizare vei putea genera PDF-ul și trimite devizul clientului.",
+                    "Această versiune va fi finalizată și blocată; nu va mai putea fi editată. Vei putea genera PDF-ul și trimite oferta clientului.",
                   )
                 ) {
                   event.preventDefault();
                 }
               }}
             >
-              <SubmitButton pendingLabel="Se confirmă…">
-                Confirmă Devizul
+              <SubmitButton pendingLabel="Se finalizează…">
+                Finalizează oferta
               </SubmitButton>
             </form>
           </>
@@ -87,7 +87,7 @@ export function QuoteVersionActions({
             <form
               action={acceptAction}
               onSubmit={(event) => {
-                if (!window.confirm("Marchezi acest deviz ca acceptat?")) {
+                if (!window.confirm("Marchezi această ofertă ca acceptată?")) {
                   event.preventDefault();
                 }
               }}
@@ -97,7 +97,7 @@ export function QuoteVersionActions({
             <form
               action={rejectAction}
               onSubmit={(event) => {
-                if (!window.confirm("Marchezi acest deviz ca respins?")) {
+                if (!window.confirm("Marchezi această ofertă ca respinsă?")) {
                   event.preventDefault();
                 }
               }}

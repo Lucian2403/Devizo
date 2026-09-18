@@ -56,7 +56,7 @@ export default async function EditProjectPage({
         <form action={createQuoteForProject}>
           <input type="hidden" name="projectId" value={id} />
           <Button type="submit" size="sm">
-            Deviz nou
+            Ofertă nouă
           </Button>
         </form>
       </div>
@@ -64,7 +64,7 @@ export default async function EditProjectPage({
       <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Devize</h2>
+            <h2 className="text-lg font-semibold">Oferte</h2>
             <Button asChild size="sm" variant={currentView === "all" ? "default" : "outline"}>
               <Link href={`/projects/${id}`}>Toate</Link>
             </Button>
@@ -73,19 +73,19 @@ export default async function EditProjectPage({
               size="sm"
               variant={currentView === "confirmed" ? "default" : "outline"}
             >
-              <Link href={`/projects/${id}?view=confirmed`}>Confirmate</Link>
+              <Link href={`/projects/${id}?view=confirmed`}>Finalizate</Link>
             </Button>
           </div>
           <span className="text-sm text-muted-foreground">
-            {quotes.length} {quotes.length === 1 ? "deviz" : "devize"}
+            {quotes.length} {quotes.length === 1 ? "ofertă" : "oferte"}
           </span>
         </div>
 
         {quotes.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
             {currentView === "confirmed"
-              ? "Nu există devize confirmate sau acceptate pentru acest proiect."
-              : "Niciun deviz încă."}
+              ? "Nu există oferte finalizate sau acceptate pentru acest proiect."
+              : "Nicio ofertă încă."}
           </div>
         ) : (
           <ul className="space-y-3">
