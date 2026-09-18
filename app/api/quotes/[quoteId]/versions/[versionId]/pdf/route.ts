@@ -4,6 +4,7 @@ import { QuoteVersionNotFoundError } from "@/domain/quotes/quote.service";
 import { renderQuotePdf } from "@/lib/pdf/render-quote-pdf";
 import { PDF_STRINGS, PDF_LOCALES } from "@/lib/pdf/quote-strings";
 import type { SupportedLanguage } from "@/domain/shared/types";
+import { buildPdfContentDisposition } from "@/lib/pdf/content-disposition";
 
 export const runtime = "nodejs";
 
@@ -67,7 +68,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": buildPdfContentDisposition(filename),
       "Cache-Control": "private, no-store",
     },
   });

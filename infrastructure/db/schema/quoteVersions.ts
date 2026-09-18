@@ -52,6 +52,9 @@ export const quoteVersions = pgTable(
     documentYear: integer("document_year"),
     documentSequence: integer("document_sequence"),
 
+    // Exact customer-facing PDF layout selected at finalization.
+    pdfTemplateVersion: text("pdf_template_version"),
+
     // Company/document metadata frozen when the version is finalized (sent), so
     // the customer-facing PDF never changes if org settings are edited later.
     // These are NULL for drafts and are captured at send time.
@@ -157,6 +160,15 @@ export const quoteVersions = pgTable(
           and ${table.documentYear} is not null
           and ${table.documentSequence} is not null
           and ${table.documentSequence} > 0)
+      )`,
+    ),
+    pdfTemplateVersionCheck: check(
+      "quote_versions_pdf_template_version_check",
+      sql`(
+        (${table.status} = 'draft' and ${table.pdfTemplateVersion} is null)
+        or
+        (${table.status} <> 'draft'
+          and ${table.pdfTemplateVersion} = 'commercial-offer-v1')
       )`,
     ),
   }),

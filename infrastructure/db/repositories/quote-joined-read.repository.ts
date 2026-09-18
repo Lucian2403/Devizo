@@ -17,6 +17,7 @@ import type {
   QuoteVersion,
   QuoteWithVersion,
 } from "@/domain/quotes/quote.repository";
+import type { CommercialOfferPdfTemplateVersion } from "@/domain/quotes/pdf-template-version";
 import { DrizzleQuoteRepository } from "./quote.repository";
 
 function quoteToDomain(row: typeof quotes.$inferSelect): Quote {
@@ -66,6 +67,8 @@ function versionToDomain(
     documentNumber: row.documentNumber,
     documentYear: row.documentYear,
     documentSequence: row.documentSequence,
+    pdfTemplateVersion:
+      row.pdfTemplateVersion as CommercialOfferPdfTemplateVersion | null,
     companyName: row.companyName,
     companyLegalName: row.companyLegalName,
     companyTaxVatId: row.companyTaxVatId,
