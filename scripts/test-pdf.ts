@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { renderQuotePdf } from "../lib/pdf/quote-document";
 import type { QuoteVersion } from "../domain/quotes/quote.repository";
 import type { QuoteItem } from "../domain/quotes/quote.repository";
+import { COMMERCIAL_OFFER_PDF_TEMPLATE_V1 } from "../domain/quotes/pdf-template-version";
 
 let passed = 0;
 async function atest(name: string, fn: () => Promise<void> | void) {
@@ -68,6 +69,7 @@ function makeVersion(
     documentNumber: "DEV-2026-000042",
     documentYear: 2026,
     documentSequence: 42,
+    pdfTemplateVersion: COMMERCIAL_OFFER_PDF_TEMPLATE_V1,
     companyName: "Acme SRL",
     companyLegalName: "Acme Construcții SRL",
     companyTaxVatId: "VAT-123",
@@ -120,6 +122,24 @@ async function run() {
   await atest("unknown document language falls back safely", async () => {
     const buf = await renderQuotePdf(makeVersion("xx", 3));
     assert.ok(isPdf(buf));
+  });
+
+  await atest("frozen v1 template renders through the version dispatcher", async () => {
+    const version = makeVersion("ro", 2);
+    assert.equal(version.pdfTemplateVersion, COMMERCIAL_OFFER_PDF_TEMPLATE_V1);
+    const buf = await renderQuotePdf(version);
+    assert.ok(isPdf(buf));
+  });
+
+  await atest("unknown frozen template ids fail instead of using a newer layout", async () => {
+    const version = {
+      ...makeVersion("ro", 1),
+      pdfTemplateVersion: "commercial-offer-v999",
+    } as unknown as QuoteVersion;
+    await assert.rejects(
+      () => renderQuotePdf(version),
+      /Unsupported quote PDF template version/,
+    );
   });
 
   await atest("many items produce a larger (multi-page) PDF", async () => {

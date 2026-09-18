@@ -33,6 +33,10 @@ import {
   aggregateProjectQuoteSummaries,
   type LatestQuoteTotal,
 } from "@/domain/quotes/project-summary";
+import {
+  CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION,
+  type CommercialOfferPdfTemplateVersion,
+} from "@/domain/quotes/pdf-template-version";
 
 function quoteToDomain(row: typeof quotes.$inferSelect): Quote {
   return {
@@ -81,6 +85,8 @@ function versionToDomain(
     documentNumber: row.documentNumber,
     documentYear: row.documentYear,
     documentSequence: row.documentSequence,
+    pdfTemplateVersion:
+      row.pdfTemplateVersion as CommercialOfferPdfTemplateVersion | null,
     companyName: row.companyName,
     companyLegalName: row.companyLegalName,
     companyTaxVatId: row.companyTaxVatId,
@@ -404,6 +410,7 @@ export class DrizzleQuoteRepository implements QuoteRepository {
           documentNumber,
           documentYear,
           documentSequence,
+          pdfTemplateVersion: CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION,
           snapshotCapturedAt: now,
           sourceProjectId: sourceRow.sourceProjectId,
           sourceCustomerId: sourceRow.sourceCustomerId,

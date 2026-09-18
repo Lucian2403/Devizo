@@ -21,7 +21,7 @@
     "reclassify:catalog": "tsx scripts/reclassify-catalog.ts",
     "test:ai": "tsx scripts/test-ai.ts && tsx scripts/test-ai-sanitary-regression.ts",
     "test:quotes": "tsx scripts/test-quotes.ts && tsx scripts/test-quote-decisions.ts",
-    "test:pdf": "node scripts/run-pdf-test.mjs",
+    "test:pdf": "node scripts/run-pdf-test.mjs && tsx scripts/test-pdf-content-disposition.ts",
     "test:terminology": "tsx scripts/test-commercial-terminology.ts",
     "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts"
   },
