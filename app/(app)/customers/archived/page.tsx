@@ -3,6 +3,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getCustomerService } from "@/server/container";
 import { restoreCustomer } from "../actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function ArchivedCustomersPage() {
   const { org } = await requireCurrentOrg();
@@ -34,9 +35,13 @@ export default async function ArchivedCustomersPage() {
               </div>
               <form action={restoreCustomer}>
                 <input type="hidden" name="customerId" value={customer.id} />
-                <Button variant="ghost" size="sm" type="submit">
+                <SubmitButton
+                  variant="ghost"
+                  size="sm"
+                  pendingLabel="Se restaurează…"
+                >
                   Restaurează
-                </Button>
+                </SubmitButton>
               </form>
             </li>
           ))}

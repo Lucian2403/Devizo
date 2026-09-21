@@ -124,9 +124,12 @@ export class QuoteService {
     versionId: QuoteVersionId,
     update: DraftUpdate,
   ): Promise<void> {
-    const found = await this.repository.getVersion(organizationId, versionId);
-    if (!found) throw new QuoteVersionNotFoundError();
-    if (found.version.status !== "draft") throw new QuoteNotEditableError();
+    const context = await this.repository.getDraftWriteContext(
+      organizationId,
+      versionId,
+    );
+    if (!context) throw new QuoteVersionNotFoundError();
+    if (context.status !== "draft") throw new QuoteNotEditableError();
 
     const computed = computeTotals({
       lines: update.items.map((item) => ({
@@ -135,7 +138,7 @@ export class QuoteService {
         discountPct: item.discountPct ?? "0",
       })),
       quoteDiscountPct: update.discountPct,
-      vatRate: found.version.vatRate,
+      vatRate: context.vatRate,
     });
 
     await this.repository.saveDraft(

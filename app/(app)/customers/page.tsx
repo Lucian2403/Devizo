@@ -3,6 +3,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getCustomerService } from "@/server/container";
 import { archiveCustomer } from "./actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function CustomersPage() {
   const { org } = await requireCurrentOrg();
@@ -10,9 +11,9 @@ export default async function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Clienți</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href="/customers/archived">Arhivate</Link>
           </Button>
@@ -23,15 +24,15 @@ export default async function CustomersPage() {
       </div>
 
       {customers.length === 0 ? (
-        <p className="text-muted-foreground">
+        <div className="rounded-xl border border-dashed bg-card/60 p-8 text-center text-sm text-muted-foreground">
           Niciun client încă. Creează-l pe primul.
-        </p>
+        </div>
       ) : (
         <ul className="divide-y rounded-lg border">
           {customers.map((customer) => (
             <li
               key={customer.id}
-              className="flex items-center justify-between p-4"
+              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <Link
@@ -46,9 +47,13 @@ export default async function CustomersPage() {
               </div>
               <form action={archiveCustomer}>
                 <input type="hidden" name="customerId" value={customer.id} />
-                <Button variant="ghost" size="sm" type="submit">
+                <SubmitButton
+                  variant="ghost"
+                  size="sm"
+                  pendingLabel="Se arhivează…"
+                >
                   Arhivează
-                </Button>
+                </SubmitButton>
               </form>
             </li>
           ))}
