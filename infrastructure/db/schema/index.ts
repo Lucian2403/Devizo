@@ -10,3 +10,4 @@ export * from "./quotes";
 export * from "./quoteVersions";
 export * from "./quoteItems";
 export * from "./auditEvents";
+export * from "./professionalEstimates";

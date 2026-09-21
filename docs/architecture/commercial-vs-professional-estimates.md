@@ -42,16 +42,17 @@ never authoritative for money.
 
 ---
 
-## B. Professional estimate domain (future — NOT YET BUILT)
+## B. Professional estimate domain (M8 — additive and separate)
 
-This is a **new** bounded context. It does not share models or persistence with
-the commercial domain. **Do not build its database schema in this milestone.**
+This is a **new** bounded context with its own models and persistence. M8.0
+introduces the professional foundation without reusing commercial quote/catalog
+rows or prices.
 
-### Reserved concepts (new domain models, new persistence)
+### Professional concepts
 
 - `ConstructionObject`
 - `WorkQuantityList`
-- `WorkItem`
+- `WorkQuantityItem / WorkPosition`
 - `EstimateNorm`
 - `EstimateNormVersion`
 - `Resource`
@@ -60,7 +61,7 @@ the commercial domain. **Do not build its database schema in this milestone.**
 - `NormApplication`
 - `CalculationContext`
 - `CalculationRule`
-- professional estimate calculation snapshot
+- professional estimate calculation snapshot (added in a later M8 slice)
 
 ### Canonical meaning
 
@@ -93,7 +94,7 @@ These are hard invariants. Treat any code that violates them as a bug:
 - Existing commercial quote data is retained **as-is**.
 - Finalized commercial versions are **never** recalculated using the future
   professional engine.
-- The future professional tables will be **additive**. No existing tables are
+- The professional tables are **additive**. No existing commercial tables are
   renamed, dropped or repurposed.
 - Any future relationship between a commercial `catalog_item` and a
   norm/resource must be an **explicit, optional mapping** — never an implicit
