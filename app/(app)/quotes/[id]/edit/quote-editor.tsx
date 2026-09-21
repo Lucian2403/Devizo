@@ -227,7 +227,7 @@ export function QuoteEditor({
   return (
     <div className="flex flex-col xl:flex-row">
       {/* Main content column */}
-      <div className="min-w-0 flex-1 px-6 py-4 xl:max-w-[950px]">
+      <div className="min-w-0 flex-1 px-4 py-4 sm:px-6 xl:max-w-[950px]">
         {/* Breadcrumb + project header */}
         <nav className="mb-1 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
           {projectId && (
@@ -250,7 +250,7 @@ export function QuoteEditor({
           </span>
         </nav>
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-[26px] font-semibold leading-tight text-heading">
               {snapshot.projectName ?? "Ofertă nouă"}
@@ -261,11 +261,11 @@ export function QuoteEditor({
                 .join(" · ") || "Fără client"}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3 pt-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 pt-1 sm:gap-3">
             <StatusPill tone="neutral">Schiță</StatusPill>
             <StatusPill tone={saveStatus.tone}>{saveStatus.label}</StatusPill>
             <Link
-              href={`/quotes/${quoteId}`}
+              href={`/quotes/${quoteId}/versions/${versionId}`}
               className="text-muted-foreground transition-colors hover:text-heading"
               aria-label="Închide"
             >
@@ -274,31 +274,7 @@ export function QuoteEditor({
           </div>
         </div>
 
-        {/* Section tabs */}
-        <div className="mt-3 flex gap-1 border-b border-border">
-          {[
-            { label: "Ofertă", active: true, disabled: false },
-            { label: "Documente", active: false, disabled: true },
-            { label: "Notițe", active: false, disabled: true },
-            { label: "Activitate", active: false, disabled: true },
-          ].map((tab) => (
-            <span
-              key={tab.label}
-              aria-disabled={tab.disabled}
-              className={
-                tab.active
-                  ? "relative px-3 pb-2.5 text-[13.5px] font-medium text-heading after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary"
-                  : tab.disabled
-                    ? "cursor-not-allowed px-3 pb-2.5 text-[13.5px] font-medium text-muted-foreground opacity-60"
-                    : "cursor-default px-3 pb-2.5 text-[13.5px] font-medium text-muted-foreground"
-              }
-            >
-              {tab.label}
-            </span>
-          ))}
-        </div>
-
-        <div className="space-y-5 pt-5">
+        <div className="space-y-5 pt-4">
           {/* AI describe/analyze card */}
           <AiAssistant
             currency={currency}
@@ -330,8 +306,8 @@ export function QuoteEditor({
             <CatalogPicker onPick={addCatalogLine} currency={currency} />
 
             {/* Dense lines table */}
-            <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card shadow-card">
-              <table className="w-full border-collapse text-[13px]">
+            <div className="mt-3 overflow-x-auto rounded-lg border border-border bg-card shadow-card">
+              <table className="min-w-[820px] w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="border-b border-border bg-muted-section text-left text-[12px] font-medium text-muted-foreground">
                     <th className="px-3 py-2 font-medium">#</th>
@@ -461,7 +437,7 @@ export function QuoteEditor({
       </div>
 
       {/* Sticky right column */}
-      <aside className="w-full border-t border-border bg-muted-section px-6 py-4 xl:w-[360px] xl:border-l xl:border-t-0">
+      <aside className="w-full border-t border-border bg-muted-section px-4 py-4 sm:px-6 xl:w-[360px] xl:border-l xl:border-t-0">
         <div className="xl:sticky xl:top-20 space-y-4">
           {/* Offer summary */}
           <form
@@ -519,24 +495,6 @@ export function QuoteEditor({
               <SubmitButton className="w-full" pendingLabel="Se salvează…">
                 {hasUnsavedChanges ? "Salvează modificările" : "Salvează schița"}
               </SubmitButton>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled
-                aria-disabled="true"
-              >
-                Descarcă PDF
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled
-                aria-disabled="true"
-              >
-                Trimite clientului
-              </Button>
             </div>
           </form>
 

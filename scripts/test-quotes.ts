@@ -171,6 +171,22 @@ class FakeQuoteRepository implements QuoteRepository {
     return { quote, version: this.assembleVersion(version) };
   }
 
+  async getDraftWriteContext(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+  ): Promise<{ quoteId: QuoteId; status: QuoteStatus; vatRate: string } | null> {
+    const version = this.versions.find(
+      (v) => v.organizationId === organizationId && v.id === versionId,
+    );
+    return version
+      ? {
+          quoteId: version.quoteId,
+          status: version.status,
+          vatRate: version.vatRate,
+        }
+      : null;
+  }
+
   async getLatestVersionId(
     organizationId: OrganizationId,
     quoteId: QuoteId,

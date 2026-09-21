@@ -20,6 +20,40 @@ import type {
 
 const UNIQUE_VIOLATION = "23505";
 
+// Normal catalog reads never need the 768-dimensional embedding or its
+// bookkeeping fields. Selecting only the commercial columns keeps list/search
+// payloads small, especially once a catalog grows to hundreds of rows.
+const catalogItemColumns = {
+  id: catalogItems.id,
+  organizationId: catalogItems.organizationId,
+  categoryId: catalogItems.categoryId,
+  code: catalogItems.code,
+  name: catalogItems.name,
+  description: catalogItems.description,
+  unit: catalogItems.unit,
+  itemType: catalogItems.itemType,
+  sellingPrice: catalogItems.sellingPrice,
+  costPrice: catalogItems.costPrice,
+  currency: catalogItems.currency,
+  active: catalogItems.active,
+};
+
+type CatalogDomainRow = Pick<
+  typeof catalogItems.$inferSelect,
+  | "id"
+  | "organizationId"
+  | "categoryId"
+  | "code"
+  | "name"
+  | "description"
+  | "unit"
+  | "itemType"
+  | "sellingPrice"
+  | "costPrice"
+  | "currency"
+  | "active"
+>;
+
 function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -29,7 +63,7 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function toDomain(row: typeof catalogItems.$inferSelect): CatalogItem {
+function toDomain(row: CatalogDomainRow): CatalogItem {
   return {
     id: row.id,
     organizationId: row.organizationId,
@@ -77,7 +111,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
 
   async listActive(organizationId: OrganizationId): Promise<CatalogItem[]> {
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -92,7 +126,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
 
   async listAll(organizationId: OrganizationId): Promise<CatalogItem[]> {
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(eq(catalogItems.organizationId, organizationId))
       .orderBy(asc(catalogItems.name));
@@ -122,7 +156,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     ];
 
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -144,7 +178,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     itemId: CatalogItemId,
   ): Promise<CatalogItem | null> {
     const [row] = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -162,7 +196,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     code: string,
   ): Promise<CatalogItem | null> {
     const [row] = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -242,10 +276,13 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     updates: { id: CatalogItemId; data: CatalogItemData }[],
   ): Promise<{ created: number; updated: number }> {
     return db.transaction(async (tx) => {
-      for (const data of creates) {
-        await tx
-          .insert(catalogItems)
-          .values({ organizationId, ...toColumns(data) });
+      if (creates.length > 0) {
+        await tx.insert(catalogItems).values(
+          creates.map((data) => ({
+            organizationId,
+            ...toColumns(data),
+          })),
+        );
       }
 
       for (const { id, data } of updates) {
@@ -276,7 +313,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     const distance = sql<number>`${catalogItems.embedding} <=> ${vectorLiteral}::vector`;
 
     const rows = await db
-      .select({ row: catalogItems, distance })
+      .select({ ...catalogItemColumns, distance })
       .from(catalogItems)
       .where(
         and(
@@ -290,7 +327,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
       .orderBy(distance)
       .limit(limit);
 
-    return rows.map(({ row, distance: value }) => ({
+    return rows.map(({ distance: value, ...row }) => ({
       item: toDomain(row),
       similarity: Math.max(0, Math.min(1, 1 - Number(value))),
     }));
