@@ -8,6 +8,7 @@ import type {
   SupportedUnit,
   UserId,
 } from "@/domain/shared/types";
+import type { CommercialOfferPdfTemplateVersion } from "./pdf-template-version";
 
 /**
  * A quote is a container that groups versions. It carries the live project
@@ -58,6 +59,9 @@ export interface QuoteVersion {
   documentNumber: string | null;
   documentYear: number | null;
   documentSequence: number | null;
+  // Rendering identity is frozen with the issued document. Drafts intentionally
+  // have no template version because they are not customer documents yet.
+  pdfTemplateVersion: CommercialOfferPdfTemplateVersion | null;
   // Company/document metadata frozen at finalize time (NULL for drafts).
   companyName: string | null;
   companyLegalName: string | null;

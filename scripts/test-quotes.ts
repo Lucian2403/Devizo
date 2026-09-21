@@ -21,6 +21,7 @@ import {
 import { computeTotals } from "../domain/quotes/pricing";
 import { aggregateProjectQuoteSummaries } from "../domain/quotes/project-summary";
 import { buildQuoteDocumentNumber } from "../lib/quotes/document-number";
+import { CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION } from "../domain/quotes/pdf-template-version";
 import type {
   CompanySnapshot,
   CreateQuoteData,
@@ -124,6 +125,7 @@ class FakeQuoteRepository implements QuoteRepository {
       documentNumber: null,
       documentYear: null,
       documentSequence: null,
+      pdfTemplateVersion: null,
       companyName: null,
       companyLegalName: null,
       companyTaxVatId: null,
@@ -257,6 +259,7 @@ class FakeQuoteRepository implements QuoteRepository {
     version.documentYear = documentYear;
     version.documentSequence = documentSequence;
     version.documentNumber = `DEV-${documentYear}-${String(documentSequence).padStart(6, "0")}`;
+    version.pdfTemplateVersion = CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION;
     version.snapshotCapturedAt = now;
     version.sourceProjectId = quote?.projectId ?? null;
     version.sourceCustomerId = liveSource?.customerId ?? null;
@@ -313,6 +316,7 @@ class FakeQuoteRepository implements QuoteRepository {
       documentNumber: null,
       documentYear: null,
       documentSequence: null,
+      pdfTemplateVersion: null,
       snapshotCapturedAt: null,
       sourceProjectId: null,
       sourceCustomerId: null,
@@ -415,7 +419,7 @@ async function seedDraftWithItems(
 // --- Tests -----------------------------------------------------------------
 
 async function run() {
-  console.log("M6.1 / M7.3 / M7.4 quote lifecycle:");
+  console.log("M6.1 / M7.3 / M7.4 / M7.6 quote lifecycle:");
 
   await atest("A: a draft version can be edited (saveDraft succeeds)", async () => {
     const repo = new FakeQuoteRepository();
@@ -428,6 +432,7 @@ async function run() {
       priced([{ unitPrice: "18.00", quantity: "10" }]).total,
     );
     assert.equal(found.version.documentNumber, null);
+    assert.equal(found.version.pdfTemplateVersion, null);
     assert.equal(found.version.snapshotCapturedAt, null);
     assert.equal(buildQuoteDocumentNumber(found.version), "—");
   });
@@ -442,6 +447,10 @@ async function run() {
     assert.match(found.version.documentNumber ?? "", /^DEV-\d{4}-\d{6}$/);
     assert.equal(found.version.documentYear, found.version.sentAt!.getUTCFullYear());
     assert.equal(found.version.documentSequence, 1);
+    assert.equal(
+      found.version.pdfTemplateVersion,
+      CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION,
+    );
     assert.ok(found.version.snapshotCapturedAt instanceof Date);
     assert.equal(
       found.version.snapshotCapturedAt?.getTime(),
@@ -626,6 +635,17 @@ async function run() {
     assert.ok(migrationSql.includes("DROP TRIGGER IF EXISTS quote_versions_immutability"));
   });
 
+  await atest("D5: M7.6 migration freezes the PDF template version", () => {
+    const migrationSql = readFileSync(
+      join(process.cwd(), "infrastructure/db/migrations/0013_pdf_template_version.sql"),
+      "utf8",
+    );
+    assert.ok(migrationSql.includes("pdf_template_version"));
+    assert.ok(migrationSql.includes("commercial-offer-v1"));
+    assert.ok(migrationSql.includes("quote_versions_pdf_template_version_check"));
+    assert.ok(migrationSql.includes("DROP TRIGGER IF EXISTS quote_versions_immutability"));
+  });
+
   await atest("E: create new version clones sent v1 into a v2 draft", async () => {
     const repo = new FakeQuoteRepository();
     const service = new QuoteService(repo);
@@ -640,6 +660,7 @@ async function run() {
     assert.equal(v2.version.documentNumber, null);
     assert.equal(v2.version.documentYear, null);
     assert.equal(v2.version.documentSequence, null);
+    assert.equal(v2.version.pdfTemplateVersion, null);
     assert.equal(v2.version.snapshotCapturedAt, null);
     assert.equal(v2.version.sourceProjectId, null);
     assert.equal(v2.version.sourceCustomerId, null);
@@ -720,6 +741,10 @@ async function run() {
     assert.ok(v.documentNumber);
     assert.ok(v.documentYear);
     assert.ok(v.documentSequence);
+    assert.equal(
+      v.pdfTemplateVersion,
+      CURRENT_COMMERCIAL_OFFER_PDF_TEMPLATE_VERSION,
+    );
     assert.ok(v.snapshotCapturedAt instanceof Date);
     assert.ok(v.sentAt instanceof Date);
     assert.equal(v.snapshotCapturedAt?.getTime(), v.sentAt?.getTime());
