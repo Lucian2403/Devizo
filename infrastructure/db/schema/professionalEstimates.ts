@@ -6,6 +6,7 @@ import {
   numeric,
   timestamp,
   date,
+  boolean,
   jsonb,
   foreignKey,
   unique,
@@ -68,10 +69,23 @@ export const normativeSources = pgTable(
     edition: text("edition").notNull(),
     sourceType: text("source_type").notNull(),
     publisher: text("publisher"),
+    jurisdiction: text("jurisdiction").notNull().default("MD"),
+    authority: text("authority"),
     sourceUri: text("source_uri"),
+    approvalDate: date("approval_date"),
+    publicationDate: date("publication_date"),
+    effectiveDate: date("effective_date"),
     validFrom: date("valid_from"),
     validTo: date("valid_to"),
     status: text("status").notNull().default("active"),
+    officialStatus: text("official_status").notNull().default("unknown"),
+    monitoringEnabled: boolean("monitoring_enabled").notNull().default(false),
+    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+    lastVerificationStatus: text("last_verification_status")
+      .notNull()
+      .default("never"),
+    lastVerificationError: text("last_verification_error"),
+    contentFingerprint: text("content_fingerprint"),
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -88,7 +102,15 @@ export const normativeSources = pgTable(
     ),
     sourceTypeCheck: check(
       "normative_sources_type_check",
-      sql`${table.sourceType} in ('normative_document', 'norm_collection', 'company_custom', 'import')`,
+      sql`${table.sourceType} in ('normative_document', 'norm_collection', 'price_catalog', 'legislation', 'official_guidance', 'company_custom', 'import')`,
+    ),
+    officialStatusCheck: check(
+      "normative_sources_official_status_check",
+      sql`${table.officialStatus} in ('draft', 'consultation', 'approved', 'in_force', 'superseded', 'repealed', 'unknown')`,
+    ),
+    verificationStatusCheck: check(
+      "normative_sources_verification_status_check",
+      sql`${table.lastVerificationStatus} in ('never', 'success', 'error')`,
     ),
     statusCheck: check(
       "normative_sources_status_check",
@@ -97,6 +119,58 @@ export const normativeSources = pgTable(
     validityCheck: check(
       "normative_sources_validity_check",
       sql`${table.validTo} is null or ${table.validFrom} is null or ${table.validTo} >= ${table.validFrom}`,
+    ),
+  }),
+);
+ 
+export const normativeUpdates = pgTable(
+  "normative_updates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id").notNull(),
+    updateType: text("update_type").notNull().default("source_page_changed"),
+    reviewStatus: text("review_status").notNull().default("detected"),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    impactSummary: text("impact_summary"),
+    officialUri: text("official_uri"),
+    publicationDate: date("publication_date"),
+    effectiveDate: date("effective_date"),
+    eventFingerprint: text("event_fingerprint").notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    detectedAt: timestamp("detected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    sourceOrgFk: foreignKey({
+      columns: [table.sourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "normative_updates_source_org_fkey",
+    }).onDelete("cascade"),
+    orgIdUnique: unique("normative_updates_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    eventUnique: unique("normative_updates_source_event_unique").on(
+      table.organizationId,
+      table.sourceId,
+      table.eventFingerprint,
+    ),
+    updateTypeCheck: check(
+      "normative_updates_type_check",
+      sql`${table.updateType} in ('source_page_changed', 'amendment', 'replacement', 'status_change', 'price_catalog_update', 'other')`,
+    ),
+    reviewStatusCheck: check(
+      "normative_updates_review_status_check",
+      sql`${table.reviewStatus} in ('detected', 'reviewed', 'dismissed')`,
     ),
   }),
 );
@@ -374,6 +448,7 @@ export const resourcePrices = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     resourceId: uuid("resource_id").notNull(),
+    sourceId: uuid("source_id"),
     price: numeric("price", { precision: 18, scale: 6 }).notNull(),
     basisQuantity: numeric("basis_quantity", { precision: 18, scale: 6 })
       .notNull()
@@ -392,6 +467,11 @@ export const resourcePrices = pgTable(
       foreignColumns: [professionalResources.id, professionalResources.organizationId],
       name: "resource_prices_resource_org_fkey",
     }).onDelete("cascade"),
+    sourceOrgFk: foreignKey({
+      columns: [table.sourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "resource_prices_source_org_fkey",
+    }).onDelete("restrict"),
     orgIdUnique: unique("resource_prices_id_org_unique").on(
       table.id,
       table.organizationId,
@@ -636,6 +716,7 @@ export type ConstructionObject = typeof constructionObjects.$inferSelect;
 export type WorkQuantityList = typeof workQuantityLists.$inferSelect;
 export type WorkQuantityItem = typeof workQuantityItems.$inferSelect;
 export type NormativeSource = typeof normativeSources.$inferSelect;
+export type NormativeUpdate = typeof normativeUpdates.$inferSelect;
 export type EstimateNorm = typeof estimateNorms.$inferSelect;
 export type EstimateNormVersion = typeof estimateNormVersions.$inferSelect;
 export type ProfessionalResource = typeof professionalResources.$inferSelect;
