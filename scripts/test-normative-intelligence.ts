@@ -17,7 +17,6 @@ import type {
   NormativeSourceMonitor,
   SourceMonitorResult,
 } from "../domain/professional-estimates/normative-source-monitor";
-import type { NormativeReviewStatus } from "../domain/professional-estimates/types";
 import {
   HttpNormativeSourceMonitor,
   normalizeOfficialSourceContent,
@@ -175,11 +174,6 @@ class MemoryRepository implements NormativeIntelligenceRepository {
     }
   }
 
-  async setUpdateReviewStatus(
-    _organizationId: string,
-    _updateId: string,
-    _status: Extract<NormativeReviewStatus, "reviewed" | "dismissed">,
-  ): Promise<void> {}
 }
 
 class SequenceMonitor implements NormativeSourceMonitor {

@@ -113,6 +113,13 @@
       "when": 1791277200000,
       "tag": "0015_normative_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791306991448,
+      "tag": "0016_wide_bastion",
+      "breakpoints": true
     }
   ]
 }

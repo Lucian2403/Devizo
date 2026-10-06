@@ -43,6 +43,66 @@ Human review
 The `NormativeUpdate` record is deliberately descriptive. It does not contain
 an executable formula and cannot mutate a `CalculationRule`.
 
+## M8.2 review, applicability and lineage
+
+The workflow is explicitly:
+
+```text
+DETECTED
+    ↓
+HUMAN REVIEW
+    ↓
+EXPLICIT APPLICABILITY DECISION
+    ↓
+VERSIONED NORMATIVE STATE
+    ↓
+AVAILABLE TO FUTURE CALCULATIONS
+```
+
+A detection is never a legal interpretation or an instruction to update
+calculation inputs. `normative_updates` remains the detection queue. A separate,
+one-per-update `normative_update_reviews` record captures the human decision,
+note, reviewer, timestamp, edition identity, evidence URL, known dates, and the
+detected/previous fingerprints. Repeated submission of the same review is
+idempotent; it does not create a second review record. M8.1 reviews do not have
+invented reviewer details: their existing status and timestamp remain visible,
+with the missing details identified as unavailable.
+
+Applicability is a separate append-only decision history attached to a
+`normative_sources` edition, not a flag on the source or on an estimate norm.
+Each decision has a tenant-scoped revision, author, timestamp, required basis
+note, evidence URI, optional triggering update, explicit applicability dates,
+and snapshots of the source identity/status/fingerprint. Decision values are
+`applicable`, `not_applicable`, `deferred`, and `unknown`. An `applicable`
+decision requires a human-supplied start date and a source whose recorded
+official status is `in_force`; draft, consultation, approved-but-not-yet-
+effective, superseded, repealed, and unknown sources cannot be marked
+applicable. The database checks this recorded status as well as the date range.
+When an applicability decision references a detected update, that update must
+already have a human review record.
+The application's record lifecycle, official status, monitor verification
+state, and applicability decision remain separate concepts.
+
+`normative_source_relations` stores directional, evidenced relationships such
+as `amends`, `replaces`, `supersedes`, `supplements`, `corrigendum_to`, and
+`related_to`. A relation never implies that one edition is a full replacement.
+Both ends must belong to the same organization; self-links and duplicate
+relations are rejected. Restrictive foreign keys and append-only behavior
+preserve lineage and its evidence.
+
+`EstimateNormVersion` now has a publication lifecycle (`draft` → `in_review` →
+`approved` → `published`). A published version and its resource consumptions
+cannot be edited or deleted; a change requires a new version. This lifecycle
+does not publish or alter anything as a consequence of monitoring, and M8.2
+does not add a norm importer or an authoring interface.
+
+No `NormativePackage`/`NormativeBasis` entity is introduced yet. The exact
+meaning of a calculation package, old/new WinSmeta bases, and the composition
+of yearly editions are deferred until a real WinSmeta workflow has been
+observed. Future finalized calculations must snapshot the exact source,
+applicability revision, norm version, consumption, resource-price and rule
+inputs used; this milestone does not implement those calculations or snapshots.
+
 ## Monitoring model
 
 The v1 monitor fetches the configured official HTML page, removes navigation,

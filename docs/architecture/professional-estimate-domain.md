@@ -75,3 +75,26 @@ M8.0 establishes persistence, tenant boundaries and domain semantics only. It
 does not generate F5 and does not create an immutable professional calculation
 snapshot yet. Those come after the deterministic calculator has a stable input
 contract.
+
+## M8.2 normative governance and publication
+
+Normative monitoring creates review signals only. Human review is recorded
+separately from an explicit, revisioned applicability decision. Source
+relationships (amendment, replacement, supersession, supplement, corrigendum or
+general relation) preserve direction and provenance without erasing the
+historical source edition.
+
+An `EstimateNormVersion` moves through draft, review, approval and publication.
+Once published, its version fields and resource consumptions are immutable;
+normative changes require a new version rather than in-place edits. Publication
+does not automatically update resource prices, calculation rules, existing
+applications or any calculation.
+
+M8.2 deliberately does not define a normative package/basis composition, the
+meaning of old/new WinSmeta bases, annual update behavior, coefficients, or
+professional forms. Those decisions require observation of the real workflow.
+When professional calculation snapshots are implemented, they must preserve
+the exact source identity and evidence, applicability revision, norm version,
+resource consumptions, price records and rule inputs used at the valuation
+date. Source monitoring and later decisions must never rewrite a historical
+snapshot.

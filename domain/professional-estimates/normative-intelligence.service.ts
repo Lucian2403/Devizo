@@ -106,28 +106,6 @@ export class NormativeIntelligenceService {
     return this.verifySources(sources);
   }
 
-  async markReviewed(
-    organizationId: string,
-    updateId: string,
-  ): Promise<void> {
-    await this.repository.setUpdateReviewStatus(
-      organizationId,
-      updateId,
-      "reviewed",
-    );
-  }
-
-  async dismissUpdate(
-    organizationId: string,
-    updateId: string,
-  ): Promise<void> {
-    await this.repository.setUpdateReviewStatus(
-      organizationId,
-      updateId,
-      "dismissed",
-    );
-  }
-
   private async verifySources(
     sources: NormativeSourceRecord[],
   ): Promise<VerificationRunResult> {
