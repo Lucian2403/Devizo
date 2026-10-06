@@ -64,27 +64,6 @@ function toSourceRecord(
   };
 }
 
-async function countForSource(
-  table:
-    | typeof estimateNormVersions
-    | typeof professionalResources
-    | typeof resourcePrices
-    | typeof calculationRules,
-  organizationId: string,
-  sourceId: string,
-): Promise<number> {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(table)
-    .where(
-      and(
-        eq(table.organizationId, organizationId),
-        eq(table.sourceId, sourceId),
-      ),
-    );
-  return row?.count ?? 0;
-}
-
 export class DrizzleNormativeIntelligenceRepository
   implements NormativeIntelligenceRepository
 {
@@ -230,18 +209,51 @@ export class DrizzleNormativeIntelligenceRepository
     organizationId: string,
     sourceId: string,
   ): Promise<NormativeSourceUsage> {
-    const [normVersions, resources, prices, rules] = await Promise.all([
-      countForSource(estimateNormVersions, organizationId, sourceId),
-      countForSource(professionalResources, organizationId, sourceId),
-      countForSource(resourcePrices, organizationId, sourceId),
-      countForSource(calculationRules, organizationId, sourceId),
-    ]);
+    const [normVersionRows, resourceRows, priceRows, ruleRows] =
+      await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(estimateNormVersions)
+          .where(
+            and(
+              eq(estimateNormVersions.organizationId, organizationId),
+              eq(estimateNormVersions.sourceId, sourceId),
+            ),
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(professionalResources)
+          .where(
+            and(
+              eq(professionalResources.organizationId, organizationId),
+              eq(professionalResources.sourceId, sourceId),
+            ),
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(resourcePrices)
+          .where(
+            and(
+              eq(resourcePrices.organizationId, organizationId),
+              eq(resourcePrices.sourceId, sourceId),
+            ),
+          ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(calculationRules)
+          .where(
+            and(
+              eq(calculationRules.organizationId, organizationId),
+              eq(calculationRules.sourceId, sourceId),
+            ),
+          ),
+      ]);
 
     return {
-      normVersions,
-      resources,
-      resourcePrices: prices,
-      calculationRules: rules,
+      normVersions: normVersionRows[0]?.count ?? 0,
+      resources: resourceRows[0]?.count ?? 0,
+      resourcePrices: priceRows[0]?.count ?? 0,
+      calculationRules: ruleRows[0]?.count ?? 0,
     };
   }
 
