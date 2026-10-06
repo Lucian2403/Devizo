@@ -222,4 +222,7 @@ async function main() {
   console.log("Normative intelligence checks passed.");
 }
 
-void main();
+void main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});
