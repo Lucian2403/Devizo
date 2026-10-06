@@ -65,7 +65,6 @@ export const MOLDOVA_NORMATIVE_BASELINE: readonly NormativeSourceUpsertInput[] =
     authority: "Ministerul Infrastructurii și Dezvoltării Regionale",
     sourceUri: "https://ednc.gov.md/cp-l-01-022012-a42026/",
     approvalDate: "2026-05-20",
-    publicationDate: "2026-05-27",
     effectiveDate: "2026-05-27",
     validFrom: "2026-05-27",
     officialStatus: "in_force",
