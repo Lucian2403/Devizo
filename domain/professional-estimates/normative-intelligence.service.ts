@@ -138,13 +138,39 @@ export class NormativeIntelligenceService {
       failed: 0,
     };
 
-    // One official URL may be duplicated across tenants. Reuse the network
-    // result within the run; persistence and impact analysis remain tenant-safe.
+    // One official URL may be duplicated across tenants. Start all unique
+    // network checks up-front and reuse the same promise for every tenant.
+    // This keeps a manual verification run bounded by the slowest source
+    // instead of the sum of all source timeouts.
     const checks = new Map<
       string,
-      | { ok: true; checkedAt: Date; fingerprint: string }
-      | { ok: false; checkedAt: Date; error: string }
+      Promise<
+        | { ok: true; checkedAt: Date; fingerprint: string }
+        | { ok: false; checkedAt: Date; error: string }
+      >
     >();
+
+    for (const source of sources) {
+      if (!source.sourceUri || checks.has(source.sourceUri)) continue;
+      checks.set(
+        source.sourceUri,
+        this.monitor
+          .verify(source.sourceUri)
+          .then((monitored) => ({
+            ok: true as const,
+            checkedAt: monitored.checkedAt,
+            fingerprint: monitored.fingerprint,
+          }))
+          .catch((error: unknown) => ({
+            ok: false as const,
+            checkedAt: new Date(),
+            error:
+              error instanceof Error
+                ? error.message
+                : "Verificarea sursei oficiale a eșuat.",
+          })),
+      );
+    }
 
     for (const source of sources) {
       result.checked += 1;
@@ -163,27 +189,11 @@ export class NormativeIntelligenceService {
         continue;
       }
 
-      let check = checks.get(source.sourceUri);
-      if (!check) {
-        try {
-          const monitored = await this.monitor.verify(source.sourceUri);
-          check = {
-            ok: true,
-            checkedAt: monitored.checkedAt,
-            fingerprint: monitored.fingerprint,
-          };
-        } catch (error) {
-          check = {
-            ok: false,
-            checkedAt: new Date(),
-            error:
-              error instanceof Error
-                ? error.message
-                : "Verificarea sursei oficiale a eșuat.",
-          };
-        }
-        checks.set(source.sourceUri, check);
+      const checkPromise = checks.get(source.sourceUri);
+      if (!checkPromise) {
+        throw new Error("Monitorizarea sursei nu a fost inițializată.");
       }
+      const check = await checkPromise;
 
       if (!check.ok) {
         result.failed += 1;
