@@ -195,27 +195,31 @@ class SequenceMonitor implements NormativeSourceMonitor {
   }
 }
 
-const repository = new MemoryRepository();
-const service = new NormativeIntelligenceService(
-  repository,
-  new SequenceMonitor(["fingerprint-a", "fingerprint-b", "fingerprint-b"]),
-);
+async function main() {
+  const repository = new MemoryRepository();
+  const service = new NormativeIntelligenceService(
+    repository,
+    new SequenceMonitor(["fingerprint-a", "fingerprint-b", "fingerprint-b"]),
+  );
 
-const firstRun = await service.verifyOrganization("org-1");
-assert.equal(firstRun.initialized, 1);
-assert.equal(firstRun.changed, 0);
-assert.equal(repository.updates.length, 0);
+  const firstRun = await service.verifyOrganization("org-1");
+  assert.equal(firstRun.initialized, 1);
+  assert.equal(firstRun.changed, 0);
+  assert.equal(repository.updates.length, 0);
 
-const secondRun = await service.verifyOrganization("org-1");
-assert.equal(secondRun.changed, 1);
-assert.equal(repository.updates.length, 1);
-assert.match(
-  repository.updates[0]?.impactSummary ?? "",
-  /1 versiune de normă/,
-);
+  const secondRun = await service.verifyOrganization("org-1");
+  assert.equal(secondRun.changed, 1);
+  assert.equal(repository.updates.length, 1);
+  assert.match(
+    repository.updates[0]?.impactSummary ?? "",
+    /1 versiune de normă/,
+  );
 
-const thirdRun = await service.verifyOrganization("org-1");
-assert.equal(thirdRun.changed, 0);
-assert.equal(repository.updates.length, 1);
+  const thirdRun = await service.verifyOrganization("org-1");
+  assert.equal(thirdRun.changed, 0);
+  assert.equal(repository.updates.length, 1);
 
-console.log("Normative intelligence checks passed.");
+  console.log("Normative intelligence checks passed.");
+}
+
+void main();
