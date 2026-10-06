@@ -98,6 +98,15 @@ export interface QuoteWithVersion {
   version: QuoteVersion;
 }
 
+// The minimum needed to validate and price one draft save. Kept separate from
+// QuoteWithVersion so a save does not load the whole document and every line
+// item just to check the status and read the VAT rate.
+export interface QuoteDraftWriteContext {
+  quoteId: QuoteId;
+  status: QuoteStatus;
+  vatRate: string;
+}
+
 // Working customer/project copy used while a version is a draft. At finalization
 // the repository refreshes these fields from the current live source, then freezes them.
 export interface QuoteSnapshot {
@@ -196,6 +205,12 @@ export interface QuoteRepository {
     organizationId: OrganizationId,
     versionId: QuoteVersionId,
   ): Promise<QuoteWithVersion | null>;
+
+  // Loads only the fields needed to validate and price a draft save.
+  getDraftWriteContext(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+  ): Promise<QuoteDraftWriteContext | null>;
 
   // Loads the latest version id for a quote (highest version_number).
   getLatestVersionId(

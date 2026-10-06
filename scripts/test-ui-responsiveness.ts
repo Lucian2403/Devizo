@@ -198,6 +198,77 @@ import {
   );
   assert.ok(asLink.startsWith("<a ") && !asLink.includes("<button"));
 }
+// --- no fake controls, no redundant redirect hops, nothing slow in the way ---
+{
+  const root = process.cwd();
+  const read = (relative: string) => readFileSync(join(root, relative), "utf8");
+
+  // Controls that look interactive but do nothing must not come back. Add
+  // real navigation instead of a placeholder.
+  const shell = [
+    "app/(app)/layout.tsx",
+    "app/(app)/main-nav.tsx",
+    "app/(app)/sidebar.tsx",
+    "app/(app)/quotes/[id]/edit/quote-editor.tsx",
+  ].map((file) => [file, read(file)] as const);
+  for (const [file, source] of shell) {
+    for (const fake of [
+      "Rapoarte",
+      "Caută în proiecte",
+      "Notificări",
+      "Proiectele mele",
+      "Favorite",
+      "Plan Pro",
+      "Upgrade",
+      "Ajutor",
+      "Documente",
+      "Notițe",
+      "Activitate",
+      "Trimite clientului",
+    ]) {
+      assert.ok(!source.includes(fake), `${file} still contains the placeholder "${fake}"`);
+    }
+  }
+  const everything: string[] = [];
+  (function collect(directory: string) {
+    for (const name of readdirSync(directory)) {
+      const fullPath = join(directory, name);
+      if (statSync(fullPath).isDirectory()) collect(fullPath);
+      else if (fullPath.endsWith(".tsx")) everything.push(fullPath);
+    }
+  })(join(root, "app"));
+  for (const file of everything) {
+    const source = readFileSync(file, "utf8");
+    assert.ok(
+      !source.includes('aria-disabled="true"') && !source.includes("cursor-not-allowed"),
+      `${file} contains a permanently disabled control`,
+    );
+  }
+
+  // Every real navigation target stays in the shell.
+  const nav = read("app/(app)/main-nav.tsx");
+  for (const href of ["/", "/projects", "/catalog", "/customers", "/normative", "/settings"]) {
+    assert.ok(nav.includes(`href: "${href}"`), `main nav is missing ${href}`);
+  }
+
+  // Where the version is already known, link to it directly. Going through
+  // /quotes/:id or /quotes/:id/edit (without versionId) forces another lookup
+  // of the latest version just to redirect.
+  const hopPattern = /href=\{`\/quotes\/\$\{[^}]+\}(?:\/edit)?`\}/;
+  for (const file of everything) {
+    assert.ok(
+      !hopPattern.test(readFileSync(file, "utf8")),
+      `${file} links to a quote without its known version`,
+    );
+  }
+
+  // A catalog write must not wait for the AI embedding provider.
+  for (const file of ["app/(app)/catalog/actions.ts", "app/(app)/catalog/import/actions.ts"]) {
+    const source = read(file);
+    assert.ok(!/await\s+syncCatalogEmbeddings/.test(source), `${file} awaits the embedding sync`);
+    assert.ok(/after\(\s*\(\)\s*=>\s*syncCatalogEmbeddings/.test(source), `${file} must run the sync via after()`);
+  }
+}
 // --- every submit button must give feedback ---------------------------------
 // Plain <Button type="submit"> and <button type="submit"> do nothing while the
 // action runs. SubmitButton shows a spinner, a pending label and the top bar.

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
@@ -49,8 +50,9 @@ export async function createItem(
     throw error;
   }
 
-  // Best-effort: refresh embeddings so the new item is semantically searchable.
-  await syncCatalogEmbeddings(org.id);
+  // Best-effort and after the response: the item is already saved, and the AI
+  // provider must never make the user wait. syncCatalogEmbeddings never throws.
+  after(() => syncCatalogEmbeddings(org.id));
 
   revalidatePath("/catalog");
   redirect("/catalog");
@@ -77,8 +79,9 @@ export async function updateItem(
     throw error;
   }
 
-  // Best-effort: re-embed only if semantic fields changed (hash-guarded).
-  await syncCatalogEmbeddings(org.id);
+  // Best-effort and after the response: re-embeds only if semantic fields
+  // changed (hash-guarded), without making the user wait for the AI provider.
+  after(() => syncCatalogEmbeddings(org.id));
 
   revalidatePath("/catalog");
   redirect("/catalog");

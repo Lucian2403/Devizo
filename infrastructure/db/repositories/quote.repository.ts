@@ -23,6 +23,7 @@ import type {
   DraftUpdate,
   ProjectQuoteSummary,
   Quote,
+  QuoteDraftWriteContext,
   QuoteItem,
   QuoteRepository,
   QuoteSummary,
@@ -197,6 +198,34 @@ export class DrizzleQuoteRepository implements QuoteRepository {
     };
   }
 
+  async getDraftWriteContext(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+  ): Promise<QuoteDraftWriteContext | null> {
+    const [row] = await db
+      .select({
+        quoteId: quoteVersions.quoteId,
+        status: quoteVersions.status,
+        vatRate: quoteVersions.vatRate,
+      })
+      .from(quoteVersions)
+      .where(
+        and(
+          eq(quoteVersions.organizationId, organizationId),
+          eq(quoteVersions.id, versionId),
+        ),
+      )
+      .limit(1);
+
+    return row
+      ? {
+          quoteId: row.quoteId,
+          status: row.status as QuoteStatus,
+          vatRate: row.vatRate,
+        }
+      : null;
+  }
+
   async getLatestVersionId(
     organizationId: OrganizationId,
     quoteId: QuoteId,
@@ -229,18 +258,6 @@ export class DrizzleQuoteRepository implements QuoteRepository {
     },
   ): Promise<void> {
     await db.transaction(async (tx) => {
-      // Find the parent quote id so we can refresh its timestamp afterwards.
-      const [versionRow] = await tx
-        .select({ quoteId: quoteVersions.quoteId })
-        .from(quoteVersions)
-        .where(
-          and(
-            eq(quoteVersions.organizationId, organizationId),
-            eq(quoteVersions.id, versionId),
-          ),
-        )
-        .limit(1);
-
       // Replace all items: delete existing, insert the new set with totals.
       await tx
         .delete(quoteItems)
@@ -269,7 +286,8 @@ export class DrizzleQuoteRepository implements QuoteRepository {
         );
       }
 
-      await tx
+      // RETURNING gives the parent quote id without a separate lookup.
+      const [versionRow] = await tx
         .update(quoteVersions)
         .set({
           notes: update.notes ?? null,
@@ -287,7 +305,8 @@ export class DrizzleQuoteRepository implements QuoteRepository {
             eq(quoteVersions.organizationId, organizationId),
             eq(quoteVersions.id, versionId),
           ),
-        );
+        )
+        .returning({ quoteId: quoteVersions.quoteId });
 
       // Touch the parent quote so its list ordering reflects recent edits.
       if (versionRow) {

@@ -44,8 +44,8 @@ export default async function CatalogPage() {
           Niciun articol încă. Creează unul sau importă o listă de prețuri.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-secondary text-left">
               <tr>
                 <th className="px-3 py-2 font-medium">Denumire</th>
