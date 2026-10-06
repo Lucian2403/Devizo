@@ -3,6 +3,7 @@
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getCatalogCategoryService,
@@ -244,7 +245,7 @@ export async function runImport(
 
   // Best-effort: embed new/changed rows after the data commit. A failure here
   // never rolls back the import; unembedded rows are picked up on next sync.
-  await syncCatalogEmbeddings(org.id);
+  after(() => syncCatalogEmbeddings(org.id));
 
   revalidatePath("/catalog");
   return {

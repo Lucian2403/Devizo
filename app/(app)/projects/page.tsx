@@ -4,6 +4,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProjectService, getQuoteService } from "@/server/container";
 import { archiveProject } from "./actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { formatMoney } from "@/lib/i18n/money";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -157,9 +158,13 @@ export default async function ProjectsPage() {
 
                       <form action={archiveProject}>
                         <input type="hidden" name="projectId" value={project.id} />
-                        <Button variant="ghost" size="sm" type="submit">
+                        <SubmitButton
+                          variant="ghost"
+                          size="sm"
+                          pendingLabel="Se arhivează…"
+                        >
                           Arhivează
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </div>
                   </div>

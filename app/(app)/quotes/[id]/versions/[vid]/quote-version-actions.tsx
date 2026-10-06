@@ -61,7 +61,9 @@ export function QuoteVersionActions({
         {status === "draft" && (
           <>
             <Button asChild variant="outline">
-              <Link href={`/quotes/${quoteId}/edit`}>Editează</Link>
+              <Link href={`/quotes/${quoteId}/edit?versionId=${encodeURIComponent(versionId)}`}>
+                Editează
+              </Link>
             </Button>
             <form
               action={sendAction}

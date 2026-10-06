@@ -3,6 +3,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProjectService } from "@/server/container";
 import { restoreProject } from "../actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function ArchivedProjectsPage() {
   const { org } = await requireCurrentOrg();
@@ -34,9 +35,13 @@ export default async function ArchivedProjectsPage() {
               </div>
               <form action={restoreProject}>
                 <input type="hidden" name="projectId" value={project.id} />
-                <Button variant="ghost" size="sm" type="submit">
+                <SubmitButton
+                  variant="ghost"
+                  size="sm"
+                  pendingLabel="Se restaurează…"
+                >
                   Restaurează
-                </Button>
+                </SubmitButton>
               </form>
             </li>
           ))}

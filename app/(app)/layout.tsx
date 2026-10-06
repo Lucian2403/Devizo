@@ -36,41 +36,25 @@ export default async function AppLayout({
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-card/95 px-6 backdrop-blur">
-          <MainNav />
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center md:flex">
-              <input
-                type="search"
-                placeholder="Caută în proiecte..."
-                className="h-9 w-56 rounded-md border border-border bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
-              />
+        <header className="sticky top-0 z-10 flex h-14 min-w-0 items-center justify-between gap-3 border-b border-border bg-card/95 px-3 backdrop-blur sm:px-6">
+          <div className="min-w-0 flex-1">
+            <MainNav />
+          </div>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-heading text-[13px] font-semibold text-white">
+              {initials(displayName)}
+            </span>
+            <div className="hidden leading-tight sm:block">
+              <p className="text-[13px] font-medium text-heading">
+                {displayName}
+              </p>
+              <p className="text-[12px] text-muted-foreground">{orgName}</p>
             </div>
-            <button
-              type="button"
-              aria-label="Notificări"
-              aria-disabled="true"
-              disabled
-              className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-md text-muted-foreground opacity-60"
-            >
-              🔔
-            </button>
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-heading text-[13px] font-semibold text-white">
-                {initials(displayName)}
-              </span>
-              <div className="hidden leading-tight sm:block">
-                <p className="text-[13px] font-medium text-heading">
-                  {displayName}
-                </p>
-                <p className="text-[12px] text-muted-foreground">{orgName}</p>
-              </div>
-              <form action={signOut}>
-                <Button variant="ghost" size="sm" type="submit">
-                  Ieși
-                </Button>
-              </form>
-            </div>
+            <form action={signOut}>
+              <Button variant="ghost" size="sm" type="submit">
+                Ieși
+              </Button>
+            </form>
           </div>
         </header>
         <main className="flex-1">{children}</main>
