@@ -1,0 +1,193 @@
+import type { NormativeSourceUpsertInput } from "./normative-intelligence.repository";
+
+/**
+ * Curated Moldova baseline used to bootstrap one tenant's professional source
+ * registry. This is intentionally metadata only: it does not copy the normative
+ * document contents and it does not hard-code formulas from those documents.
+ *
+ * The official E-DNC page is the provenance anchor. Any monitored page change
+ * is only a signal for human review; it never changes a calculation rule by
+ * itself.
+ */
+export const MOLDOVA_NORMATIVE_BASELINE: readonly NormativeSourceUpsertInput[] = [
+  {
+    code: "CP L.01.01-2012",
+    title:
+      "Instrucțiuni privind întocmirea devizelor pentru lucrările de construcții-montaj prin metoda de resurse",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-01-2012/",
+    approvalDate: "2013-01-23",
+    effectiveDate: "2013-02-15",
+    validFrom: "2013-02-15",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "resource_method",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.02-2012",
+    title:
+      "Instrucțiuni pentru determinarea cheltuielilor de deviz la salarizarea în construcții",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-02-2012/",
+    approvalDate: "2013-01-23",
+    effectiveDate: "2013-02-15",
+    validFrom: "2013-02-15",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "labor_cost",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.02:2012/A4:2026",
+    title:
+      "Instrucțiuni pentru determinarea cheltuielilor de deviz la salarizarea în construcții",
+    edition: "A4:2026",
+    sourceType: "normative_document",
+    publisher: "Ministerul Infrastructurii și Dezvoltării Regionale",
+    jurisdiction: "MD",
+    authority: "Ministerul Infrastructurii și Dezvoltării Regionale",
+    sourceUri: "https://ednc.gov.md/cp-l-01-022012-a42026/",
+    approvalDate: "2026-05-20",
+    publicationDate: "2026-05-27",
+    effectiveDate: "2026-05-27",
+    validFrom: "2026-05-27",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      documentRole: "amendment",
+      baseDocument: "CP L.01.02-2012",
+      replaces: "CP L.01.02:2012/A3:2024",
+      topic: "labor_cost",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.03-2012",
+    title:
+      "Instrucțiuni cu privire la calcularea cheltuielilor de regie la determinarea valorii obiectivelor",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-03-2012/",
+    approvalDate: "2013-01-23",
+    effectiveDate: "2013-02-15",
+    validFrom: "2013-02-15",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "overhead",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.04-2012",
+    title:
+      "Instrucțiuni privind determinarea cheltuielilor de deviz pentru funcționarea utilajelor de construcții",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-04-2012/",
+    approvalDate: "2012-07-18",
+    effectiveDate: "2012-08-17",
+    validFrom: "2012-08-17",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "machinery_cost",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.05-2012",
+    title:
+      "Instrucțiuni privind determinarea valorii beneficiului de deviz la formarea prețurilor la producția de construcții",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-05-2012/",
+    approvalDate: "2013-01-23",
+    effectiveDate: "2013-02-15",
+    validFrom: "2013-02-15",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "estimated_profit",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.07-2012",
+    title:
+      "Instrucțiuni privind determinarea valorii cheltuielilor de achiziționare-depozitare în construcții",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-07-2012/",
+    approvalDate: "2012-07-18",
+    effectiveDate: "2012-08-17",
+    validFrom: "2012-08-17",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "procurement_storage",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "CP L.01.08-2012",
+    title:
+      "Instrucțiuni privind determinarea valorii cheltuielilor pentru întreținerea serviciului beneficiarului",
+    edition: "2012",
+    sourceType: "normative_document",
+    publisher: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    jurisdiction: "MD",
+    authority: "Ministerul Dezvoltării Regionale și Construcțiilor",
+    sourceUri: "https://ednc.gov.md/cp-l-01-08-2012/",
+    approvalDate: "2012-07-18",
+    effectiveDate: "2012-08-17",
+    validFrom: "2012-08-17",
+    officialStatus: "in_force",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      topic: "beneficiary_service_cost",
+      verifiedOn: "2026-10-06",
+    },
+  },
+];
