@@ -95,7 +95,7 @@ export default async function NormativePage() {
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
             Sursele, edițiile și perioadele de valabilitate folosite de motorul
             profesional Devizo. O modificare detectată nu schimbă automat
-            niciun deviz sau nicio regulă de calcul.
+            niciun calcul profesional sau nicio regulă de calcul.
           </p>
         </div>
 

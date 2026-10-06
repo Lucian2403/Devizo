@@ -110,4 +110,43 @@ assert.ok(
   ),
 );
 
+// Every index created by the hand-written 0015 migration must also be declared
+// in the Drizzle schema, otherwise the next `drizzle-kit generate` drops it.
+for (const match of normativeIntelligenceMigration.matchAll(
+  /CREATE (?:UNIQUE )?INDEX IF NOT EXISTS "([^"]+)"/g,
+)) {
+  assert.ok(
+    schema.includes(`"${match[1]}"`),
+    `index ${match[1]} is in migration 0015 but missing from the Drizzle schema`,
+  );
+}
+
+// Source monitoring may only write normative source/update rows. It must never
+// write norms, consumptions, prices, rules or any commercial table.
+const normativeRepository = readFileSync(
+  join(
+    process.cwd(),
+    "infrastructure/db/repositories/normativeIntelligence.repository.ts",
+  ),
+  "utf8",
+);
+const writeTargets = [
+  ...normativeRepository.matchAll(/\.(?:insert|update|delete)\(\s*(\w+)\s*\)/g),
+].map((match) => match[1]);
+assert.ok(writeTargets.length > 0, "expected normative repository writes");
+for (const target of writeTargets) {
+  assert.ok(
+    target === "normativeSources" || target === "normativeUpdates",
+    `normative monitoring must not write to ${target}`,
+  );
+}
+
+// The scheduler calls the monitor route without a session cookie; the route
+// authenticates with CRON_SECRET, so the auth middleware must let it through.
+const authMiddleware = readFileSync(
+  join(process.cwd(), "infrastructure/supabase/middleware.ts"),
+  "utf8",
+);
+assert.ok(authMiddleware.includes('"/api/internal/normative-monitor"'));
+
 console.log("M8 professional-domain boundary checks passed.");

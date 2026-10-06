@@ -2,8 +2,16 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-// Pages a logged-out visitor is allowed to open.
-const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/auth", "/q"];
+// Pages a logged-out visitor is allowed to open. The normative monitor route is
+// called by an external scheduler without a session; it enforces its own
+// CRON_SECRET bearer check.
+const PUBLIC_PATHS = [
+  "/sign-in",
+  "/sign-up",
+  "/auth",
+  "/q",
+  "/api/internal/normative-monitor",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(

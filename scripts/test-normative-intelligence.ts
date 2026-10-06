@@ -18,7 +18,10 @@ import type {
   SourceMonitorResult,
 } from "../domain/professional-estimates/normative-source-monitor";
 import type { NormativeReviewStatus } from "../domain/professional-estimates/types";
-import { normalizeOfficialSourceContent } from "../infrastructure/normative/http-source-monitor";
+import {
+  HttpNormativeSourceMonitor,
+  normalizeOfficialSourceContent,
+} from "../infrastructure/normative/http-source-monitor";
 
 const pageA = [
   "<html><body>",
@@ -187,6 +190,7 @@ class SequenceMonitor implements NormativeSourceMonitor {
   async verify(): Promise<SourceMonitorResult> {
     const fingerprint =
       this.fingerprints[Math.min(this.index, this.fingerprints.length - 1)];
+    assert.ok(fingerprint, "SequenceMonitor needs at least one fingerprint");
     this.index += 1;
     return {
       checkedAt: new Date("2026-10-06T10:00:00Z"),
@@ -218,6 +222,63 @@ async function main() {
   const thirdRun = await service.verifyOrganization("org-1");
   assert.equal(thirdRun.changed, 0);
   assert.equal(repository.updates.length, 1);
+
+  // A detected change is a review signal only: no official/legal or lifecycle
+  // field of the source may be touched by verification.
+  assert.equal(repository.source.officialStatus, "in_force");
+  assert.equal(repository.source.status, "active");
+  assert.equal(repository.source.effectiveDate, "2013-02-15");
+  assert.equal(repository.source.validFrom, "2013-02-15");
+  assert.equal(repository.source.sourceUri, source.sourceUri);
+
+  // A proposed document must never be promoted to "in force" by monitoring.
+  const consultation = new MemoryRepository();
+  consultation.source = {
+    ...source,
+    officialStatus: "consultation",
+    status: "draft",
+    effectiveDate: null,
+    validFrom: null,
+    contentFingerprint: "fingerprint-a",
+  };
+  await new NormativeIntelligenceService(
+    consultation,
+    new SequenceMonitor(["fingerprint-b"]),
+  ).verifyOrganization("org-1");
+  assert.equal(consultation.updates.length, 1);
+  assert.equal(consultation.source.officialStatus, "consultation");
+  assert.equal(consultation.source.status, "draft");
+  assert.equal(consultation.source.effectiveDate, null);
+  assert.equal(consultation.source.validFrom, null);
+
+  // A failed check keeps the previous fingerprint and creates no change signal.
+  const failing = new MemoryRepository();
+  failing.source = { ...source, contentFingerprint: "fingerprint-a" };
+  const failedRun = await new NormativeIntelligenceService(failing, {
+    async verify(): Promise<SourceMonitorResult> {
+      throw new Error("official source unavailable");
+    },
+  }).verifyOrganization("org-1");
+  assert.equal(failedRun.failed, 1);
+  assert.equal(failing.updates.length, 0);
+  assert.equal(failing.source.lastVerificationStatus, "error");
+  assert.equal(failing.source.contentFingerprint, "fingerprint-a");
+
+  // The HTTP monitor only reaches allowlisted official HTTPS hosts. These
+  // checks fail before any network request is made.
+  const httpMonitor = new HttpNormativeSourceMonitor();
+  for (const url of [
+    "http://ednc.gov.md/cp-l-01-01-2012/",
+    "https://evil.example/",
+    "https://ednc.gov.md.evil.example/",
+    "https://169.254.169.254/latest/meta-data/",
+    "https://localhost/",
+  ]) {
+    await assert.rejects(
+      () => httpMonitor.verify(url),
+      `monitor must reject ${url}`,
+    );
+  }
 
   console.log("Normative intelligence checks passed.");
 }

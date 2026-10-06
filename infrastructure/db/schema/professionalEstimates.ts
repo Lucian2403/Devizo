@@ -172,6 +172,10 @@ export const normativeUpdates = pgTable(
       "normative_updates_review_status_check",
       sql`${table.reviewStatus} in ('detected', 'reviewed', 'dismissed')`,
     ),
+    orgDetectedIdx: index("normative_updates_org_detected_idx").on(
+      table.organizationId,
+      table.detectedAt,
+    ),
   }),
 );
 

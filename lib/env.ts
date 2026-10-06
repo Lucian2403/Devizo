@@ -14,7 +14,12 @@ const serverSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   // Optional token for the internal scheduled normative-source monitor route.
-  CRON_SECRET: z.string().min(16).optional(),
+  // An empty value means "not configured" so a blank variable cannot take the
+  // whole application down.
+  CRON_SECRET: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(16).optional(),
+  ),
 });
 
 // In the browser only the NEXT_PUBLIC_* variables exist.

@@ -97,7 +97,13 @@ Authorization: Bearer <CRON_SECRET>
 ```
 
 An external scheduler may call this endpoint. `CRON_SECRET` is optional; when
-it is absent the endpoint returns `503` and scheduled monitoring is disabled.
+it is absent (or empty) the endpoint returns `503` and scheduled monitoring is
+disabled.
+
+The scheduler has no session cookie, so this exact path is excluded from the
+session-redirect in `infrastructure/supabase/middleware.ts`. The route
+authenticates only through the `CRON_SECRET` bearer token (constant-time
+comparison); no other `/api/internal/*` path is public.
 
 No hosting-provider-specific cron configuration is committed. Deployment owns
 the schedule. The manual UI check continues to work independently.
