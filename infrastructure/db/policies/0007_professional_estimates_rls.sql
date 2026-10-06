@@ -12,6 +12,7 @@ DECLARE
     'work_quantity_lists',
     'work_quantity_items',
     'normative_sources',
+    'normative_updates',
     'estimate_norms',
     'estimate_norm_versions',
     'professional_resources',
