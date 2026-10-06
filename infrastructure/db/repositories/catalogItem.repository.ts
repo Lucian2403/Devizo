@@ -1,4 +1,13 @@
-import { and, eq, asc, or, ilike, sql, isNotNull } from "drizzle-orm";
+import {
+  and,
+  eq,
+  asc,
+  or,
+  ilike,
+  sql,
+  isNotNull,
+  getTableColumns,
+} from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import { catalogItems, catalogCategories } from "@/infrastructure/db/schema";
 import {
@@ -20,6 +29,9 @@ import type {
 
 const UNIQUE_VIOLATION = "23505";
 
+// Well under PostgreSQL's 65,535 bind-parameter limit at ~11 columns per row.
+const BULK_INSERT_BATCH_SIZE = 200;
+
 function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -29,7 +41,17 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function toDomain(row: typeof catalogItems.$inferSelect): CatalogItem {
+// The embedding (768 floats, ~10 KB per row) is only used inside the database
+// to rank semantic matches. Never ship it to the app: every list and lookup
+// would otherwise download it for every row.
+const catalogItemColumns = (() => {
+  const { embedding, ...columns } = getTableColumns(catalogItems);
+  void embedding;
+  return columns;
+})();
+
+type CatalogItemRow = Omit<typeof catalogItems.$inferSelect, "embedding">;
+function toDomain(row: CatalogItemRow): CatalogItem {
   return {
     id: row.id,
     organizationId: row.organizationId,
@@ -77,7 +99,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
 
   async listActive(organizationId: OrganizationId): Promise<CatalogItem[]> {
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -92,7 +114,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
 
   async listAll(organizationId: OrganizationId): Promise<CatalogItem[]> {
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(eq(catalogItems.organizationId, organizationId))
       .orderBy(asc(catalogItems.name));
@@ -122,7 +144,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     ];
 
     const rows = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -144,7 +166,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     itemId: CatalogItemId,
   ): Promise<CatalogItem | null> {
     const [row] = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -162,7 +184,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     code: string,
   ): Promise<CatalogItem | null> {
     const [row] = await db
-      .select()
+      .select(catalogItemColumns)
       .from(catalogItems)
       .where(
         and(
@@ -183,7 +205,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
       const [row] = await db
         .insert(catalogItems)
         .values({ organizationId, ...toColumns(data) })
-        .returning();
+        .returning(catalogItemColumns);
 
       return toDomain(row!);
     } catch (error) {
@@ -209,7 +231,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
             eq(catalogItems.id, itemId),
           ),
         )
-        .returning();
+        .returning(catalogItemColumns);
 
       return toDomain(row!);
     } catch (error) {
@@ -242,23 +264,29 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     updates: { id: CatalogItemId; data: CatalogItemData }[],
   ): Promise<{ created: number; updated: number }> {
     return db.transaction(async (tx) => {
-      for (const data of creates) {
-        await tx
-          .insert(catalogItems)
-          .values({ organizationId, ...toColumns(data) });
+      // A round trip per row makes large imports crawl, so insert in batches
+      // (one statement per batch) and send the independent updates together.
+      for (let start = 0; start < creates.length; start += BULK_INSERT_BATCH_SIZE) {
+        await tx.insert(catalogItems).values(
+          creates
+            .slice(start, start + BULK_INSERT_BATCH_SIZE)
+            .map((data) => ({ organizationId, ...toColumns(data) })),
+        );
       }
 
-      for (const { id, data } of updates) {
-        await tx
-          .update(catalogItems)
-          .set({ ...toColumns(data), updatedAt: new Date() })
-          .where(
-            and(
-              eq(catalogItems.organizationId, organizationId),
-              eq(catalogItems.id, id),
+      await Promise.all(
+        updates.map(({ id, data }) =>
+          tx
+            .update(catalogItems)
+            .set({ ...toColumns(data), updatedAt: new Date() })
+            .where(
+              and(
+                eq(catalogItems.organizationId, organizationId),
+                eq(catalogItems.id, id),
+              ),
             ),
-          );
-      }
+        ),
+      );
 
       return { created: creates.length, updated: updates.length };
     });
@@ -276,7 +304,7 @@ export class DrizzleCatalogItemRepository implements CatalogItemRepository {
     const distance = sql<number>`${catalogItems.embedding} <=> ${vectorLiteral}::vector`;
 
     const rows = await db
-      .select({ row: catalogItems, distance })
+      .select({ row: catalogItemColumns, distance })
       .from(catalogItems)
       .where(
         and(

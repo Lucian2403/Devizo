@@ -207,7 +207,8 @@ export function MissingInformationPanel({
           type="button"
           variant="secondary"
           onClick={onRecalculate}
-          disabled={!canRecalculate || pending}
+          disabled={!canRecalculate}
+          loading={pending}
         >
           {pending ? "Se recalculează…" : "Completează și recalculează"}
         </Button>

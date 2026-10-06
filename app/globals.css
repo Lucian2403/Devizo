@@ -55,3 +55,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Top progress bar (components/ui/navigation-progress.tsx): runs quickly at
+   first, then slows down and waits near the end until the work finishes. */
+@keyframes progress-crawl {
+  from {
+    width: 0;
+  }
+  to {
+    width: 88%;
+  }
+}
+
+.progress-crawl {
+  animation: progress-crawl 14s cubic-bezier(0.08, 0.75, 0.25, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-crawl {
+    animation-duration: 0.01s;
+  }
+}

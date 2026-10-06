@@ -7,7 +7,9 @@ import {
   getQuoteService,
 } from "@/server/container";
 import { ProjectNotFoundError } from "@/domain/projects/project.service";
+import { FINALIZED_QUOTE_STATUSES } from "@/domain/quotes/finalized-statuses";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { QuoteStatusBadge } from "@/components/ui/quote-status-badge";
 import { formatMoney } from "@/lib/i18n/money";
 import { ProjectForm } from "../project-form";
@@ -26,20 +28,23 @@ export default async function EditProjectPage({
   const { view } = await searchParams;
   const { org } = await requireCurrentOrg();
 
-  let project;
+  const currentView = view === "confirmed" ? "confirmed" : "all";
+
+  // The project, the customer list and the quotes only depend on the org and
+  // the id, so load them together instead of one after another.
+  let project, customers, quotes;
   try {
-    project = await getProjectService().getProject(org.id, id);
+    [project, customers, quotes] = await Promise.all([
+      getProjectService().getProject(org.id, id),
+      getCustomerService().listCustomers(org.id),
+      currentView === "confirmed"
+        ? getQuoteService().listByProjectStatuses(org.id, id, FINALIZED_QUOTE_STATUSES)
+        : getQuoteService().listByProject(org.id, id),
+    ]);
   } catch (error) {
     if (error instanceof ProjectNotFoundError) notFound();
     throw error;
   }
-
-  const customers = await getCustomerService().listCustomers(org.id);
-  const currentView = view === "confirmed" ? "confirmed" : "all";
-  const quotes =
-    currentView === "confirmed"
-      ? await getQuoteService().listByProjectStatuses(org.id, id, ["sent", "accepted"])
-      : await getQuoteService().listByProject(org.id, id);
 
   // Bind the project id so the form action has the (state, formData) shape.
   const action = updateProject.bind(null, id);
@@ -55,9 +60,9 @@ export default async function EditProjectPage({
         </div>
         <form action={createQuoteForProject}>
           <input type="hidden" name="projectId" value={id} />
-          <Button type="submit" size="sm">
+          <SubmitButton size="sm" pendingLabel="Se creează…">
             Ofertă nouă
-          </Button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -84,7 +89,7 @@ export default async function EditProjectPage({
         {quotes.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
             {currentView === "confirmed"
-              ? "Nu există oferte finalizate sau acceptate pentru acest proiect."
+              ? "Nu există oferte finalizate pentru acest proiect."
               : "Nicio ofertă încă."}
           </div>
         ) : (

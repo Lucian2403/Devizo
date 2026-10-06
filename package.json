@@ -24,7 +24,9 @@
     "test:pdf": "node scripts/run-pdf-test.mjs && tsx scripts/test-pdf-content-disposition.ts",
     "test:terminology": "tsx scripts/test-commercial-terminology.ts",
     "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts",
-    "test:professional": "tsx scripts/test-professional-foundation.ts"
+    "test:professional": "tsx scripts/test-professional-foundation.ts",
+    "test:normative": "tsx scripts/test-normative-intelligence.ts",
+    "test:ui": "tsx --tsconfig scripts/tsconfig.jsx.json scripts/test-ui-responsiveness.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",

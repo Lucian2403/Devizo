@@ -19,10 +19,50 @@ export type ProfessionalResourceType =
 export const NORMATIVE_SOURCE_TYPES = [
   "normative_document",
   "norm_collection",
+  "price_catalog",
+  "legislation",
+  "official_guidance",
   "company_custom",
   "import",
 ] as const;
 export type NormativeSourceType = (typeof NORMATIVE_SOURCE_TYPES)[number];
+
+export const OFFICIAL_SOURCE_STATUSES = [
+  "draft",
+  "consultation",
+  "approved",
+  "in_force",
+  "superseded",
+  "repealed",
+  "unknown",
+] as const;
+export type OfficialSourceStatus = (typeof OFFICIAL_SOURCE_STATUSES)[number];
+
+export const SOURCE_VERIFICATION_STATUSES = [
+  "never",
+  "success",
+  "error",
+] as const;
+export type SourceVerificationStatus =
+  (typeof SOURCE_VERIFICATION_STATUSES)[number];
+
+export const NORMATIVE_UPDATE_TYPES = [
+  "source_page_changed",
+  "amendment",
+  "replacement",
+  "status_change",
+  "price_catalog_update",
+  "other",
+] as const;
+export type NormativeUpdateType = (typeof NORMATIVE_UPDATE_TYPES)[number];
+
+export const NORMATIVE_REVIEW_STATUSES = [
+  "detected",
+  "reviewed",
+  "dismissed",
+] as const;
+export type NormativeReviewStatus =
+  (typeof NORMATIVE_REVIEW_STATUSES)[number];
 
 export const CALCULATION_RULE_TYPES = [
   "coefficient",

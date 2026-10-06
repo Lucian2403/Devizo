@@ -17,7 +17,9 @@ import {
   QuoteNotEditableError,
   QuoteNotSendableError,
   QuoteVersionNotCloneableError,
+  QuoteVersionNotFoundError,
 } from "../domain/quotes/quote.service";
+import { FINALIZED_QUOTE_STATUSES } from "../domain/quotes/finalized-statuses";
 import { computeTotals } from "../domain/quotes/pricing";
 import { aggregateProjectQuoteSummaries } from "../domain/quotes/project-summary";
 import { buildQuoteDocumentNumber } from "../lib/quotes/document-number";
@@ -78,6 +80,9 @@ class FakeQuoteRepository implements QuoteRepository {
   versions: StoredVersion[] = [];
   items = new Map<QuoteVersionId, QuoteItem[]>();
   liveSources = new Map<ProjectId, FakeLiveSource>();
+  // Read counters, so tests can prove which reads a use case performs.
+  getVersionCalls = 0;
+  draftContextCalls = 0;
   audit: {
     organizationId: string;
     quoteId: string;
@@ -162,6 +167,7 @@ class FakeQuoteRepository implements QuoteRepository {
     organizationId: OrganizationId,
     versionId: QuoteVersionId,
   ): Promise<QuoteWithVersion | null> {
+    this.getVersionCalls += 1;
     const version = this.versions.find(
       (v) => v.organizationId === organizationId && v.id === versionId,
     );
@@ -169,6 +175,23 @@ class FakeQuoteRepository implements QuoteRepository {
     const quote = this.quotes.find((q) => q.id === version.quoteId);
     if (!quote) return null;
     return { quote, version: this.assembleVersion(version) };
+  }
+
+  async getDraftWriteContext(
+    organizationId: OrganizationId,
+    versionId: QuoteVersionId,
+  ): Promise<{ quoteId: QuoteId; status: QuoteStatus; vatRate: string } | null> {
+    this.draftContextCalls += 1;
+    const version = this.versions.find(
+      (v) => v.organizationId === organizationId && v.id === versionId,
+    );
+    return version
+      ? {
+          quoteId: version.quoteId,
+          status: version.status,
+          vatRate: version.vatRate,
+        }
+      : null;
   }
 
   async getLatestVersionId(
@@ -755,6 +778,104 @@ async function run() {
     assert.equal(days, 14);
   });
 
+  await atest("I1: saveDraft reads only the lightweight write context, never the full version", async () => {
+    const repo = new FakeQuoteRepository();
+    const service = new QuoteService(repo);
+    const { versionId } = await seedDraftWithItems(repo, service);
+    repo.getVersionCalls = 0;
+    repo.draftContextCalls = 0;
+
+    await service.saveDraft(ORG, versionId, {
+      discountPct: "0",
+      items: [{ name: "Gletuit", unit: "m2", unitPrice: "12.00", quantity: "5" }],
+    } as DraftUpdate);
+
+    assert.equal(repo.getVersionCalls, 0, "saving must not load the whole document");
+    assert.equal(repo.draftContextCalls, 1);
+    const saved = (await service.getVersion(ORG, versionId)).version;
+    assert.equal(saved.items.length, 1);
+    assert.equal(saved.items[0]!.name, "Gletuit");
+  });
+
+  await atest("I2: saveDraft prices with the version's own VAT rate", async () => {
+    const repo = new FakeQuoteRepository();
+    const service = new QuoteService(repo);
+    const created = await service.createQuote(ORG, {
+      currency: "MDL",
+      vatRate: "9",
+      snapshot: {},
+    } as CreateQuoteData);
+    const lines = [
+      { name: "Vopsit", unit: "m2", unitPrice: "11.00", quantity: "20" },
+    ];
+    await service.saveDraft(ORG, created.version.id, {
+      discountPct: "5",
+      items: lines,
+    } as DraftUpdate);
+
+    const expected = computeTotals({
+      lines: lines.map((l) => ({
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+        discountPct: "0",
+      })),
+      quoteDiscountPct: "5",
+      vatRate: "9",
+    });
+    const saved = (await service.getVersion(ORG, created.version.id)).version;
+    assert.equal(saved.vatAmount, expected.vatAmount);
+    assert.equal(saved.total, expected.total);
+    const at20 = computeTotals({
+      lines: lines.map((l) => ({
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+        discountPct: "0",
+      })),
+      quoteDiscountPct: "5",
+      vatRate: "20",
+    });
+    assert.notEqual(saved.total, at20.total, "must not fall back to another rate");
+  });
+
+  await atest("I3: saving an unknown version fails with QuoteVersionNotFoundError", async () => {
+    const repo = new FakeQuoteRepository();
+    const service = new QuoteService(repo);
+    await assert.rejects(
+      () =>
+        service.saveDraft(ORG, "missing-version" as QuoteVersionId, {
+          discountPct: "0",
+          items: [],
+        } as DraftUpdate),
+      QuoteVersionNotFoundError,
+    );
+  });
+
+  await atest("I4: a refused save of a sent version changes nothing", async () => {
+    const repo = new FakeQuoteRepository();
+    const service = new QuoteService(repo);
+    const { versionId } = await seedDraftWithItems(repo, service);
+    await service.sendQuoteVersion(ORG, versionId, USER, SNAP);
+    const before = (await service.getVersion(ORG, versionId)).version;
+
+    await assert.rejects(
+      () =>
+        service.saveDraft(ORG, versionId, {
+          discountPct: "50",
+          items: [{ name: "Altceva", unit: "m2", unitPrice: "1", quantity: "1" }],
+        } as DraftUpdate),
+      QuoteNotEditableError,
+    );
+
+    const after = (await service.getVersion(ORG, versionId)).version;
+    assert.equal(after.total, before.total);
+    assert.deepEqual(after.items, before.items);
+    assert.equal(after.status, "sent");
+  });
+
+  await atest("J: 'finalized' means every non-draft status, including rejected", () => {
+    assert.deepEqual(FINALIZED_QUOTE_STATUSES, ["sent", "accepted", "rejected"]);
+    assert.ok(!FINALIZED_QUOTE_STATUSES.includes("draft"));
+  });
   await atest("project summaries sum same-currency quotes per project", () => {
     const summaries = aggregateProjectQuoteSummaries([
       { projectId: "p1" as ProjectId, currency: "EUR", total: "100.00" },

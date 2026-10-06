@@ -7,6 +7,7 @@ import {
 import { setItemActive } from "./actions";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function CatalogPage() {
   const { org } = await requireCurrentOrg();
@@ -43,8 +44,8 @@ export default async function CatalogPage() {
           Niciun articol încă. Creează unul sau importă o listă de prețuri.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-secondary text-left">
               <tr>
                 <th className="px-3 py-2 font-medium">Denumire</th>
@@ -86,9 +87,14 @@ export default async function CatalogPage() {
                         name="active"
                         value={item.active ? "false" : "true"}
                       />
-                      <Button variant="ghost" size="sm" type="submit" className="h-7 px-2">
+                      <SubmitButton
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        pendingLabel="Se salvează…"
+                      >
                         {item.active ? "Dezactivează" : "Activează"}
-                      </Button>
+                      </SubmitButton>
                     </form>
                   </td>
                 </tr>

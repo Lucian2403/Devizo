@@ -21,6 +21,9 @@ import { GeminiRerankProvider } from "@/infrastructure/ai/gemini/rerank.provider
 import { GeminiTranscriptionProvider } from "@/infrastructure/ai/gemini/transcription.provider";
 import type { TranscriptionProvider } from "@/domain/ai/transcription.provider";
 import type { SupportedCurrency } from "@/domain/shared/types";
+import { NormativeIntelligenceService } from "@/domain/professional-estimates/normative-intelligence.service";
+import { DrizzleNormativeIntelligenceRepository } from "@/infrastructure/db/repositories/normativeIntelligence.repository";
+import { HttpNormativeSourceMonitor } from "@/infrastructure/normative/http-source-monitor";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -57,6 +60,13 @@ export function getQuoteService(): QuoteService {
 
 export function getQuoteDecisionService(): QuoteDecisionService {
   return new QuoteDecisionService(new DrizzleQuoteDecisionRepository());
+}
+
+export function getNormativeIntelligenceService(): NormativeIntelligenceService {
+  return new NormativeIntelligenceService(
+    new DrizzleNormativeIntelligenceRepository(),
+    new HttpNormativeSourceMonitor(),
+  );
 }
 
 // AI-assisted estimate extraction. When the quote currency is known, the

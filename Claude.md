@@ -617,3 +617,25 @@ For each major technology choice, explain:
 Then propose the first development milestones in implementation order.
 
 Keep the answer practical and concise.
+
+## Normative Intelligence guardrails
+
+The professional estimate domain includes a normative-intelligence layer. See
+`docs/architecture/normative-intelligence.md`.
+
+Rules for all future work:
+
+- A detected change on an official website is a review signal, never an
+  executable legal rule by itself.
+- Never mutate norms, resource consumptions, resource prices, calculation rules
+  or finalized documents automatically because a monitored page changed.
+- Keep official source status/version/validity separate from Devizo's internal
+  record lifecycle.
+- Every professional rule or price that claims normative provenance must point
+  to a versioned source or preserve equivalent provenance in its immutable
+  snapshot.
+- Historical/finalized calculations must remain reproducible after source,
+  price or rule updates.
+- Do not hard-code a percentage merely because it appears in an example
+  normative form. Model the rule, basis, validity and source explicitly.
+

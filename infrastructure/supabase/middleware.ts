@@ -2,8 +2,16 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-// Pages a logged-out visitor is allowed to open.
-const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/auth", "/q"];
+// Pages a logged-out visitor is allowed to open. The normative monitor route is
+// called by an external scheduler without a session; it enforces its own
+// CRON_SECRET bearer check.
+const PUBLIC_PATHS = [
+  "/sign-in",
+  "/sign-up",
+  "/auth",
+  "/q",
+  "/api/internal/normative-monitor",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
@@ -37,13 +45,16 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() checks the signed access token locally (Supabase publishes the
+  // public keys), so this runs on every request without a network round trip.
+  // It still refreshes an expired session. Pages and actions that need the
+  // identity re-check the same way in lib/auth/session.ts.
+  const { data } = await supabase.auth.getClaims();
+  const isSignedIn = Boolean(data?.claims?.sub);
 
   const { pathname } = request.nextUrl;
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!isSignedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     return NextResponse.redirect(url);
