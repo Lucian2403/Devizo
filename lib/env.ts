@@ -13,6 +13,8 @@ const serverSchema = z.object({
   // New Supabase secret key (starts with sb_secret_...). Server-only.
   SUPABASE_SECRET_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
+  // Optional token for the internal scheduled normative-source monitor route.
+  CRON_SECRET: z.string().min(16).optional(),
 });
 
 // In the browser only the NEXT_PUBLIC_* variables exist.
