@@ -11,6 +11,45 @@ import type { NormativeSourceUpsertInput } from "./normative-intelligence.reposi
  */
 export const MOLDOVA_NORMATIVE_BASELINE: readonly NormativeSourceUpsertInput[] = [
   {
+    code: "E-DNC-NORMATIVE-INDEX",
+    title: "Registrul online al documentelor normative în construcții",
+    edition: "live",
+    sourceType: "norm_collection",
+    publisher: "Ministerul Infrastructurii și Dezvoltării Regionale",
+    jurisdiction: "MD",
+    authority: "Ministerul Infrastructurii și Dezvoltării Regionale",
+    sourceUri: "https://ednc.gov.md/category/normative/",
+    officialStatus: "unknown",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      role: "registry_watch",
+      topic: "normative_discovery",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
+    code: "E-DNC-PRICE-CATALOGS",
+    title: "Catalogul online de prețuri medii în construcții",
+    edition: "live",
+    sourceType: "price_catalog",
+    publisher:
+      "Ministerul Infrastructurii și Dezvoltării Regionale prin IP OATUCL",
+    jurisdiction: "MD",
+    authority: "Ministerul Infrastructurii și Dezvoltării Regionale",
+    sourceUri: "https://ednc.gov.md/category/catalog-preturi-medii/",
+    officialStatus: "unknown",
+    status: "active",
+    monitoringEnabled: true,
+    metadata: {
+      sourceRegistry: "E-DNC",
+      role: "registry_watch",
+      topic: "price_catalog_discovery",
+      verifiedOn: "2026-10-06",
+    },
+  },
+  {
     code: "NCM L.01.01-2012",
     title: "Reguli de determinare a valorii obiectivelor de construcții",
     edition: "2012",
