@@ -1,6 +1,6 @@
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getNormativeIntelligenceService } from "@/server/container";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   bootstrapMoldovaSources,
   dismissNormativeUpdate,
@@ -101,19 +101,19 @@ export default async function NormativePage() {
 
         <div className="flex flex-wrap gap-2">
           <form action={bootstrapMoldovaSources}>
-            <Button variant="outline" type="submit">
+            <SubmitButton variant="outline" pendingLabel="Se încarcă…">
               {overview.sources.length === 0
                 ? "Încarcă baza Moldova"
                 : "Actualizează metadatele Moldova"}
-            </Button>
+            </SubmitButton>
           </form>
           <form action={verifyNormativeSources}>
-            <Button
-              type="submit"
+            <SubmitButton
               disabled={overview.stats.monitoredSources === 0}
+              pendingLabel="Se verifică sursele…"
             >
               Verifică sursele oficiale
-            </Button>
+            </SubmitButton>
           </form>
         </div>
       </div>
@@ -361,9 +361,9 @@ export default async function NormativePage() {
                           name="updateId"
                           value={update.id}
                         />
-                        <Button variant="outline" size="sm" type="submit">
+                        <SubmitButton variant="outline" size="sm" pendingLabel="Se salvează…">
                           Marchează verificat
-                        </Button>
+                        </SubmitButton>
                       </form>
                       <form action={dismissNormativeUpdate}>
                         <input
@@ -371,9 +371,9 @@ export default async function NormativePage() {
                           name="updateId"
                           value={update.id}
                         />
-                        <Button variant="ghost" size="sm" type="submit">
+                        <SubmitButton variant="ghost" size="sm" pendingLabel="Se salvează…">
                           Ignoră
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </div>
                   ) : null}

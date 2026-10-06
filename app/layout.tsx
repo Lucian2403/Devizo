@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NavigationProgress } from "@/components/ui/navigation-progress";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ro">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <NavigationProgress />
+        {children}
+      </body>
     </html>
   );
 }

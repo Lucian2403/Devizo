@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createQuoteForProject } from "@/app/(app)/quotes/actions";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 interface ProjectOption {
   id: string;
@@ -65,13 +66,9 @@ export function HomeAiCard({ projects }: { projects: ProjectOption[] }) {
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-            >
+            <SubmitButton disabled={!canSubmit} pendingLabel="Se creează oferta…">
               Continuă spre ofertă
-            </button>
+            </SubmitButton>
           </div>
         </form>
       )}

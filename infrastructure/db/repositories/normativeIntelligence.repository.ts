@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   calculationRules,
@@ -25,6 +25,15 @@ import type {
   OfficialSourceStatus,
   SourceVerificationStatus,
 } from "@/domain/professional-estimates/types";
+
+function emptyUsage(): NormativeSourceUsage {
+  return {
+    normVersions: 0,
+    resources: 0,
+    resourcePrices: 0,
+    calculationRules: 0,
+  };
+}
 
 function metadataObject(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -70,18 +79,73 @@ export class DrizzleNormativeIntelligenceRepository
   async listSources(
     organizationId: string,
   ): Promise<NormativeSourceOverview[]> {
-    const rows = await db
-      .select()
-      .from(normativeSources)
-      .where(eq(normativeSources.organizationId, organizationId))
-      .orderBy(asc(normativeSources.code), asc(normativeSources.edition));
+    const [rows, usageBySource] = await Promise.all([
+      db
+        .select()
+        .from(normativeSources)
+        .where(eq(normativeSources.organizationId, organizationId))
+        .orderBy(asc(normativeSources.code), asc(normativeSources.edition)),
+      this.getUsageBySource(organizationId),
+    ]);
 
-    return Promise.all(
-      rows.map(async (row) => ({
-        ...toSourceRecord(row),
-        usage: await this.getUsage(organizationId, row.id),
-      })),
-    );
+    return rows.map((row) => ({
+      ...toSourceRecord(row),
+      usage: usageBySource.get(row.id) ?? emptyUsage(),
+    }));
+  }
+
+  // Counts the dependent professional records of every source with four
+  // grouped queries, instead of four queries per source.
+  private async getUsageBySource(
+    organizationId: string,
+  ): Promise<Map<string, NormativeSourceUsage>> {
+    const count = sql<number>`count(*)::int`;
+    const [normVersionRows, resourceRows, priceRows, ruleRows] =
+      await Promise.all([
+        db
+          .select({ sourceId: estimateNormVersions.sourceId, count })
+          .from(estimateNormVersions)
+          .where(eq(estimateNormVersions.organizationId, organizationId))
+          .groupBy(estimateNormVersions.sourceId),
+        db
+          .select({ sourceId: professionalResources.sourceId, count })
+          .from(professionalResources)
+          .where(eq(professionalResources.organizationId, organizationId))
+          .groupBy(professionalResources.sourceId),
+        db
+          .select({ sourceId: resourcePrices.sourceId, count })
+          .from(resourcePrices)
+          .where(
+            and(
+              eq(resourcePrices.organizationId, organizationId),
+              isNotNull(resourcePrices.sourceId),
+            ),
+          )
+          .groupBy(resourcePrices.sourceId),
+        db
+          .select({ sourceId: calculationRules.sourceId, count })
+          .from(calculationRules)
+          .where(eq(calculationRules.organizationId, organizationId))
+          .groupBy(calculationRules.sourceId),
+      ]);
+
+    const usage = new Map<string, NormativeSourceUsage>();
+    const add = (
+      rows: { sourceId: string | null; count: number }[],
+      key: keyof NormativeSourceUsage,
+    ) => {
+      for (const row of rows) {
+        if (!row.sourceId) continue;
+        const entry = usage.get(row.sourceId) ?? emptyUsage();
+        entry[key] = row.count;
+        usage.set(row.sourceId, entry);
+      }
+    };
+    add(normVersionRows, "normVersions");
+    add(resourceRows, "resources");
+    add(priceRows, "resourcePrices");
+    add(ruleRows, "calculationRules");
+    return usage;
   }
 
   async listUpdates(

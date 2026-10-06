@@ -45,13 +45,16 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() checks the signed access token locally (Supabase publishes the
+  // public keys), so this runs on every request without a network round trip.
+  // It still refreshes an expired session. Pages and actions that need the
+  // identity re-check the same way in lib/auth/session.ts.
+  const { data } = await supabase.auth.getClaims();
+  const isSignedIn = Boolean(data?.claims?.sub);
 
   const { pathname } = request.nextUrl;
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!isSignedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     return NextResponse.redirect(url);

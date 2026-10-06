@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { getCurrentOrg } from "@/lib/auth/current-org";
 import { signOut } from "../(auth)/actions";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { MainNav } from "./main-nav";
 import { Sidebar } from "./sidebar";
 
@@ -66,9 +66,9 @@ export default async function AppLayout({
                 <p className="text-[12px] text-muted-foreground">{orgName}</p>
               </div>
               <form action={signOut}>
-                <Button variant="ghost" size="sm" type="submit">
+                <SubmitButton variant="ghost" size="sm" pendingLabel="Se iese…">
                   Ieși
-                </Button>
+                </SubmitButton>
               </form>
             </div>
           </div>

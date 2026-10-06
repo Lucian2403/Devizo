@@ -7,6 +7,7 @@ import {
 import { setItemActive } from "./actions";
 import { UNIT_LABELS } from "@/lib/i18n/units";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function CatalogPage() {
   const { org } = await requireCurrentOrg();
@@ -86,9 +87,14 @@ export default async function CatalogPage() {
                         name="active"
                         value={item.active ? "false" : "true"}
                       />
-                      <Button variant="ghost" size="sm" type="submit" className="h-7 px-2">
+                      <SubmitButton
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        pendingLabel="Se salvează…"
+                      >
                         {item.active ? "Dezactivează" : "Activează"}
-                      </Button>
+                      </SubmitButton>
                     </form>
                   </td>
                 </tr>

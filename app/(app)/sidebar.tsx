@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
+import { LinkPending } from "@/components/ui/link-pending";
 
 // Primary project views. Only "Toate proiectele" maps to a real route today;
 // the others are visual placeholders until those views exist.
@@ -40,6 +41,7 @@ export function Sidebar() {
           className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary text-[13.5px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
         >
           <span className="text-base leading-none">+</span> Proiect nou
+          <LinkPending />
         </Link>
       </div>
 
@@ -65,6 +67,7 @@ export function Sidebar() {
           return v.href ? (
             <Link key={v.label} href={v.href} className={cls}>
               {content}
+              <LinkPending className="ml-auto" />
             </Link>
           ) : (
             <span key={v.label} className={cls}>

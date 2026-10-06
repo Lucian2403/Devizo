@@ -1,4 +1,4 @@
-import { and, eq, desc, inArray, max, sql } from "drizzle-orm";
+import { and, eq, desc, inArray, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   quotes,
@@ -560,68 +560,45 @@ export class DrizzleQuoteRepository implements QuoteRepository {
     organizationId: OrganizationId,
     projectId: ProjectId,
   ): Promise<QuoteSummary[]> {
-    // Quotes belonging to the project.
-    const quoteRows = await db
-      .select({ id: quotes.id, updatedAt: quotes.updatedAt })
-      .from(quotes)
+    // One query: the latest version of every quote in the project, reading only
+    // the columns the summary needs (version rows also hold large snapshots).
+    const rows = await db
+      .selectDistinctOn([quoteVersions.quoteId], {
+        quoteId: quoteVersions.quoteId,
+        versionId: quoteVersions.id,
+        versionNumber: quoteVersions.versionNumber,
+        status: quoteVersions.status,
+        currency: quoteVersions.currency,
+        total: quoteVersions.total,
+        updatedAt: quotes.updatedAt,
+      })
+      .from(quoteVersions)
+      .innerJoin(
+        quotes,
+        and(
+          eq(quotes.id, quoteVersions.quoteId),
+          eq(quotes.organizationId, quoteVersions.organizationId),
+        ),
+      )
       .where(
         and(
-          eq(quotes.organizationId, organizationId),
+          eq(quoteVersions.organizationId, organizationId),
           eq(quotes.projectId, projectId),
         ),
       )
-      .orderBy(desc(quotes.updatedAt));
+      .orderBy(quoteVersions.quoteId, desc(quoteVersions.versionNumber));
 
-    if (quoteRows.length === 0) return [];
-    const quoteIds = quoteRows.map((q) => q.id);
-
-    // Highest version number per quote.
-    const latest = await db
-      .select({
-        quoteId: quoteVersions.quoteId,
-        latest: max(quoteVersions.versionNumber),
-      })
-      .from(quoteVersions)
-      .where(
-        and(
-          eq(quoteVersions.organizationId, organizationId),
-          inArray(quoteVersions.quoteId, quoteIds),
-        ),
-      )
-      .groupBy(quoteVersions.quoteId);
-
-    const latestByQuote = new Map(latest.map((r) => [r.quoteId, r.latest]));
-
-    // Fetch the version rows that match those latest numbers.
-    const versionRows = await db
-      .select()
-      .from(quoteVersions)
-      .where(
-        and(
-          eq(quoteVersions.organizationId, organizationId),
-          inArray(quoteVersions.quoteId, quoteIds),
-        ),
-      );
-
-    const summaries: QuoteSummary[] = [];
-    for (const q of quoteRows) {
-      const latestNumber = latestByQuote.get(q.id);
-      if (latestNumber == null) continue;
-      const version = versionRows.find(
-        (v) => v.quoteId === q.id && v.versionNumber === latestNumber,
-      );
-      if (!version) continue;
-      summaries.push({
-        quoteId: q.id,
-        versionId: version.id,
-        versionNumber: version.versionNumber,
-        status: version.status as QuoteStatus,
-        currency: version.currency,
-        total: version.total,
-        updatedAt: q.updatedAt,
-      });
-    }
-    return summaries;
+    return rows
+      .map((row) => ({
+        quoteId: row.quoteId,
+        versionId: row.versionId,
+        versionNumber: row.versionNumber,
+        status: row.status as QuoteStatus,
+        currency: row.currency,
+        total: row.total,
+        updatedAt: row.updatedAt,
+      }))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
   async listByProjectStatuses(
@@ -683,63 +660,37 @@ export class DrizzleQuoteRepository implements QuoteRepository {
   async listProjectQuoteSummaries(
     organizationId: OrganizationId,
   ): Promise<ProjectQuoteSummary[]> {
-    // All quotes in the org that belong to a project.
-    const quoteRows = await db
-      .select({ id: quotes.id, projectId: quotes.projectId })
-      .from(quotes)
-      .where(eq(quotes.organizationId, organizationId));
-
-    const withProject = quoteRows.filter((q) => q.projectId != null);
-    if (withProject.length === 0) return [];
-    const quoteIds = withProject.map((q) => q.id);
-
-    // Highest version number per quote.
-    const latest = await db
-      .select({
-        quoteId: quoteVersions.quoteId,
-        latest: max(quoteVersions.versionNumber),
-      })
-      .from(quoteVersions)
-      .where(
-        and(
-          eq(quoteVersions.organizationId, organizationId),
-          inArray(quoteVersions.quoteId, quoteIds),
-        ),
-      )
-      .groupBy(quoteVersions.quoteId);
-    const latestByQuote = new Map(latest.map((r) => [r.quoteId, r.latest]));
-
-    const versionRows = await db
-      .select({
-        quoteId: quoteVersions.quoteId,
-        versionNumber: quoteVersions.versionNumber,
+    // One query: the latest version of every project quote, reading only what
+    // the per-project, per-currency totals need.
+    const rows = await db
+      .selectDistinctOn([quoteVersions.quoteId], {
+        projectId: quotes.projectId,
         currency: quoteVersions.currency,
         total: quoteVersions.total,
       })
       .from(quoteVersions)
+      .innerJoin(
+        quotes,
+        and(
+          eq(quotes.id, quoteVersions.quoteId),
+          eq(quotes.organizationId, quoteVersions.organizationId),
+        ),
+      )
       .where(
         and(
           eq(quoteVersions.organizationId, organizationId),
-          inArray(quoteVersions.quoteId, quoteIds),
+          isNotNull(quotes.projectId),
         ),
-      );
+      )
+      .orderBy(quoteVersions.quoteId, desc(quoteVersions.versionNumber));
 
-    // Collect each quote's latest-version total, then aggregate per project and
-    // per currency. Mixed currencies are never summed together (no FX).
-    const latestTotals: LatestQuoteTotal[] = [];
-    for (const q of withProject) {
-      const latestNumber = latestByQuote.get(q.id);
-      if (latestNumber == null) continue;
-      const version = versionRows.find(
-        (v) => v.quoteId === q.id && v.versionNumber === latestNumber,
-      );
-      if (!version) continue;
-      latestTotals.push({
-        projectId: q.projectId as ProjectId,
-        currency: version.currency,
-        total: version.total,
-      });
-    }
+    // Aggregate each quote's latest-version total per project and per currency.
+    // Mixed currencies are never summed together (no FX).
+    const latestTotals: LatestQuoteTotal[] = rows.map((row) => ({
+      projectId: row.projectId as ProjectId,
+      currency: row.currency,
+      total: row.total,
+    }));
 
     return aggregateProjectQuoteSummaries(latestTotals);
   }

@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/spinner";
+import { LinkPending } from "@/components/ui/link-pending";
 
 const links = [
   { href: "/projects", label: "Proiecte" },
@@ -14,13 +13,6 @@ const links = [
   { href: null, label: "Rapoarte" },
   { href: "/settings", label: "Setări" },
 ];
-
-// Renders a small spinner the instant its parent Link starts navigating, so a
-// click always gives immediate feedback even while the route compiles/loads.
-function NavPending() {
-  const { pending } = useLinkStatus();
-  return pending ? <Spinner className="ml-1 h-3 w-3" /> : null;
-}
 
 // Highlights the link matching the current route. The Dashboard link only
 // matches the exact root; the others match their section prefix.
@@ -59,7 +51,7 @@ export function MainNav() {
         return (
           <Link key={link.href} href={link.href} className={className}>
             {link.label}
-            <NavPending />
+            <LinkPending className="ml-1" />
           </Link>
         );
       })}
