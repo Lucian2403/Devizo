@@ -88,6 +88,9 @@ Raw user identifiers and source fingerprints remain available in collapsed
 technical audit details; they are not substituted for a person's name.
 Dates on non-applicable decisions are labelled as recorded periods, not as
 confirmation that the source applies.
+Governance forms display expected validation failures inline and preserve the
+entered values. Only typed governance validation errors become form messages;
+unexpected database or infrastructure failures still propagate as errors.
 
 `normative_source_relations` stores directional, evidenced relationships such
 as `amends`, `replaces`, `supersedes`, `supplements`, `corrigendum_to`, and

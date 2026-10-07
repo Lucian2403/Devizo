@@ -190,6 +190,20 @@ async function main() {
   const repository = new MemoryGovernanceRepository();
   const service = new NormativeGovernanceService(repository);
 
+  await assert.rejects(
+    () => service.decideApplicability({
+      organizationId: "org-1",
+      decidedByUserId: "user-1",
+      sourceId: "source-1",
+      decision: "applicable",
+      basisNote: "Test fără data de început.",
+    }),
+    {
+      name: "NormativeGovernanceValidationError",
+      message: "Pentru o decizie «Aplicabilă» trebuie indicată data de început.",
+    },
+  );
+
   await service.reviewUpdate({
     organizationId: "org-1",
     reviewerUserId: "user-1",
@@ -421,6 +435,21 @@ async function main() {
   assert.match(auditHistory, /Detalii tehnice pentru audit/);
   assert.match(auditHistory, /entry\.decidedByUserId/);
   assert.match(auditHistory, /entry\.sourceFingerprint/);
+
+  const actions = readFileSync("app/(app)/normative/actions.ts", "utf8");
+  const form = readFileSync("app/(app)/normative/governance-form.tsx", "utf8");
+  assert.match(actions, /error instanceof NormativeGovernanceValidationError/);
+  assert.match(actions, /return \{ error: error\.message \}/);
+  assert.match(actions, /throw error;/);
+  assert.match(form, /useActionState/);
+  assert.match(form, /role="alert"/);
+  for (const action of [
+    "decideNormativeApplicability",
+    "reviewNormativeUpdate",
+    "relateNormativeSources",
+  ]) {
+    assert.match(normativePage, new RegExp(`<GovernanceForm\\s+action=\\{${action}\\}`));
+  }
 
   console.log("Normative governance checks passed.");
 }

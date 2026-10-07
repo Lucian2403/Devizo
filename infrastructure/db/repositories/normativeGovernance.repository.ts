@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, max } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/infrastructure/db";
+import { NormativeGovernanceValidationError } from "@/domain/professional-estimates/normative-governance.error";
 import {
   normativeApplicabilityDecisions,
   normativeSourceRelations,
@@ -212,7 +213,7 @@ export class DrizzleNormativeGovernanceRepository
         )
         .for("update");
 
-      if (!row) throw new Error("Modificarea detectată nu a fost găsită.");
+      if (!row) throw new NormativeGovernanceValidationError("Modificarea detectată nu a fost găsită.");
       if (row.update.reviewStatus !== "detected") return;
 
       const reviewedAt = new Date();
@@ -265,12 +266,12 @@ export class DrizzleNormativeGovernanceRepository
           ),
         )
         .for("update");
-      if (!source) throw new Error("Sursa normativă nu a fost găsită.");
+      if (!source) throw new NormativeGovernanceValidationError("Sursa normativă nu a fost găsită.");
       if (
         input.decision === "applicable" &&
         source.officialStatus !== "in_force"
       ) {
-        throw new Error(
+        throw new NormativeGovernanceValidationError(
           "O sursă poate fi declarată aplicabilă numai după confirmarea statutului «În vigoare».",
         );
       }
@@ -288,7 +289,7 @@ export class DrizzleNormativeGovernanceRepository
           )
           .limit(1);
         if (!update) {
-          throw new Error(
+          throw new NormativeGovernanceValidationError(
             "Modificarea selectată nu aparține acestei surse normative.",
           );
         }
@@ -303,7 +304,7 @@ export class DrizzleNormativeGovernanceRepository
           )
           .limit(1);
         if (!review) {
-          throw new Error(
+          throw new NormativeGovernanceValidationError(
             "Analiza umană a modificării trebuie înregistrată înaintea deciziei de aplicabilitate.",
           );
         }
@@ -348,7 +349,7 @@ export class DrizzleNormativeGovernanceRepository
     input: CreateNormativeSourceRelationInput,
   ): Promise<void> {
     if (input.fromSourceId === input.toSourceId) {
-      throw new Error("O sursă normativă nu poate avea o relație cu ea însăși.");
+      throw new NormativeGovernanceValidationError("O sursă normativă nu poate avea o relație cu ea însăși.");
     }
     const inserted = await db
       .insert(normativeSourceRelations)
@@ -372,7 +373,7 @@ export class DrizzleNormativeGovernanceRepository
       })
       .returning({ id: normativeSourceRelations.id });
     if (inserted.length === 0) {
-      throw new Error("Această relație între surse este deja înregistrată.");
+      throw new NormativeGovernanceValidationError("Această relație între surse este deja înregistrată.");
     }
   }
 }

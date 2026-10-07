@@ -3,6 +3,7 @@ import {
   NORMATIVE_SOURCE_RELATION_TYPES,
   NORMATIVE_UPDATE_REVIEW_DECISIONS,
 } from "./types";
+import { NormativeGovernanceValidationError } from "./normative-governance.error";
 import type {
   CreateNormativeApplicabilityInput,
   CreateNormativeSourceRelationInput,
@@ -21,9 +22,9 @@ export interface NormativeGovernanceOverview {
 
 function requiredText(value: string, field: string, maxLength: number): string {
   const normalized = value.trim();
-  if (!normalized) throw new Error(`${field} este obligatoriu.`);
+  if (!normalized) throw new NormativeGovernanceValidationError(`${field} este obligatoriu.`);
   if (normalized.length > maxLength) {
-    throw new Error(`${field} depășește limita de ${maxLength} caractere.`);
+    throw new NormativeGovernanceValidationError(`${field} depășește limita de ${maxLength} caractere.`);
   }
   return normalized;
 }
@@ -36,7 +37,7 @@ function optionalText(
   if (value == null || value.trim() === "") return null;
   const normalized = value.trim();
   if (normalized.length > maxLength) {
-    throw new Error(`${field} depășește limita de ${maxLength} caractere.`);
+    throw new NormativeGovernanceValidationError(`${field} depășește limita de ${maxLength} caractere.`);
   }
   return normalized;
 }
@@ -44,14 +45,14 @@ function optionalText(
 function optionalDate(value: string | null | undefined, field: string): string | null {
   if (value == null || value === "") return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new Error(`${field} trebuie să fie o dată calendaristică validă.`);
+    throw new NormativeGovernanceValidationError(`${field} trebuie să fie o dată calendaristică validă.`);
   }
   const parsed = new Date(`${value}T00:00:00.000Z`);
   if (
     Number.isNaN(parsed.valueOf()) ||
     parsed.toISOString().slice(0, 10) !== value
   ) {
-    throw new Error(`${field} trebuie să fie o dată calendaristică validă.`);
+    throw new NormativeGovernanceValidationError(`${field} trebuie să fie o dată calendaristică validă.`);
   }
   return value;
 }
@@ -66,10 +67,10 @@ function optionalHttpsUri(
   try {
     url = new URL(normalized);
   } catch {
-    throw new Error(`${field} trebuie să fie un URL valid.`);
+    throw new NormativeGovernanceValidationError(`${field} trebuie să fie un URL valid.`);
   }
   if (url.protocol !== "https:") {
-    throw new Error(`${field} trebuie să folosească HTTPS.`);
+    throw new NormativeGovernanceValidationError(`${field} trebuie să folosească HTTPS.`);
   }
   return normalized;
 }
@@ -80,7 +81,7 @@ function assertEnum<T extends string>(
   field: string,
 ): asserts value is T {
   if (!values.includes(value as T)) {
-    throw new Error(`${field} nu este o valoare permisă.`);
+    throw new NormativeGovernanceValidationError(`${field} nu este o valoare permisă.`);
   }
 }
 
@@ -128,10 +129,10 @@ export class NormativeGovernanceService {
       applicableUntil &&
       applicableUntil < applicableFrom
     ) {
-      throw new Error("Data de sfârșit trebuie să fie după data de început.");
+      throw new NormativeGovernanceValidationError("Data de sfârșit trebuie să fie după data de început.");
     }
     if (input.decision === "applicable" && !applicableFrom) {
-      throw new Error(
+      throw new NormativeGovernanceValidationError(
         "Pentru o decizie «Aplicabilă» trebuie indicată data de început.",
       );
     }
@@ -153,7 +154,7 @@ export class NormativeGovernanceService {
       "Tipul relației",
     );
     if (input.fromSourceId === input.toSourceId) {
-      throw new Error("O sursă normativă nu poate avea o relație cu ea însăși.");
+      throw new NormativeGovernanceValidationError("O sursă normativă nu poate avea o relație cu ea însăși.");
     }
     const effectiveDate = optionalDate(input.effectiveDate, "Data relației");
     await this.governanceRepository.createSourceRelation({

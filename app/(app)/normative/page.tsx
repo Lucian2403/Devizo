@@ -4,6 +4,7 @@ import {
   getNormativeIntelligenceService,
 } from "@/server/container";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { GovernanceForm } from "./governance-form";
 import {
   bootstrapMoldovaSources,
   decideNormativeApplicability,
@@ -410,7 +411,7 @@ export default async function NormativePage() {
                                         </details>
                                       </div>
                                     ))}
-                                    <form
+                                    <GovernanceForm
                                       action={decideNormativeApplicability}
                                       className="space-y-2 border-t pt-3"
                                     >
@@ -519,7 +520,7 @@ export default async function NormativePage() {
                                       >
                                         Înregistrează decizia
                                       </SubmitButton>
-                                    </form>
+                                    </GovernanceForm>
                                   </div>
                                 </details>
                               </div>
@@ -713,7 +714,7 @@ export default async function NormativePage() {
                   </div>
 
                   {update.reviewStatus === "detected" ? (
-                    <form
+                    <GovernanceForm
                       action={reviewNormativeUpdate}
                       className="w-full max-w-sm shrink-0 space-y-2"
                     >
@@ -755,7 +756,7 @@ export default async function NormativePage() {
                         >
                           Înregistrează analiza
                         </SubmitButton>
-                    </form>
+                    </GovernanceForm>
                   ) : null}
                 </div>
               </article>
@@ -826,7 +827,7 @@ export default async function NormativePage() {
             <summary className="cursor-pointer font-medium text-heading">
               Înregistrează o relație documentată
             </summary>
-            <form
+            <GovernanceForm
               action={relateNormativeSources}
               className="mt-4 grid gap-3 sm:grid-cols-2"
             >
@@ -903,7 +904,7 @@ export default async function NormativePage() {
                   Înregistrează relația
                 </SubmitButton>
               </div>
-            </form>
+            </GovernanceForm>
           </details>
         ) : (
           <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">

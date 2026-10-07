@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
+import { NormativeGovernanceValidationError } from "@/domain/professional-estimates/normative-governance.error";
+import type { GovernanceFormState } from "./governance-form";
 import {
   getNormativeGovernanceService,
   getNormativeIntelligenceService,
@@ -20,7 +22,7 @@ import type {
 function requiredField(formData: FormData, name: string): string {
   const value = formData.get(name);
   if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`Câmpul «${name}» este obligatoriu.`);
+    throw new NormativeGovernanceValidationError(`Câmpul «${name}» este obligatoriu.`);
   }
   return value.trim();
 }
@@ -29,7 +31,7 @@ function optionalField(formData: FormData, name: string): string | null {
   const value = formData.get(name);
   if (value == null || value === "") return null;
   if (typeof value !== "string") {
-    throw new Error(`Câmpul «${name}» are un format invalid.`);
+    throw new NormativeGovernanceValidationError(`Câmpul «${name}» are un format invalid.`);
   }
   return value.trim() || null;
 }
@@ -37,7 +39,7 @@ function optionalField(formData: FormData, name: string): string | null {
 function uuidField(formData: FormData, name: string): string {
   const value = requiredField(formData, name);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-    throw new Error(`Câmpul «${name}» nu este un identificator valid.`);
+    throw new NormativeGovernanceValidationError(`Câmpul «${name}» nu este un identificator valid.`);
   }
   return value;
 }
@@ -49,7 +51,7 @@ function enumField<const T extends readonly string[]>(
 ): T[number] {
   const value = requiredField(formData, name);
   if (!values.some((allowed) => allowed === value)) {
-    throw new Error(`Câmpul «${name}» are o valoare invalidă.`);
+    throw new NormativeGovernanceValidationError(`Câmpul «${name}» are o valoare invalidă.`);
   }
   return value as T[number];
 }
@@ -66,7 +68,7 @@ export async function verifyNormativeSources(): Promise<void> {
   revalidatePath("/normative");
 }
 
-export async function reviewNormativeUpdate(formData: FormData): Promise<void> {
+async function saveReview(formData: FormData): Promise<void> {
   const { org, userId } = await requireCurrentOrg();
   await getNormativeGovernanceService().reviewUpdate({
     organizationId: org.id,
@@ -82,7 +84,7 @@ export async function reviewNormativeUpdate(formData: FormData): Promise<void> {
   revalidatePath("/normative");
 }
 
-export async function decideNormativeApplicability(
+async function saveApplicability(
   formData: FormData,
 ): Promise<void> {
   const { org, userId } = await requireCurrentOrg();
@@ -106,7 +108,7 @@ export async function decideNormativeApplicability(
   revalidatePath("/normative");
 }
 
-export async function relateNormativeSources(
+async function saveRelation(
   formData: FormData,
 ): Promise<void> {
   const { org, userId } = await requireCurrentOrg();
@@ -125,4 +127,40 @@ export async function relateNormativeSources(
     note: optionalField(formData, "note"),
   });
   revalidatePath("/normative");
+}
+
+async function submitGovernance(
+  save: (data: FormData) => Promise<void>,
+  data: FormData,
+): Promise<GovernanceFormState> {
+  try {
+    await save(data);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof NormativeGovernanceValidationError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+}
+
+export async function reviewNormativeUpdate(
+  _state: GovernanceFormState,
+  data: FormData,
+): Promise<GovernanceFormState> {
+  return submitGovernance(saveReview, data);
+}
+
+export async function decideNormativeApplicability(
+  _state: GovernanceFormState,
+  data: FormData,
+): Promise<GovernanceFormState> {
+  return submitGovernance(saveApplicability, data);
+}
+
+export async function relateNormativeSources(
+  _state: GovernanceFormState,
+  data: FormData,
+): Promise<GovernanceFormState> {
+  return submitGovernance(saveRelation, data);
 }
