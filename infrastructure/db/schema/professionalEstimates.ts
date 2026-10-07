@@ -154,7 +154,7 @@ export const normativeUpdates = pgTable(
       columns: [table.sourceId, table.organizationId],
       foreignColumns: [normativeSources.id, normativeSources.organizationId],
       name: "normative_updates_source_org_fkey",
-    }).onDelete("cascade"),
+    }).onDelete("restrict"),
     orgIdUnique: unique("normative_updates_id_org_unique").on(
       table.id,
       table.organizationId,
@@ -176,6 +176,198 @@ export const normativeUpdates = pgTable(
       table.organizationId,
       table.detectedAt,
     ),
+  }),
+);
+
+export const normativeUpdateReviews = pgTable(
+  "normative_update_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updateId: uuid("update_id").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    reviewerUserId: uuid("reviewer_user_id").notNull(),
+    decision: text("decision").notNull(),
+    note: text("note"),
+    sourceCode: text("source_code").notNull(),
+    sourceEdition: text("source_edition").notNull(),
+    sourceAuthority: text("source_authority"),
+    officialUri: text("official_uri"),
+    publicationDate: date("publication_date"),
+    effectiveDate: date("effective_date"),
+    previousFingerprint: text("previous_fingerprint"),
+    detectedFingerprint: text("detected_fingerprint").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    updateOrgFk: foreignKey({
+      columns: [table.updateId, table.organizationId],
+      foreignColumns: [normativeUpdates.id, normativeUpdates.organizationId],
+      name: "normative_update_reviews_update_org_fkey",
+    }).onDelete("restrict"),
+    sourceOrgFk: foreignKey({
+      columns: [table.sourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "normative_update_reviews_source_org_fkey",
+    }).onDelete("restrict"),
+    orgIdUnique: unique("normative_update_reviews_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    updateUnique: unique("normative_update_reviews_update_unique").on(
+      table.updateId,
+    ),
+    decisionCheck: check(
+      "normative_update_reviews_decision_check",
+      sql`${table.decision} in ('reviewed_no_action', 'dismissed', 'requires_normative_version', 'requires_metadata_update', 'requires_follow_up')`,
+    ),
+    noteCheck: check(
+      "normative_update_reviews_note_length_check",
+      sql`${table.note} is null or length(trim(${table.note})) <= 4000`,
+    ),
+    organizationReviewedIdx: index(
+      "normative_update_reviews_org_reviewed_idx",
+    ).on(table.organizationId, table.reviewedAt),
+  }),
+);
+
+export const normativeApplicabilityDecisions = pgTable(
+  "normative_applicability_decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id").notNull(),
+    triggeringUpdateId: uuid("triggering_update_id"),
+    revision: integer("revision").notNull(),
+    decision: text("decision").notNull(),
+    applicableFrom: date("applicable_from"),
+    applicableUntil: date("applicable_until"),
+    decidedAt: timestamp("decided_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedByUserId: uuid("decided_by_user_id").notNull(),
+    basisNote: text("basis_note").notNull(),
+    evidenceUri: text("evidence_uri"),
+    sourceCode: text("source_code").notNull(),
+    sourceEdition: text("source_edition").notNull(),
+    // Null for decisions recorded before these fields were snapshotted.
+    sourceTitle: text("source_title"),
+    sourcePublisher: text("source_publisher"),
+    sourceJurisdiction: text("source_jurisdiction"),
+    sourceAuthority: text("source_authority"),
+    sourceUri: text("source_uri"),
+    sourceFingerprint: text("source_fingerprint"),
+    officialStatus: text("official_status").notNull(),
+  },
+  (table) => ({
+    sourceOrgFk: foreignKey({
+      columns: [table.sourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "normative_applicability_source_org_fkey",
+    }).onDelete("restrict"),
+    triggeringUpdateOrgFk: foreignKey({
+      columns: [table.triggeringUpdateId, table.organizationId],
+      foreignColumns: [normativeUpdates.id, normativeUpdates.organizationId],
+      name: "normative_applicability_update_org_fkey",
+    }).onDelete("restrict"),
+    orgIdUnique: unique("normative_applicability_decisions_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    sourceRevisionUnique: unique(
+      "normative_applicability_source_revision_unique",
+    ).on(table.organizationId, table.sourceId, table.revision),
+    revisionCheck: check(
+      "normative_applicability_revision_check",
+      sql`${table.revision} > 0`,
+    ),
+    decisionCheck: check(
+      "normative_applicability_decision_check",
+      sql`${table.decision} in ('applicable', 'not_applicable', 'deferred', 'unknown')`,
+    ),
+    applicableDateCheck: check(
+      "normative_applicability_applicable_date_check",
+      sql`${table.decision} <> 'applicable' or (${table.applicableFrom} is not null and ${table.officialStatus} = 'in_force')`,
+    ),
+    validityCheck: check(
+      "normative_applicability_validity_check",
+      sql`${table.applicableUntil} is null or ${table.applicableFrom} is null or ${table.applicableUntil} >= ${table.applicableFrom}`,
+    ),
+    basisNoteCheck: check(
+      "normative_applicability_basis_note_check",
+      sql`length(trim(${table.basisNote})) between 1 and 4000`,
+    ),
+    evidenceUriCheck: check(
+      "normative_applicability_evidence_uri_check",
+      sql`${table.evidenceUri} is null or length(trim(${table.evidenceUri})) <= 2048`,
+    ),
+  }),
+);
+
+export const normativeSourceRelations = pgTable(
+  "normative_source_relations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    fromSourceId: uuid("from_source_id").notNull(),
+    toSourceId: uuid("to_source_id").notNull(),
+    relationType: text("relation_type").notNull(),
+    effectiveDate: date("effective_date"),
+    evidenceUri: text("evidence_uri"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: uuid("created_by_user_id").notNull(),
+  },
+  (table) => ({
+    fromSourceOrgFk: foreignKey({
+      columns: [table.fromSourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "normative_source_relations_from_source_org_fkey",
+    }).onDelete("restrict"),
+    toSourceOrgFk: foreignKey({
+      columns: [table.toSourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "normative_source_relations_to_source_org_fkey",
+    }).onDelete("restrict"),
+    orgIdUnique: unique("normative_source_relations_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    relationUnique: unique("normative_source_relations_unique").on(
+      table.organizationId,
+      table.fromSourceId,
+      table.toSourceId,
+      table.relationType,
+    ),
+    notSelfCheck: check(
+      "normative_source_relations_not_self_check",
+      sql`${table.fromSourceId} <> ${table.toSourceId}`,
+    ),
+    relationTypeCheck: check(
+      "normative_source_relations_type_check",
+      sql`${table.relationType} in ('amends', 'replaces', 'supersedes', 'supplements', 'corrigendum_to', 'related_to')`,
+    ),
+    evidenceUriCheck: check(
+      "normative_source_relations_evidence_uri_check",
+      sql`${table.evidenceUri} is null or length(trim(${table.evidenceUri})) <= 2048`,
+    ),
+    noteCheck: check(
+      "normative_source_relations_note_check",
+      sql`${table.note} is null or length(trim(${table.note})) <= 4000`,
+    ),
+    organizationCreatedIdx: index(
+      "normative_source_relations_org_created_idx",
+    ).on(table.organizationId, table.createdAt),
   }),
 );
 
@@ -356,6 +548,7 @@ export const estimateNormVersions = pgTable(
     validFrom: date("valid_from"),
     validTo: date("valid_to"),
     applicability: jsonb("applicability").notNull().default({}),
+    publicationStatus: text("publication_status").notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -364,7 +557,7 @@ export const estimateNormVersions = pgTable(
       columns: [table.estimateNormId, table.organizationId],
       foreignColumns: [estimateNorms.id, estimateNorms.organizationId],
       name: "estimate_norm_versions_norm_org_fkey",
-    }).onDelete("cascade"),
+    }).onDelete("restrict"),
     sourceOrgFk: foreignKey({
       columns: [table.sourceId, table.organizationId],
       foreignColumns: [normativeSources.id, normativeSources.organizationId],
@@ -394,6 +587,10 @@ export const estimateNormVersions = pgTable(
       "estimate_norm_versions_validity_check",
       sql`${table.validTo} is null or ${table.validFrom} is null or ${table.validTo} >= ${table.validFrom}`,
     ),
+    publicationStatusCheck: check(
+      "estimate_norm_versions_publication_status_check",
+      sql`${table.publicationStatus} in ('draft', 'in_review', 'approved', 'published')`,
+    ),
   }),
 );
 
@@ -419,7 +616,7 @@ export const resourceConsumptions = pgTable(
       columns: [table.estimateNormVersionId, table.organizationId],
       foreignColumns: [estimateNormVersions.id, estimateNormVersions.organizationId],
       name: "resource_consumptions_norm_version_org_fkey",
-    }).onDelete("cascade"),
+    }).onDelete("restrict"),
     resourceOrgFk: foreignKey({
       columns: [table.resourceId, table.organizationId],
       foreignColumns: [professionalResources.id, professionalResources.organizationId],
@@ -470,7 +667,7 @@ export const resourcePrices = pgTable(
       columns: [table.resourceId, table.organizationId],
       foreignColumns: [professionalResources.id, professionalResources.organizationId],
       name: "resource_prices_resource_org_fkey",
-    }).onDelete("cascade"),
+    }).onDelete("restrict"),
     sourceOrgFk: foreignKey({
       columns: [table.sourceId, table.organizationId],
       foreignColumns: [normativeSources.id, normativeSources.organizationId],
@@ -721,6 +918,10 @@ export type WorkQuantityList = typeof workQuantityLists.$inferSelect;
 export type WorkQuantityItem = typeof workQuantityItems.$inferSelect;
 export type NormativeSource = typeof normativeSources.$inferSelect;
 export type NormativeUpdate = typeof normativeUpdates.$inferSelect;
+export type NormativeUpdateReview = typeof normativeUpdateReviews.$inferSelect;
+export type NormativeApplicabilityDecision =
+  typeof normativeApplicabilityDecisions.$inferSelect;
+export type NormativeSourceRelation = typeof normativeSourceRelations.$inferSelect;
 export type EstimateNorm = typeof estimateNorms.$inferSelect;
 export type EstimateNormVersion = typeof estimateNormVersions.$inferSelect;
 export type ProfessionalResource = typeof professionalResources.$inferSelect;

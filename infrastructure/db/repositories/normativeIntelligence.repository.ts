@@ -372,22 +372,4 @@ export class DrizzleNormativeIntelligenceRepository
       });
   }
 
-  async setUpdateReviewStatus(
-    organizationId: string,
-    updateId: string,
-    status: "reviewed" | "dismissed",
-  ): Promise<void> {
-    await db
-      .update(normativeUpdates)
-      .set({
-        reviewStatus: status,
-        reviewedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(normativeUpdates.organizationId, organizationId),
-          eq(normativeUpdates.id, updateId),
-        ),
-      );
-  }
 }

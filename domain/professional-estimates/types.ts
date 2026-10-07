@@ -64,6 +64,48 @@ export const NORMATIVE_REVIEW_STATUSES = [
 export type NormativeReviewStatus =
   (typeof NORMATIVE_REVIEW_STATUSES)[number];
 
+export const NORMATIVE_UPDATE_REVIEW_DECISIONS = [
+  "reviewed_no_action",
+  "dismissed",
+  "requires_normative_version",
+  "requires_metadata_update",
+  "requires_follow_up",
+] as const;
+export type NormativeUpdateReviewDecision =
+  (typeof NORMATIVE_UPDATE_REVIEW_DECISIONS)[number];
+
+export const NORMATIVE_APPLICABILITY_DECISIONS = [
+  "applicable",
+  "not_applicable",
+  "deferred",
+  "unknown",
+] as const;
+export type NormativeApplicabilityDecision =
+  (typeof NORMATIVE_APPLICABILITY_DECISIONS)[number];
+
+export const NORMATIVE_SOURCE_RELATION_TYPES = [
+  "amends",
+  "replaces",
+  "supersedes",
+  "supplements",
+  "corrigendum_to",
+  "related_to",
+] as const;
+export type NormativeSourceRelationType =
+  (typeof NORMATIVE_SOURCE_RELATION_TYPES)[number];
+
+// Publication controls content lifecycle, not applicability. Future calculation
+// selection also requires a source decision valid on the valuation date and
+// exact source/version provenance; publication alone never grants eligibility.
+export const NORMATIVE_VERSION_PUBLICATION_STATUSES = [
+  "draft",
+  "in_review",
+  "approved",
+  "published",
+] as const;
+export type NormativeVersionPublicationStatus =
+  (typeof NORMATIVE_VERSION_PUBLICATION_STATUSES)[number];
+
 export const CALCULATION_RULE_TYPES = [
   "coefficient",
   "overhead",

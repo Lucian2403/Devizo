@@ -138,9 +138,4 @@ export interface NormativeIntelligenceRepository {
     input: DetectedNormativeUpdateInput,
   ): Promise<void>;
 
-  setUpdateReviewStatus(
-    organizationId: string,
-    updateId: string,
-    status: Extract<NormativeReviewStatus, "reviewed" | "dismissed">,
-  ): Promise<void>;
 }

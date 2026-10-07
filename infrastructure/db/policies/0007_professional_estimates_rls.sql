@@ -22,6 +22,11 @@ DECLARE
     'norm_applications',
     'calculation_rules'
   ];
+  immutable_tables text[] := ARRAY[
+    'normative_update_reviews',
+    'normative_applicability_decisions',
+    'normative_source_relations'
+  ];
 BEGIN
   FOREACH table_name IN ARRAY professional_tables
   LOOP
@@ -57,6 +62,44 @@ BEGIN
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR UPDATE USING (public.is_org_member(organization_id)) WITH CHECK (public.is_org_member(organization_id))',
       table_name || '_update_member',
+      table_name
+    );
+  END LOOP;
+
+  FOREACH table_name IN ARRAY immutable_tables
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
+
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      table_name || '_select_member',
+      table_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT USING (public.is_org_member(organization_id))',
+      table_name || '_select_member',
+      table_name
+    );
+
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      table_name || '_insert_member',
+      table_name
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR INSERT WITH CHECK (public.is_org_member(organization_id))',
+      table_name || '_insert_member',
+      table_name
+    );
+
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      table_name || '_update_member',
+      table_name
+    );
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      table_name || '_delete_member',
       table_name
     );
   END LOOP;

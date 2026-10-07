@@ -1,9 +1,14 @@
 import { requireCurrentOrg } from "@/lib/auth/current-org";
-import { getNormativeIntelligenceService } from "@/server/container";
+import {
+  getNormativeGovernanceService,
+  getNormativeIntelligenceService,
+} from "@/server/container";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { GovernanceForm } from "./governance-form";
 import {
   bootstrapMoldovaSources,
-  dismissNormativeUpdate,
+  decideNormativeApplicability,
+  relateNormativeSources,
   reviewNormativeUpdate,
   verifyNormativeSources,
 } from "./actions";
@@ -27,6 +32,38 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   company_custom: "Regulă companie",
   import: "Import",
 };
+
+const APPLICABILITY_LABELS: Record<string, string> = {
+  applicable: "Aplicabilă",
+  not_applicable: "Neaplicabilă",
+  deferred: "Amânată",
+  unknown: "Aplicabilitate nedeterminată",
+};
+
+const REVIEW_DECISION_LABELS: Record<string, string> = {
+  reviewed_no_action: "Analizat — fără acțiune",
+  dismissed: "Respins",
+  requires_normative_version: "Necesită ediție normativă nouă",
+  requires_metadata_update: "Necesită actualizarea metadatelor",
+  requires_follow_up: "Necesită urmărire",
+};
+
+const RELATION_LABELS: Record<string, string> = {
+  amends: "modifică",
+  replaces: "înlocuiește",
+  supersedes: "preia locul",
+  supplements: "completează",
+  corrigendum_to: "rectifică",
+  related_to: "este asociată cu",
+};
+
+function applicabilityClass(decision: string): string {
+  if (decision === "applicable") return "bg-status-ok-bg text-status-ok-fg";
+  if (decision === "not_applicable") {
+    return "bg-status-neutral-bg text-status-neutral-fg";
+  }
+  return "bg-status-warn-bg text-status-warn-fg";
+}
 
 function officialStatusClass(status: string): string {
   if (status === "in_force") {
@@ -79,8 +116,28 @@ function updateStatusClass(status: string): string {
 
 export default async function NormativePage() {
   const { org } = await requireCurrentOrg();
-  const overview =
-    await getNormativeIntelligenceService().getOverview(org.id);
+  const [overview, governance] = await Promise.all([
+    getNormativeIntelligenceService().getOverview(org.id),
+    getNormativeGovernanceService().getOverview(org.id),
+  ]);
+  const applicabilityBySource = new Map<
+    string,
+    typeof governance.applicability
+  >();
+  for (const decision of governance.applicability) {
+    const history = applicabilityBySource.get(decision.sourceId) ?? [];
+    history.push(decision);
+    applicabilityBySource.set(decision.sourceId, history);
+  }
+  const reviewsByUpdate = new Map(
+    governance.reviews.map((review) => [review.updateId, review]),
+  );
+  const updatesBySource = new Map<string, typeof overview.updates>();
+  for (const update of overview.updates) {
+    const sourceUpdates = updatesBySource.get(update.sourceId) ?? [];
+    sourceUpdates.push(update);
+    updatesBySource.set(update.sourceId, sourceUpdates);
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-6 py-6">
@@ -119,7 +176,7 @@ export default async function NormativePage() {
       </div>
 
       <div className="rounded-xl border border-border bg-status-warn-bg px-4 py-3 text-sm text-status-warn-fg">
-        <strong>Control uman obligatoriu.</strong> Monitorizarea compară
+        <strong>Este necesară verificarea înainte de aplicare.</strong> Monitorizarea compară
         conținutul paginilor oficiale și semnalează schimbări. Nu declară singură
         că o normă juridică s-a modificat și nu actualizează retroactiv calcule,
         reguli sau documente finalizate.
@@ -191,8 +248,10 @@ export default async function NormativePage() {
                     <th className="px-4 py-3 font-medium">Ediție</th>
                     <th className="px-4 py-3 font-medium">Tip</th>
                     <th className="px-4 py-3 font-medium">Statut oficial</th>
-                    <th className="px-4 py-3 font-medium">Aplicare</th>
-                    <th className="px-4 py-3 font-medium">Ultima verificare</th>
+                    <th className="px-4 py-3 font-medium">
+                      Decizie de aplicabilitate
+                    </th>
+                    <th className="px-4 py-3 font-medium">Monitorizare</th>
                     <th className="px-4 py-3 text-right font-medium">
                       Impact
                     </th>
@@ -239,10 +298,263 @@ export default async function NormativePage() {
                               source.officialStatus}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {formatDate(
-                            source.effectiveDate ?? source.validFrom,
-                          )}
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const history =
+                              applicabilityBySource.get(source.id) ?? [];
+                            const latest = history[0];
+                            const sourceUpdates =
+                              (updatesBySource.get(source.id) ?? []).filter(
+                                (update) => reviewsByUpdate.has(update.id),
+                              );
+                            return (
+                              <div className="min-w-64 space-y-2">
+                                {latest ? (
+                                  <>
+                                    <span
+                                      className={
+                                        "inline-flex rounded-full px-2 py-1 text-[11px] font-medium " +
+                                        applicabilityClass(latest.decision)
+                                      }
+                                    >
+                                      {APPLICABILITY_LABELS[latest.decision] ??
+                                        latest.decision}
+                                    </span>
+                                    <div className="text-xs text-muted-foreground">
+                                      Revizia {latest.revision}
+                                      {latest.applicableFrom
+                                        ? ` · de la ${formatDate(latest.applicableFrom)}`
+                                        : ""}
+                                      {latest.applicableUntil
+                                        ? ` până la ${formatDate(latest.applicableUntil)}`
+                                        : ""}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    Fără decizie înregistrată
+                                  </span>
+                                )}
+                                <details className="text-xs">
+                                  <summary className="cursor-pointer font-medium text-primary-hover">
+                                    Istoric și decizie
+                                  </summary>
+                                  <div className="mt-2 space-y-3 rounded-md border p-3">
+                                    {history.map((entry) => (
+                                      <div
+                                        key={entry.id}
+                                        className="border-b pb-2 last:border-0 last:pb-0"
+                                      >
+                                        <div className="font-medium">
+                                          {APPLICABILITY_LABELS[entry.decision] ??
+                                            entry.decision}
+                                        </div>
+                                        <div className="mt-1 text-muted-foreground">
+                                          Înregistrată la {formatDate(entry.decidedAt)}
+                                          {" · decizia nr. "}{entry.revision}
+                                        </div>
+                                        {entry.applicableFrom || entry.applicableUntil ? (
+                                          <p className="mt-1 text-muted-foreground">
+                                            {entry.decision === "applicable"
+                                              ? "Perioada de aplicabilitate: "
+                                              : "Perioada înregistrată: "}
+                                            {entry.applicableFrom
+                                              ? `de la ${formatDate(entry.applicableFrom)}`
+                                              : ""}
+                                            {entry.applicableFrom && entry.applicableUntil ? " " : ""}
+                                            {entry.applicableUntil
+                                              ? `până la ${formatDate(entry.applicableUntil)}`
+                                              : ""}
+                                          </p>
+                                        ) : null}
+                                        <p className="mt-1 text-muted-foreground">
+                                          Responsabil:{" "}
+                                          {entry.decidedByName?.trim() ||
+                                            "Membru al companiei"}
+                                        </p>
+                                        <p className="mt-1 text-muted-foreground">
+                                          Statutul sursei la momentul deciziei:{" "}
+                                          {OFFICIAL_STATUS_LABELS[
+                                            entry.officialStatus
+                                          ] ?? entry.officialStatus}
+                                        </p>
+                                        <p className="mt-2 whitespace-pre-wrap break-words">
+                                          <span className="font-medium">Motivul deciziei: </span>
+                                          {entry.basisNote}
+                                        </p>
+                                        {entry.evidenceUri ? (
+                                          <a
+                                            className="mt-1 inline-block text-primary-hover hover:underline"
+                                            href={entry.evidenceUri}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                          >
+                                            Consultă dovada deciziei ↗
+                                          </a>
+                                        ) : null}
+                                        <details className="mt-2 text-muted-foreground">
+                                          <summary className="cursor-pointer">
+                                            Detalii tehnice pentru audit
+                                          </summary>
+                                          <dl className="mt-2 space-y-2">
+                                            <div>
+                                              <dt className="font-medium">Sursa la momentul deciziei</dt>
+                                              <dd className="break-words">
+                                                {entry.sourceCode} · {entry.sourceEdition}
+                                                {entry.sourceTitle ? ` · ${entry.sourceTitle}` : ""}
+                                              </dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Emitent și jurisdicție</dt>
+                                              <dd className="break-words">
+                                                {entry.sourcePublisher ?? "Emitent neînregistrat"}
+                                                {" · "}
+                                                {entry.sourceJurisdiction ?? "Jurisdicție neînregistrată"}
+                                              </dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Autoritatea sursei</dt>
+                                              <dd className="break-words">{entry.sourceAuthority ?? "Neînregistrată"}</dd>
+                                            </div>
+                                            {entry.sourceUri ? (
+                                              <div>
+                                                <dt className="font-medium">Adresa sursei la momentul deciziei</dt>
+                                                <dd className="break-all">
+                                                  <a href={entry.sourceUri} target="_blank" rel="noreferrer" className="hover:underline">
+                                                    {entry.sourceUri}
+                                                  </a>
+                                                </dd>
+                                              </div>
+                                            ) : null}
+                                            <div>
+                                              <dt className="font-medium">Identificatorul responsabilului</dt>
+                                              <dd className="break-all">{entry.decidedByUserId}</dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Amprenta conținutului sursei</dt>
+                                              <dd className="break-all">
+                                                {entry.sourceFingerprint ?? "Nu era disponibilă la momentul deciziei"}
+                                              </dd>
+                                            </div>
+                                          </dl>
+                                        </details>
+                                      </div>
+                                    ))}
+                                    <GovernanceForm
+                                      action={decideNormativeApplicability}
+                                      className="space-y-2 border-t pt-3"
+                                    >
+                                      <input
+                                        type="hidden"
+                                        name="sourceId"
+                                        value={source.id}
+                                      />
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Decizia explicită
+                                        </span>
+                                        <select
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          name="decision"
+                                          defaultValue="unknown"
+                                          required
+                                        >
+                                          <option
+                                            value="applicable"
+                                            disabled={
+                                              source.officialStatus !== "in_force"
+                                            }
+                                          >
+                                            Aplicabilă — numai dacă statutul este „În vigoare”
+                                          </option>
+                                          <option value="not_applicable">
+                                            Neaplicabilă
+                                          </option>
+                                          <option value="deferred">
+                                            Amânată pentru clarificare
+                                          </option>
+                                          <option value="unknown">
+                                            Aplicabilitate nedeterminată
+                                          </option>
+                                        </select>
+                                      </label>
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Aplicabilă de la (necesar pentru „Aplicabilă”)
+                                        </span>
+                                        <input
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          type="date"
+                                          name="applicableFrom"
+                                        />
+                                      </label>
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Aplicabilă până la
+                                        </span>
+                                        <input
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          type="date"
+                                          name="applicableUntil"
+                                        />
+                                      </label>
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Modificare detectată asociată
+                                        </span>
+                                        <select
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          name="triggeringUpdateId"
+                                          defaultValue=""
+                                        >
+                                          <option value="">
+                                            Fără modificare asociată
+                                          </option>
+                                          {sourceUpdates.map((update) => (
+                                            <option
+                                              key={update.id}
+                                              value={update.id}
+                                            >
+                                              {update.title}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Temeiul deciziei
+                                        </span>
+                                        <textarea
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          name="basisNote"
+                                          rows={2}
+                                          maxLength={4000}
+                                          required
+                                        />
+                                      </label>
+                                      <label className="block">
+                                        <span className="mb-1 block font-medium">
+                                          Link către dovadă oficială
+                                        </span>
+                                        <input
+                                          className="w-full rounded-md border bg-background px-2 py-1.5"
+                                          type="url"
+                                          name="evidenceUri"
+                                          defaultValue={source.sourceUri ?? ""}
+                                        />
+                                      </label>
+                                      <SubmitButton
+                                        size="sm"
+                                        pendingLabel="Se înregistrează…"
+                                      >
+                                        Înregistrează decizia
+                                      </SubmitButton>
+                                    </GovernanceForm>
+                                  </div>
+                                </details>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <div
@@ -251,10 +563,10 @@ export default async function NormativePage() {
                             )}
                           >
                             {source.lastVerificationStatus === "success"
-                              ? "Verificată"
+                              ? "Monitorizare reușită"
                               : source.lastVerificationStatus === "error"
-                                ? "Eroare"
-                                : "Neverificată"}
+                                ? "Eroare monitorizare"
+                                : "Niciodată verificată"}
                           </div>
                           <div className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">
                             {formatDate(source.lastVerifiedAt)}
@@ -319,10 +631,10 @@ export default async function NormativePage() {
                         }
                       >
                         {update.reviewStatus === "detected"
-                          ? "De verificat"
+                          ? "Necesită verificare"
                           : update.reviewStatus === "reviewed"
-                            ? "Verificat"
-                            : "Ignorat"}
+                            ? "Analizat"
+                            : "Închis"}
                       </span>
                     </div>
                     <h3 className="mt-2 font-medium text-heading">
@@ -341,6 +653,20 @@ export default async function NormativePage() {
                     <p className="mt-2 text-xs text-muted-foreground">
                       Detectat: {formatDate(update.detectedAt)}
                     </p>
+                    {update.publicationDate || update.effectiveDate ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Date afișate de sursă — neconfirmate:{" "}
+                        {update.publicationDate
+                          ? `publicare ${formatDate(update.publicationDate)}`
+                          : ""}
+                        {update.publicationDate && update.effectiveDate
+                          ? " · "
+                          : ""}
+                        {update.effectiveDate
+                          ? `aplicare ${formatDate(update.effectiveDate)}`
+                          : ""}
+                      </p>
+                    ) : null}
                     {update.officialUri ? (
                       <a
                         className="mt-2 inline-block text-xs font-medium text-primary-hover hover:underline"
@@ -351,36 +677,269 @@ export default async function NormativePage() {
                         Deschide sursa oficială ↗
                       </a>
                     ) : null}
+                    {(() => {
+                      const review = reviewsByUpdate.get(update.id);
+                      if (!review) {
+                        return update.reviewStatus === "detected" ? null : (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Decizie anterioară M8.2; detaliile analizei nu au fost păstrate.
+                            {update.reviewedAt
+                              ? ` Înregistrată ${formatDate(update.reviewedAt)}.`
+                              : ""}
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className="mt-3 rounded-md bg-muted-section p-3 text-xs">
+                          <p className="font-medium">
+                            {REVIEW_DECISION_LABELS[review.decision] ??
+                              review.decision}
+                            {" · "}
+                            {formatDate(review.reviewedAt)}
+                          </p>
+                          <p className="mt-1 text-muted-foreground">
+                            Analizat de{" "}
+                            {review.reviewerName ?? review.reviewerUserId}
+                          </p>
+                          <p className="mt-1 text-muted-foreground">
+                            Ediție analizată: {review.sourceCode} ·{" "}
+                            {review.sourceEdition}
+                            {review.sourceAuthority
+                              ? ` · ${review.sourceAuthority}`
+                              : ""}
+                          </p>
+                          <p className="mt-1 text-muted-foreground">
+                            Fingerprint detectat:{" "}
+                            <span className="break-all">
+                              {review.detectedFingerprint}
+                            </span>
+                          </p>
+                          {review.previousFingerprint ? (
+                            <p className="mt-1 text-muted-foreground">
+                              Fingerprint anterior:{" "}
+                              <span className="break-all">
+                                {review.previousFingerprint}
+                              </span>
+                            </p>
+                          ) : null}
+                          {review.officialUri ? (
+                            <a
+                              className="mt-1 inline-block text-primary-hover hover:underline"
+                              href={review.officialUri}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Dovada păstrată la analiză ↗
+                            </a>
+                          ) : null}
+                          {review.note ? (
+                            <p className="mt-2 whitespace-pre-wrap">
+                              {review.note}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {update.reviewStatus === "detected" ? (
-                    <div className="flex shrink-0 gap-2">
-                      <form action={reviewNormativeUpdate}>
+                    <GovernanceForm
+                      action={reviewNormativeUpdate}
+                      className="w-full max-w-sm shrink-0 space-y-2"
+                    >
                         <input
                           type="hidden"
                           name="updateId"
                           value={update.id}
                         />
-                        <SubmitButton variant="outline" size="sm" pendingLabel="Se salvează…">
-                          Marchează verificat
+                        <label className="block text-xs font-medium">
+                          Rezultatul analizei
+                          <select
+                            className="mt-1 w-full rounded-md border bg-background px-2 py-2 text-sm"
+                            name="decision"
+                            defaultValue="reviewed_no_action"
+                            required
+                          >
+                            {Object.entries(REVIEW_DECISION_LABELS).map(
+                              ([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                        <label className="block text-xs font-medium">
+                          Notă de analiză (opțional)
+                          <textarea
+                            className="mt-1 w-full rounded-md border bg-background px-2 py-2 text-sm"
+                            name="note"
+                            rows={2}
+                            maxLength={4000}
+                          />
+                        </label>
+                        <SubmitButton
+                          variant="outline"
+                          size="sm"
+                          pendingLabel="Se înregistrează…"
+                        >
+                          Înregistrează analiza
                         </SubmitButton>
-                      </form>
-                      <form action={dismissNormativeUpdate}>
-                        <input
-                          type="hidden"
-                          name="updateId"
-                          value={update.id}
-                        />
-                        <SubmitButton variant="ghost" size="sm" pendingLabel="Se salvează…">
-                          Ignoră
-                        </SubmitButton>
-                      </form>
-                    </div>
+                    </GovernanceForm>
                   ) : null}
                 </div>
               </article>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-heading">
+            Relații între ediții
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Relația este direcțională: prima sursă este cea care modifică,
+            înlocuiește sau completează sursa a doua. Istoricul păstrează ambele
+            ediții.
+          </p>
+        </div>
+
+        {governance.relations.length === 0 ? (
+          <div className="rounded-xl border bg-card p-5 text-sm text-muted-foreground shadow-card">
+            Nu există încă relații normative înregistrate.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {governance.relations.map((relation) => (
+              <article
+                key={relation.id}
+                className="rounded-xl border bg-card p-4 text-sm shadow-card"
+              >
+                <p className="font-medium text-heading">
+                  {relation.fromSourceCode} ({relation.fromSourceEdition}){" "}
+                  {RELATION_LABELS[relation.relationType] ??
+                    relation.relationType}{" "}
+                  {relation.toSourceCode} ({relation.toSourceEdition})
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Înregistrată {formatDate(relation.createdAt)}
+                  {" de "}
+                  {relation.createdByName ?? relation.createdByUserId}
+                  {relation.effectiveDate
+                    ? ` · dată relevantă ${formatDate(relation.effectiveDate)}`
+                    : ""}
+                </p>
+                {relation.note ? (
+                  <p className="mt-2 whitespace-pre-wrap text-secondary-foreground">
+                    {relation.note}
+                  </p>
+                ) : null}
+                {relation.evidenceUri ? (
+                  <a
+                    className="mt-2 inline-block text-xs font-medium text-primary-hover hover:underline"
+                    href={relation.evidenceUri}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Deschide dovada ↗
+                  </a>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+
+        {overview.sources.length >= 2 ? (
+          <details className="rounded-xl border bg-card p-4 shadow-card">
+            <summary className="cursor-pointer font-medium text-heading">
+              Înregistrează o relație documentată
+            </summary>
+            <GovernanceForm
+              action={relateNormativeSources}
+              className="mt-4 grid gap-3 sm:grid-cols-2"
+            >
+              <label className="text-sm font-medium">
+                Sursa de la
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  name="fromSourceId"
+                  required
+                >
+                  {overview.sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.code} · {source.edition}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Relația
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  name="relationType"
+                  defaultValue="related_to"
+                  required
+                >
+                  {Object.entries(RELATION_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Sursa către
+                <select
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  name="toSourceId"
+                  required
+                >
+                  {overview.sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.code} · {source.edition}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Dată relevantă (dacă este cunoscută)
+                <input
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  type="date"
+                  name="effectiveDate"
+                />
+              </label>
+              <label className="text-sm font-medium sm:col-span-2">
+                Link către dovada oficială
+                <input
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  type="url"
+                  name="evidenceUri"
+                />
+              </label>
+              <label className="text-sm font-medium sm:col-span-2">
+                Notă
+                <textarea
+                  className="mt-1 w-full rounded-md border bg-background px-2 py-2"
+                  name="note"
+                  rows={2}
+                  maxLength={4000}
+                />
+              </label>
+              <div className="sm:col-span-2">
+                <SubmitButton pendingLabel="Se înregistrează…">
+                  Înregistrează relația
+                </SubmitButton>
+              </div>
+            </GovernanceForm>
+          </details>
+        ) : (
+          <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+            Pentru a înregistra o relație sunt necesare cel puțin două ediții
+            în registru.
+          </p>
         )}
       </section>
     </div>
