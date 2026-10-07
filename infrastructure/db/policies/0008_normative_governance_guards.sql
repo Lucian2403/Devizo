@@ -26,6 +26,52 @@ CREATE TRIGGER normative_source_relations_append_only
   BEFORE UPDATE OR DELETE ON public.normative_source_relations
   FOR EACH ROW EXECUTE FUNCTION public.guard_normative_governance_append_only();
 
+CREATE OR REPLACE FUNCTION public.guard_normative_governance_actor_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+DECLARE
+  actor_id uuid;
+BEGIN
+  actor_id := (to_jsonb(NEW) ->> TG_ARGV[0])::uuid;
+  IF auth.uid() IS NOT NULL AND actor_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Governance actor must be the authenticated user'
+      USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM 1
+    FROM public.organization_members
+   WHERE organization_id = NEW.organization_id
+     AND user_id = actor_id
+   FOR KEY SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Governance actor must currently belong to the organization'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+DROP TRIGGER IF EXISTS normative_update_reviews_actor_insert
+  ON public.normative_update_reviews;
+CREATE TRIGGER normative_update_reviews_actor_insert
+  BEFORE INSERT ON public.normative_update_reviews
+  FOR EACH ROW EXECUTE FUNCTION public.guard_normative_governance_actor_insert('reviewer_user_id');
+
+DROP TRIGGER IF EXISTS normative_applicability_actor_insert
+  ON public.normative_applicability_decisions;
+CREATE TRIGGER normative_applicability_actor_insert
+  BEFORE INSERT ON public.normative_applicability_decisions
+  FOR EACH ROW EXECUTE FUNCTION public.guard_normative_governance_actor_insert('decided_by_user_id');
+
+DROP TRIGGER IF EXISTS normative_source_relations_actor_insert
+  ON public.normative_source_relations;
+CREATE TRIGGER normative_source_relations_actor_insert
+  BEFORE INSERT ON public.normative_source_relations
+  FOR EACH ROW EXECUTE FUNCTION public.guard_normative_governance_actor_insert('created_by_user_id');
+
 CREATE OR REPLACE FUNCTION public.guard_normative_update_review_insert()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -60,12 +106,12 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  source_official_status text;
+  source_record public.normative_sources%ROWTYPE;
   update_source_id uuid;
   update_review_exists boolean;
 BEGIN
-  SELECT official_status
-    INTO source_official_status
+  SELECT *
+    INTO source_record
     FROM public.normative_sources
    WHERE id = NEW.source_id
      AND organization_id = NEW.organization_id
@@ -76,13 +122,21 @@ BEGIN
       USING ERRCODE = '23503';
   END IF;
 
-  IF NEW.official_status <> source_official_status THEN
-    RAISE EXCEPTION 'Applicability must snapshot the current official status'
+  IF NEW.source_code IS DISTINCT FROM source_record.code
+     OR NEW.source_edition IS DISTINCT FROM source_record.edition
+     OR NEW.source_title IS DISTINCT FROM source_record.title
+     OR NEW.source_publisher IS DISTINCT FROM source_record.publisher
+     OR NEW.source_jurisdiction IS DISTINCT FROM source_record.jurisdiction
+     OR NEW.source_authority IS DISTINCT FROM source_record.authority
+     OR NEW.source_uri IS DISTINCT FROM source_record.source_uri
+     OR NEW.source_fingerprint IS DISTINCT FROM source_record.content_fingerprint
+     OR NEW.official_status IS DISTINCT FROM source_record.official_status THEN
+    RAISE EXCEPTION 'Applicability must snapshot the current normative source'
       USING ERRCODE = '23514';
   END IF;
 
   IF NEW.decision = 'applicable'
-     AND (source_official_status <> 'in_force' OR NEW.applicable_from IS NULL) THEN
+     AND (source_record.official_status <> 'in_force' OR NEW.applicable_from IS NULL) THEN
     RAISE EXCEPTION 'Only an in-force source with an explicit start date can be applicable'
       USING ERRCODE = '23514';
   END IF;
@@ -202,6 +256,7 @@ CREATE TRIGGER estimate_norms_published_identity_guard
   BEFORE UPDATE OR DELETE ON public.estimate_norms
   FOR EACH ROW EXECUTE FUNCTION public.guard_published_estimate_norm_identity();
 
+-- Retain the deployed function name; the guard now freezes every non-draft parent.
 CREATE OR REPLACE FUNCTION public.guard_published_norm_consumptions()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -216,9 +271,10 @@ BEGIN
       INTO version_status
       FROM public.estimate_norm_versions
      WHERE id = version_id
+       AND organization_id = OLD.organization_id
      FOR UPDATE;
-    IF version_status = 'published' THEN
-      RAISE EXCEPTION 'Resource consumptions for a published normative version are immutable'
+    IF NOT FOUND OR version_status <> 'draft' THEN
+      RAISE EXCEPTION 'Resource consumptions can only be changed for a draft normative version'
         USING ERRCODE = '55000';
     END IF;
   END IF;
@@ -229,9 +285,10 @@ BEGIN
       INTO version_status
       FROM public.estimate_norm_versions
      WHERE id = version_id
+       AND organization_id = NEW.organization_id
      FOR UPDATE;
-    IF version_status = 'published' THEN
-      RAISE EXCEPTION 'Resource consumptions for a published normative version are immutable'
+    IF NOT FOUND OR version_status <> 'draft' THEN
+      RAISE EXCEPTION 'Resource consumptions can only be changed for a draft normative version'
         USING ERRCODE = '55000';
     END IF;
     RETURN NEW;

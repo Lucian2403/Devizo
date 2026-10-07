@@ -78,6 +78,9 @@ function toApplicabilityRecord(
     evidenceUri: row.evidenceUri,
     sourceCode: row.sourceCode,
     sourceEdition: row.sourceEdition,
+    sourceTitle: row.sourceTitle,
+    sourcePublisher: row.sourcePublisher,
+    sourceJurisdiction: row.sourceJurisdiction,
     sourceAuthority: row.sourceAuthority,
     sourceUri: row.sourceUri,
     sourceFingerprint: row.sourceFingerprint,
@@ -305,7 +308,7 @@ export class DrizzleNormativeGovernanceRepository
           .limit(1);
         if (!review) {
           throw new NormativeGovernanceValidationError(
-            "Analiza umană a modificării trebuie înregistrată înaintea deciziei de aplicabilitate.",
+            "Modificarea trebuie analizată înainte de înregistrarea deciziei de aplicabilitate.",
           );
         }
       }
@@ -337,6 +340,9 @@ export class DrizzleNormativeGovernanceRepository
         evidenceUri: input.evidenceUri ?? source.sourceUri,
         sourceCode: source.code,
         sourceEdition: source.edition,
+        sourceTitle: source.title,
+        sourcePublisher: source.publisher,
+        sourceJurisdiction: source.jurisdiction,
         sourceAuthority: source.authority,
         sourceUri: source.sourceUri,
         sourceFingerprint: source.contentFingerprint,

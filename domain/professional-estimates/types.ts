@@ -94,6 +94,9 @@ export const NORMATIVE_SOURCE_RELATION_TYPES = [
 export type NormativeSourceRelationType =
   (typeof NORMATIVE_SOURCE_RELATION_TYPES)[number];
 
+// Publication controls content lifecycle, not applicability. Future calculation
+// selection also requires a source decision valid on the valuation date and
+// exact source/version provenance; publication alone never grants eligibility.
 export const NORMATIVE_VERSION_PUBLICATION_STATUSES = [
   "draft",
   "in_review",

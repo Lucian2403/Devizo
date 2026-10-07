@@ -78,17 +78,29 @@ contract.
 
 ## M8.2 normative governance and publication
 
-Normative monitoring creates review signals only. Human review is recorded
+Normative monitoring creates review signals only. Explicit review is recorded
 separately from an explicit, revisioned applicability decision. Source
 relationships (amendment, replacement, supersession, supplement, corrigendum or
 general relation) preserve direction and provenance without erasing the
 historical source edition.
 
 An `EstimateNormVersion` moves through draft, review, approval and publication.
-Once published, its version fields and resource consumptions are immutable;
+Resource consumptions can be inserted, updated or deleted only in `draft`;
+`in_review`, `approved` and `published` parents freeze all consumption rows.
+Corrections before publication require returning through review to draft.
+Once published, version fields and consumptions stay immutable;
 normative changes require a new version rather than in-place edits. Publication
 does not automatically update resource prices, calculation rules, existing
 applications or any calculation.
+
+`published` is a content lifecycle state, not proof of applicability.
+A future calculation must also require an applicable source decision valid for
+its valuation date and exact source/version provenance. Selection is deferred.
+Governance history preserves actor UUIDs after membership/account removal;
+membership is checked by database INSERT guards rather than permanent actor
+FKs. Applicability source snapshots are validated by the database on insertion.
+Applicability corrections append revisions; review/relation corrections are
+deferred and must not be implemented by editing or deleting old audit rows.
 
 M8.2 deliberately does not define a normative package/basis composition, the
 meaning of old/new WinSmeta bases, annual update behavior, coefficients, or

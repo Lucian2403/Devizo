@@ -39,6 +39,9 @@ export interface NormativeApplicabilityRecord {
   evidenceUri: string | null;
   sourceCode: string;
   sourceEdition: string;
+  sourceTitle: string | null;
+  sourcePublisher: string | null;
+  sourceJurisdiction: string | null;
   sourceAuthority: string | null;
   sourceUri: string | null;
   sourceFingerprint: string | null;

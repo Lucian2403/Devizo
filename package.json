@@ -26,6 +26,7 @@
     "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts",
     "test:professional": "tsx scripts/test-professional-foundation.ts",
     "test:normative": "tsx scripts/test-normative-intelligence.ts && tsx scripts/test-normative-governance.ts",
+    "test:normative:db": "tsx scripts/test-normative-database.ts",
     "test:ui": "tsx --tsconfig scripts/tsconfig.jsx.json scripts/test-ui-responsiveness.ts"
   },
   "dependencies": {

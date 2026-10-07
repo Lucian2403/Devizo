@@ -121,7 +121,7 @@ class MemoryGovernanceRepository implements NormativeGovernanceRepository {
     }
     const revision =
       this.applicability.filter(
-        (entry) => entry.sourceId === input.sourceId,
+        (entry) => entry.sourceId === input.sourceId && entry.organizationId === input.organizationId,
       ).length + 1;
     this.applicability.push({
       id: `applicability-${revision}`,
@@ -138,6 +138,9 @@ class MemoryGovernanceRepository implements NormativeGovernanceRepository {
       evidenceUri: input.evidenceUri ?? null,
       sourceCode: input.sourceId,
       sourceEdition: "2026",
+      sourceTitle: "Normativ de test",
+      sourcePublisher: "Emitent",
+      sourceJurisdiction: "MD",
       sourceAuthority: "Autoritate",
       sourceUri: "https://authority.example/source",
       sourceFingerprint: "fingerprint-at-decision",
@@ -363,24 +366,25 @@ async function main() {
   for (const constraint of [
     "normative_update_reviews_update_org_fkey",
     "normative_update_reviews_source_org_fkey",
-    "normative_update_reviews_reviewer_org_fkey",
     "normative_applicability_source_org_fkey",
     "normative_applicability_update_org_fkey",
-    "normative_applicability_decider_org_fkey",
     "normative_source_relations_from_source_org_fkey",
     "normative_source_relations_to_source_org_fkey",
-    "normative_source_relations_creator_org_fkey",
     "normative_source_relations_not_self_check",
     "normative_source_relations_unique",
   ]) {
     assert.ok(schema.includes(constraint), `missing DB constraint ${constraint}`);
   }
   assert.match(guards, /guard_normative_applicability_insert/);
-  assert.match(guards, /source_official_status <> 'in_force'/);
+  assert.match(guards, /source_record\.official_status <> 'in_force'/);
   assert.match(guards, /guard_normative_governance_append_only/);
   assert.match(guards, /A published normative version is immutable/);
   assert.match(guards, /An estimate norm with published versions is immutable/);
-  assert.match(guards, /Resource consumptions for a published normative version are immutable/);
+  const consumptionGuard = guards.slice(guards.indexOf("FUNCTION public.guard_published_norm_consumptions"));
+  assert.equal((consumptionGuard.match(/version_status <> 'draft'/g) ?? []).length, 2);
+  assert.equal((consumptionGuard.match(/FOR UPDATE/g) ?? []).length, 2);
+  assert.match(consumptionGuard, /organization_id = OLD\.organization_id/);
+  assert.match(consumptionGuard, /organization_id = NEW\.organization_id/);
   assert.match(guards, /Invalid normative publication status transition/);
   assert.match(policies, /FOR SELECT USING \(public\.is_org_member\(organization_id\)\)/);
   assert.match(policies, /FOR INSERT WITH CHECK \(public\.is_org_member\(organization_id\)\)/);
@@ -435,6 +439,63 @@ async function main() {
   assert.match(auditHistory, /Detalii tehnice pentru audit/);
   assert.match(auditHistory, /entry\.decidedByUserId/);
   assert.match(auditHistory, /entry\.sourceFingerprint/);
+  assert.doesNotMatch(normativePage, /(^|[^\p{L}])uman(?:ă|e)?(?=$|[^\p{L}])/iu);
+  assert.doesNotMatch(normativePage, /Necunoscută\s*\/\s*neverificată/iu);
+  assert.match(normativePage, /Aplicabilitate nedeterminată/);
+  assert.doesNotMatch(governanceRepository, /(^|[^\p{L}])uman(?:ă|e)?(?=$|[^\p{L}])/iu);
+
+  for (const actorField of ["reviewer_user_id", "decided_by_user_id", "created_by_user_id"]) {
+    assert.match(guards, new RegExp(`guard_normative_governance_actor_insert\\('${actorField}'\\)`));
+    assert.match(schema, new RegExp(`uuid\\("${actorField}"\\)\\.notNull\\(\\)`));
+  }
+  assert.doesNotMatch(schema, /organizationMembers|reviewerOrgFk|deciderOrgFk|creatorOrgFk/);
+  const followUpMigration = readFileSync("infrastructure/db/migrations/0017_minor_blacklash.sql", "utf8");
+  for (const constraint of [
+    "normative_update_reviews_reviewer_org_fkey",
+    "normative_applicability_decider_org_fkey",
+    "normative_source_relations_creator_org_fkey",
+  ]) {
+    assert.ok(followUpMigration.includes(`DROP CONSTRAINT "${constraint}"`));
+  }
+  for (const column of ["source_title", "source_publisher", "source_jurisdiction"]) {
+    assert.ok(followUpMigration.includes(`ADD COLUMN "${column}" text`));
+  }
+  assert.doesNotMatch(followUpMigration, /UPDATE |DELETE |catalog_items|quote_items|quote_versions/);
+  assert.match(guards, /FROM public\.organization_members[\s\S]*?FOR KEY SHARE/);
+  assert.match(guards, /guard_normative_governance_actor_insert\(\)[\s\S]*?SECURITY DEFINER\s+SET search_path = pg_catalog/);
+  assert.match(guards, /actor_id IS DISTINCT FROM auth\.uid\(\)/);
+  for (const [snapshot, sourceField] of [
+    ["source_code", "code"], ["source_edition", "edition"],
+    ["source_title", "title"], ["source_publisher", "publisher"],
+    ["source_jurisdiction", "jurisdiction"], ["source_authority", "authority"],
+    ["source_uri", "source_uri"], ["source_fingerprint", "content_fingerprint"],
+    ["official_status", "official_status"],
+  ]) {
+    assert.ok(guards.includes(`NEW.${snapshot} IS DISTINCT FROM source_record.${sourceField}`));
+  }
+  const applicabilityWrite = governanceRepository.slice(
+    governanceRepository.indexOf("async createApplicabilityDecision"),
+    governanceRepository.indexOf("async createSourceRelation"),
+  );
+  const lockIndex = applicabilityWrite.indexOf('.for("update")');
+  const revisionIndex = applicabilityWrite.indexOf("max(normativeApplicabilityDecisions.revision)");
+  assert.ok(lockIndex >= 0 && revisionIndex > lockIndex);
+  assert.match(schema, /sourceRevisionUnique:[\s\S]*?\.on\(table\.organizationId, table\.sourceId, table\.revision\)/);
+  assert.doesNotMatch(governanceRepository, /\.(?:update|delete)\(normative(?:UpdateReviews|ApplicabilityDecisions|SourceRelations)\)/);
+  const architecture = readFileSync("docs/architecture/professional-estimate-domain.md", "utf8");
+  assert.match(architecture, /published.*not proof of applicability/);
+  const concurrentRepository = new MemoryGovernanceRepository();
+  const concurrentService = new NormativeGovernanceService(concurrentRepository);
+  await Promise.all(Array.from({ length: 10 }, (_, index) =>
+    concurrentService.decideApplicability({
+      organizationId: "org-1",
+      sourceId: "source-current",
+      decidedByUserId: "user-1",
+      decision: "deferred",
+      basisNote: `Decision ${index + 1}`,
+    }),
+  ));
+  assert.deepEqual(concurrentRepository.applicability.map((entry) => entry.revision), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
   const actions = readFileSync("app/(app)/normative/actions.ts", "utf8");
   const form = readFileSync("app/(app)/normative/governance-form.tsx", "utf8");

@@ -120,6 +120,13 @@
       "when": 1791306991448,
       "tag": "0016_wide_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791361270558,
+      "tag": "0017_minor_blacklash",
+      "breakpoints": true
     }
   ]
 }

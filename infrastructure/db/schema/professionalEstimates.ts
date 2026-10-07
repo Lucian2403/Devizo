@@ -17,7 +17,6 @@ import {
 import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { projects } from "./projects";
-import { organizationMembers } from "./organizationMembers";
 
 /**
  * PROFESSIONAL ESTIMATE DOMAIN.
@@ -215,14 +214,6 @@ export const normativeUpdateReviews = pgTable(
       foreignColumns: [normativeSources.id, normativeSources.organizationId],
       name: "normative_update_reviews_source_org_fkey",
     }).onDelete("restrict"),
-    reviewerOrgFk: foreignKey({
-      columns: [table.organizationId, table.reviewerUserId],
-      foreignColumns: [
-        organizationMembers.organizationId,
-        organizationMembers.userId,
-      ],
-      name: "normative_update_reviews_reviewer_org_fkey",
-    }).onDelete("restrict"),
     orgIdUnique: unique("normative_update_reviews_id_org_unique").on(
       table.id,
       table.organizationId,
@@ -265,6 +256,10 @@ export const normativeApplicabilityDecisions = pgTable(
     evidenceUri: text("evidence_uri"),
     sourceCode: text("source_code").notNull(),
     sourceEdition: text("source_edition").notNull(),
+    // Null for decisions recorded before these fields were snapshotted.
+    sourceTitle: text("source_title"),
+    sourcePublisher: text("source_publisher"),
+    sourceJurisdiction: text("source_jurisdiction"),
     sourceAuthority: text("source_authority"),
     sourceUri: text("source_uri"),
     sourceFingerprint: text("source_fingerprint"),
@@ -280,14 +275,6 @@ export const normativeApplicabilityDecisions = pgTable(
       columns: [table.triggeringUpdateId, table.organizationId],
       foreignColumns: [normativeUpdates.id, normativeUpdates.organizationId],
       name: "normative_applicability_update_org_fkey",
-    }).onDelete("restrict"),
-    deciderOrgFk: foreignKey({
-      columns: [table.organizationId, table.decidedByUserId],
-      foreignColumns: [
-        organizationMembers.organizationId,
-        organizationMembers.userId,
-      ],
-      name: "normative_applicability_decider_org_fkey",
     }).onDelete("restrict"),
     orgIdUnique: unique("normative_applicability_decisions_id_org_unique").on(
       table.id,
@@ -351,14 +338,6 @@ export const normativeSourceRelations = pgTable(
       columns: [table.toSourceId, table.organizationId],
       foreignColumns: [normativeSources.id, normativeSources.organizationId],
       name: "normative_source_relations_to_source_org_fkey",
-    }).onDelete("restrict"),
-    creatorOrgFk: foreignKey({
-      columns: [table.organizationId, table.createdByUserId],
-      foreignColumns: [
-        organizationMembers.organizationId,
-        organizationMembers.userId,
-      ],
-      name: "normative_source_relations_creator_org_fkey",
     }).onDelete("restrict"),
     orgIdUnique: unique("normative_source_relations_id_org_unique").on(
       table.id,

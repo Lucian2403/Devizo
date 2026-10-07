@@ -37,7 +37,7 @@ const APPLICABILITY_LABELS: Record<string, string> = {
   applicable: "Aplicabilă",
   not_applicable: "Neaplicabilă",
   deferred: "Amânată",
-  unknown: "Necunoscută",
+  unknown: "Aplicabilitate nedeterminată",
 };
 
 const REVIEW_DECISION_LABELS: Record<string, string> = {
@@ -176,7 +176,7 @@ export default async function NormativePage() {
       </div>
 
       <div className="rounded-xl border border-border bg-status-warn-bg px-4 py-3 text-sm text-status-warn-fg">
-        <strong>Control uman obligatoriu.</strong> Monitorizarea compară
+        <strong>Este necesară verificarea înainte de aplicare.</strong> Monitorizarea compară
         conținutul paginilor oficiale și semnalează schimbări. Nu declară singură
         că o normă juridică s-a modificat și nu actualizează retroactiv calcule,
         reguli sau documente finalizate.
@@ -332,7 +332,7 @@ export default async function NormativePage() {
                                   </>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">
-                                    Fără decizie umană
+                                    Fără decizie înregistrată
                                   </span>
                                 )}
                                 <details className="text-xs">
@@ -398,6 +398,35 @@ export default async function NormativePage() {
                                           </summary>
                                           <dl className="mt-2 space-y-2">
                                             <div>
+                                              <dt className="font-medium">Sursa la momentul deciziei</dt>
+                                              <dd className="break-words">
+                                                {entry.sourceCode} · {entry.sourceEdition}
+                                                {entry.sourceTitle ? ` · ${entry.sourceTitle}` : ""}
+                                              </dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Emitent și jurisdicție</dt>
+                                              <dd className="break-words">
+                                                {entry.sourcePublisher ?? "Emitent neînregistrat"}
+                                                {" · "}
+                                                {entry.sourceJurisdiction ?? "Jurisdicție neînregistrată"}
+                                              </dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Autoritatea sursei</dt>
+                                              <dd className="break-words">{entry.sourceAuthority ?? "Neînregistrată"}</dd>
+                                            </div>
+                                            {entry.sourceUri ? (
+                                              <div>
+                                                <dt className="font-medium">Adresa sursei la momentul deciziei</dt>
+                                                <dd className="break-all">
+                                                  <a href={entry.sourceUri} target="_blank" rel="noreferrer" className="hover:underline">
+                                                    {entry.sourceUri}
+                                                  </a>
+                                                </dd>
+                                              </div>
+                                            ) : null}
+                                            <div>
                                               <dt className="font-medium">Identificatorul responsabilului</dt>
                                               <dd className="break-all">{entry.decidedByUserId}</dd>
                                             </div>
@@ -445,7 +474,7 @@ export default async function NormativePage() {
                                             Amânată pentru clarificare
                                           </option>
                                           <option value="unknown">
-                                            Necunoscută / neverificată
+                                            Aplicabilitate nedeterminată
                                           </option>
                                         </select>
                                       </label>
@@ -602,7 +631,7 @@ export default async function NormativePage() {
                         }
                       >
                         {update.reviewStatus === "detected"
-                          ? "Necesită verificare umană"
+                          ? "Necesită verificare"
                           : update.reviewStatus === "reviewed"
                             ? "Analizat"
                             : "Închis"}
@@ -724,7 +753,7 @@ export default async function NormativePage() {
                           value={update.id}
                         />
                         <label className="block text-xs font-medium">
-                          Rezultatul analizei umane
+                          Rezultatul analizei
                           <select
                             className="mt-1 w-full rounded-md border bg-background px-2 py-2 text-sm"
                             name="decision"
