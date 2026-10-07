@@ -345,34 +345,40 @@ export default async function NormativePage() {
                                         className="border-b pb-2 last:border-0 last:pb-0"
                                       >
                                         <div className="font-medium">
-                                          Revizia {entry.revision}:{" "}
                                           {APPLICABILITY_LABELS[entry.decision] ??
                                             entry.decision}
                                         </div>
                                         <div className="mt-1 text-muted-foreground">
-                                          Decisă {formatDate(entry.decidedAt)}
-                                          {entry.applicableFrom
-                                            ? ` · de la ${formatDate(entry.applicableFrom)}`
-                                            : ""}
-                                          {entry.applicableUntil
-                                            ? ` până la ${formatDate(entry.applicableUntil)}`
-                                            : ""}
+                                          Înregistrată la {formatDate(entry.decidedAt)}
+                                          {" · decizia nr. "}{entry.revision}
                                         </div>
+                                        {entry.applicableFrom || entry.applicableUntil ? (
+                                          <p className="mt-1 text-muted-foreground">
+                                            {entry.decision === "applicable"
+                                              ? "Perioada de aplicabilitate: "
+                                              : "Perioada înregistrată: "}
+                                            {entry.applicableFrom
+                                              ? `de la ${formatDate(entry.applicableFrom)}`
+                                              : ""}
+                                            {entry.applicableFrom && entry.applicableUntil ? " " : ""}
+                                            {entry.applicableUntil
+                                              ? `până la ${formatDate(entry.applicableUntil)}`
+                                              : ""}
+                                          </p>
+                                        ) : null}
                                         <p className="mt-1 text-muted-foreground">
-                                          Decisă de{" "}
-                                          {entry.decidedByName ??
-                                            entry.decidedByUserId}
-                                          {" · statut oficial la decizie: "}
+                                          Responsabil:{" "}
+                                          {entry.decidedByName?.trim() ||
+                                            "Membru al companiei"}
+                                        </p>
+                                        <p className="mt-1 text-muted-foreground">
+                                          Statutul sursei la momentul deciziei:{" "}
                                           {OFFICIAL_STATUS_LABELS[
                                             entry.officialStatus
                                           ] ?? entry.officialStatus}
-                                          {" · fingerprint: "}
-                                          <span className="break-all">
-                                            {entry.sourceFingerprint ??
-                                              "indisponibil"}
-                                          </span>
                                         </p>
-                                        <p className="mt-1 whitespace-normal">
+                                        <p className="mt-2 whitespace-pre-wrap break-words">
+                                          <span className="font-medium">Motivul deciziei: </span>
                                           {entry.basisNote}
                                         </p>
                                         {entry.evidenceUri ? (
@@ -382,9 +388,26 @@ export default async function NormativePage() {
                                             target="_blank"
                                             rel="noreferrer"
                                           >
-                                            Dovezi oficiale ↗
+                                            Consultă dovada deciziei ↗
                                           </a>
                                         ) : null}
+                                        <details className="mt-2 text-muted-foreground">
+                                          <summary className="cursor-pointer">
+                                            Detalii tehnice pentru audit
+                                          </summary>
+                                          <dl className="mt-2 space-y-2">
+                                            <div>
+                                              <dt className="font-medium">Identificatorul responsabilului</dt>
+                                              <dd className="break-all">{entry.decidedByUserId}</dd>
+                                            </div>
+                                            <div>
+                                              <dt className="font-medium">Amprenta conținutului sursei</dt>
+                                              <dd className="break-all">
+                                                {entry.sourceFingerprint ?? "Nu era disponibilă la momentul deciziei"}
+                                              </dd>
+                                            </div>
+                                          </dl>
+                                        </details>
                                       </div>
                                     ))}
                                     <form

@@ -82,6 +82,12 @@ When an applicability decision references a detected update, that update must
 already have a human review record.
 The application's record lifecycle, official status, monitor verification
 state, and applicability decision remain separate concepts.
+The applicability history presents the decision, recorded date, responsible
+member's name (when available), source status and reason in plain language.
+Raw user identifiers and source fingerprints remain available in collapsed
+technical audit details; they are not substituted for a person's name.
+Dates on non-applicable decisions are labelled as recorded periods, not as
+confirmation that the source applies.
 
 `normative_source_relations` stores directional, evidenced relationships such
 as `amends`, `replaces`, `supersedes`, `supplements`, `corrigendum_to`, and

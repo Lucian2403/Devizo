@@ -401,6 +401,27 @@ async function main() {
     );
   }
 
+  const normativePage = readFileSync(
+    "app/(app)/normative/page.tsx",
+    "utf8",
+  );
+  const historyStart = normativePage.indexOf("{history.map((entry)");
+  const historyEnd = normativePage.indexOf("action={decideNormativeApplicability}", historyStart);
+  assert.ok(historyStart >= 0 && historyEnd > historyStart);
+  const decisionHistory = normativePage.slice(historyStart, historyEnd);
+  const auditStart = decisionHistory.indexOf("<details");
+  assert.ok(auditStart > 0, "technical audit evidence must be collapsed");
+  const readableHistory = decisionHistory.slice(0, auditStart);
+  const auditHistory = decisionHistory.slice(auditStart);
+  assert.match(readableHistory, /Responsabil:/);
+  assert.match(readableHistory, /Membru al companiei/);
+  assert.match(readableHistory, /Motivul deciziei:/);
+  assert.match(readableHistory, /Perioada înregistrată:/);
+  assert.doesNotMatch(readableHistory, /entry\.decidedByUserId|entry\.sourceFingerprint/);
+  assert.match(auditHistory, /Detalii tehnice pentru audit/);
+  assert.match(auditHistory, /entry\.decidedByUserId/);
+  assert.match(auditHistory, /entry\.sourceFingerprint/);
+
   console.log("Normative governance checks passed.");
 }
 
