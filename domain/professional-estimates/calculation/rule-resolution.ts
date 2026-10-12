@@ -160,6 +160,7 @@ export type RuleResolutionValidationErrorCode =
   | "invalid_work_kind"
   | "invalid_value_type"
   | "invalid_basis"
+  | "incompatible_rule_semantics"
   | "fixed_amount_missing_currency"
   | "missing_procurement_category"
   | "empty_provenance_reference";
@@ -379,6 +380,8 @@ function validateCandidate(candidate: ProfessionalRuleCandidate): void {
     );
   }
 
+  assertComponentSemantics(candidate, id);
+
   assertIsoDate(candidate.validFrom, "validFrom", id);
   if (candidate.validTo !== null) {
     assertIsoDate(candidate.validTo, "validTo", id);
@@ -447,6 +450,71 @@ function validateCandidate(candidate: ProfessionalRuleCandidate): void {
   );
 }
 
+function assertComponentSemantics(
+  candidate: ProfessionalRuleCandidate,
+  id: string,
+): void {
+  // M8.3C only resolves rules the current M8.3B cost stack can apply safely.
+  // `coefficient` is not accepted for any of these components yet, even though
+  // the persisted CalculationRule model may support it generically.
+  const reject = (): never => {
+    throw new RuleResolutionValidationError(
+      "incompatible_rule_semantics",
+      `candidate combination is not valid for ${candidate.component}: valueType ${candidate.valueType} with basis ${candidate.calculationBasis}.`,
+      id,
+      "calculationBasis",
+    );
+  };
+
+  switch (candidate.component) {
+    case "labor_contributions":
+      if (
+        candidate.valueType !== "percent" ||
+        candidate.calculationBasis !== "labor_cost"
+      ) {
+        reject();
+      }
+      break;
+    case "material_transport":
+      if (
+        !(
+          (candidate.valueType === "percent" &&
+            candidate.calculationBasis === "material_cost") ||
+          (candidate.valueType === "fixed_amount" &&
+            candidate.calculationBasis === "fixed_amount")
+        )
+      ) {
+        reject();
+      }
+      break;
+    case "procurement_storage":
+      if (
+        candidate.valueType !== "percent" ||
+        candidate.calculationBasis !== "material_cost"
+      ) {
+        reject();
+      }
+      break;
+    case "overhead":
+      if (
+        candidate.valueType !== "percent" ||
+        (candidate.calculationBasis !== "direct_cost" &&
+          candidate.calculationBasis !== "labor_cost")
+      ) {
+        reject();
+      }
+      break;
+    case "estimated_profit":
+      if (
+        candidate.valueType !== "percent" ||
+        candidate.calculationBasis !== "estimate_cost_before_profit"
+      ) {
+        reject();
+      }
+      break;
+  }
+}
+
 function isDateEligible(
   candidate: ProfessionalRuleCandidate,
   valuationDate: string,
@@ -497,6 +565,18 @@ function matchesContext(
     ) {
       return false;
     }
+  }
+
+  // A contractual agreement is never inferred: a `contract_agreed` candidate is
+  // eligible only when the caller explicitly opts into that origin.
+  if (
+    candidate.ruleOrigin === "contract_agreed" &&
+    !(
+      context.restrictToOrigins != null &&
+      context.restrictToOrigins.includes("contract_agreed")
+    )
+  ) {
+    return false;
   }
 
   // Origin is provenance, not a ranking. It only filters when the caller

@@ -284,12 +284,28 @@ candidate, currency equal to the context currency; and for a category-specific
 `procurementStorageCategory`. Context-neutral is only honored when explicitly
 represented as `any`; a missing field is never inferred as neutral.
 
+Each candidate must also satisfy the component/value-type/basis contract that
+M8.3B can actually apply; otherwise it is rejected with
+`incompatible_rule_semantics`. The supported combinations are: labor
+contributions = `percent` on `labor_cost`; material transport = `percent` on
+`material_cost` or `fixed_amount` on `fixed_amount` (currency required);
+procurement/storage = `percent` on `material_cost`; overhead = `percent` on
+`direct_cost` or `labor_cost`; estimated profit = `percent` on
+`estimate_cost_before_profit`. `coefficient` is not accepted for these
+components yet, even though the persisted CalculationRule model may support it
+generically; M8.3C must not select a candidate the current cost stack cannot
+apply safely.
+
 `ruleOrigin` (`normative_sector_average`, `company_individual`,
 `contract_agreed`, `statutory`) is provenance, not a ranking. A contractor rule
 never beats a sector-average rule by origin. The only way to narrow by origin is
-the caller's explicit `restrictToOrigins`. If `company_individual` and
-`contract_agreed` both match and the context does not distinguish them, the
-result is `ambiguous`.
+the caller's explicit `restrictToOrigins`. A `contract_agreed` candidate is a
+special case: a contractual agreement is never inferred, so such a candidate is
+eligible only when the context explicitly opts in by including `contract_agreed`
+in `restrictToOrigins`. A lone `contract_agreed` candidate without that opt-in
+resolves to `missing`; a `company_individual` candidate alongside it remains
+eligible without enabling the contractual rule. When both origins are explicitly
+opted in and both otherwise match, the result is `ambiguous`.
 
 The result is `selected` (exactly one eligible candidate, with provenance
 preserved), `missing` (zero) or `ambiguous` (more than one). There is no
@@ -308,9 +324,10 @@ never applies one rate to all investor materials.
 
 Validation rejects malformed candidates (invalid dates, `validTo` before
 `validFrom`, negative or non-decimal values, missing component/origin/
-perspective applicability, malformed basis, `fixed_amount` without currency,
-missing explicit procurement/storage category, and empty provenance references
-when supplied) using the M8.3A Decimal helper for numeric checks.
+perspective applicability, malformed basis, incompatible component/value-type/
+basis combinations, `fixed_amount` without currency, missing explicit
+procurement/storage category, and empty provenance references when supplied)
+using the M8.3A Decimal helper for numeric checks.
 
 M8.3C does not modify the database, add a rule repository, import official
 rates, scrape websites, classify with AI, or add UI. The percentages in its

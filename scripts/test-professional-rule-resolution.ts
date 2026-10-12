@@ -200,7 +200,10 @@ function expectValidationError(
 
 // 10. No matching rule for the component -> missing.
 {
-  const other = candidate({ component: "labor_contributions" });
+  const other = candidate({
+    component: "labor_contributions",
+    calculationBasis: "labor_cost",
+  });
   const result = resolveProfessionalRule("overhead", [other], context());
   assert.equal(result.status, "missing");
   assert.equal(result.eligibleCandidates.length, 0);
@@ -287,12 +290,12 @@ function expectValidationError(
   );
 }
 
-// 16. contract_agreed vs company_individual overlap stays ambiguous unless the
-//     context explicitly distinguishes them via restrictToOrigins.
+// 16. contract_agreed requires explicit opt-in; an agreement is never inferred.
 {
   const companyRule = candidate({
     candidateId: "storage-company",
     component: "procurement_storage",
+    calculationBasis: "material_cost",
     procurementCategory: "any",
     estimatePerspective: "contractor",
     ruleOrigin: "company_individual",
@@ -301,31 +304,54 @@ function expectValidationError(
   const contractRule = candidate({
     candidateId: "storage-contract",
     component: "procurement_storage",
+    calculationBasis: "material_cost",
     procurementCategory: "any",
     estimatePerspective: "contractor",
     ruleOrigin: "contract_agreed",
     value: "2.5", // fixture
   });
-  const candidates = [companyRule, contractRule];
 
-  const ambiguous = resolveProfessionalRule(
+  // A) A lone contract_agreed candidate without explicit opt-in -> missing.
+  const loneContract = resolveProfessionalRule(
     "procurement_storage",
-    candidates,
+    [contractRule],
     context({ estimatePerspective: "contractor" }),
   );
-  assert.equal(ambiguous.status, "ambiguous");
-  assert.equal(ambiguous.eligibleCandidates.length, 2);
+  assert.equal(loneContract.status, "missing");
 
-  const resolved = resolveProfessionalRule(
+  // B) contract_agreed opted into explicitly -> selected.
+  const optedIn = resolveProfessionalRule(
     "procurement_storage",
-    candidates,
+    [contractRule],
     context({
       estimatePerspective: "contractor",
       restrictToOrigins: ["contract_agreed"],
     }),
   );
-  assert.equal(resolved.status, "selected");
-  assert.equal(resolved.candidate?.candidateId, "storage-contract");
+  assert.equal(optedIn.status, "selected");
+  assert.equal(optedIn.candidate?.candidateId, "storage-contract");
+
+  // C) company_individual + contract_agreed with no contractual selection ->
+  //    only company_individual remains eligible; contract is not enabled.
+  const bothNoOptIn = resolveProfessionalRule(
+    "procurement_storage",
+    [companyRule, contractRule],
+    context({ estimatePerspective: "contractor" }),
+  );
+  assert.equal(bothNoOptIn.status, "selected");
+  assert.equal(bothNoOptIn.candidate?.candidateId, "storage-company");
+
+  // D) Both origins explicitly selected and both otherwise match -> ambiguous.
+  const bothOptIn = resolveProfessionalRule(
+    "procurement_storage",
+    [companyRule, contractRule],
+    context({
+      estimatePerspective: "contractor",
+      restrictToOrigins: ["company_individual", "contract_agreed"],
+    }),
+  );
+  assert.equal(bothOptIn.status, "ambiguous");
+  assert.equal(bothOptIn.eligibleCandidates.length, 2);
 }
 
 // 17. A category-specific procurement/storage candidate needs an explicit
@@ -334,6 +360,7 @@ function expectValidationError(
   const equipmentRule = candidate({
     candidateId: "storage-equipment",
     component: "procurement_storage",
+    calculationBasis: "material_cost",
     procurementCategory: "equipment",
     estimatePerspective: "investor",
     ruleOrigin: "normative_sector_average",
@@ -379,6 +406,7 @@ function expectValidationError(
         candidate({
           candidateId: "storage-noscope",
           component: "procurement_storage",
+          calculationBasis: "material_cost",
           procurementCategory: undefined,
         }),
       ],
@@ -481,6 +509,101 @@ function expectValidationError(
     );
     assert.equal(result.status, "selected");
     assert.equal(result.candidate?.candidateId, "contrib-any");
+  }
+}
+
+// Component / value-type / basis compatibility: invalid combinations rejected.
+{
+  const invalidCombos: {
+    component: ProfessionalRuleCandidate["component"];
+    valueType: ProfessionalRuleCandidate["valueType"];
+    calculationBasis: ProfessionalRuleCandidate["calculationBasis"];
+    extra?: Partial<ProfessionalRuleCandidate>;
+  }[] = [
+    { component: "estimated_profit", valueType: "percent", calculationBasis: "labor_cost" },
+    {
+      component: "estimated_profit",
+      valueType: "fixed_amount",
+      calculationBasis: "fixed_amount",
+      extra: { currency: "MDL" },
+    },
+    { component: "procurement_storage", valueType: "percent", calculationBasis: "direct_cost", extra: { procurementCategory: "any" } },
+    { component: "overhead", valueType: "percent", calculationBasis: "material_cost" },
+    { component: "overhead", valueType: "coefficient", calculationBasis: "direct_cost" },
+    { component: "material_transport", valueType: "percent", calculationBasis: "fixed_amount" },
+    { component: "material_transport", valueType: "fixed_amount", calculationBasis: "material_cost", extra: { currency: "MDL" } },
+    { component: "labor_contributions", valueType: "coefficient", calculationBasis: "labor_cost" },
+    { component: "labor_contributions", valueType: "percent", calculationBasis: "material_cost" },
+  ];
+  for (const combo of invalidCombos) {
+    expectValidationError("incompatible_rule_semantics", () =>
+      resolveProfessionalRule(
+        combo.component,
+        [
+          candidate({
+            component: combo.component,
+            valueType: combo.valueType,
+            calculationBasis: combo.calculationBasis,
+            estimatePerspective: "any",
+            workKind: "any",
+            ...combo.extra,
+          }),
+        ],
+        context(),
+      ),
+    );
+  }
+}
+
+// Component / value-type / basis compatibility: every supported combination
+// resolves. (Values are labelled fixtures, not current default rates.)
+{
+  const validCombos: {
+    label: string;
+    component: ProfessionalRuleCandidate["component"];
+    valueType: ProfessionalRuleCandidate["valueType"];
+    calculationBasis: ProfessionalRuleCandidate["calculationBasis"];
+    extra?: Partial<ProfessionalRuleCandidate>;
+  }[] = [
+    { label: "labor", component: "labor_contributions", valueType: "percent", calculationBasis: "labor_cost" },
+    { label: "transport-pct", component: "material_transport", valueType: "percent", calculationBasis: "material_cost" },
+    {
+      label: "transport-fixed",
+      component: "material_transport",
+      valueType: "fixed_amount",
+      calculationBasis: "fixed_amount",
+      extra: { currency: "MDL" },
+    },
+    {
+      label: "storage",
+      component: "procurement_storage",
+      valueType: "percent",
+      calculationBasis: "material_cost",
+      extra: { procurementCategory: "any" },
+    },
+    { label: "overhead-direct", component: "overhead", valueType: "percent", calculationBasis: "direct_cost" },
+    { label: "overhead-labor", component: "overhead", valueType: "percent", calculationBasis: "labor_cost" },
+    { label: "profit", component: "estimated_profit", valueType: "percent", calculationBasis: "estimate_cost_before_profit" },
+  ];
+  for (const combo of validCombos) {
+    const result = resolveProfessionalRule(
+      combo.component,
+      [
+        candidate({
+          candidateId: combo.label,
+          component: combo.component,
+          valueType: combo.valueType,
+          calculationBasis: combo.calculationBasis,
+          estimatePerspective: "any",
+          workKind: "any",
+          value: "5", // fixture
+          ...combo.extra,
+        }),
+      ],
+      context(),
+    );
+    assert.equal(result.status, "selected", `${combo.label} should resolve`);
+    assert.equal(result.candidate?.candidateId, combo.label);
   }
 }
 
