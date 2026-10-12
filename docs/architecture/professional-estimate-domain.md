@@ -153,3 +153,74 @@ calculation-rule semantics (overhead, estimated profit, procurement/storage and
 similar), which require separate normative analysis. It also does not build the
 calculation snapshot persistence; it only preserves the references a snapshot
 will later need.
+
+## M8.3B professional cost stack semantics
+
+M8.3B adds a pure cost-stack function in
+`domain/professional-estimates/calculation/cost-stack.ts`. It accepts raw
+resource totals from M8.3A and explicit decisions for labor contributions,
+material delivery transport, procurement/storage, overhead and estimated
+profit. Every component must say either `applied` with an already-resolved
+rule, or `not_applicable` with a reason. Missing or malformed decisions fail;
+the calculator does not decide which rules apply and never supplies default
+rates.
+
+The implemented order is:
+
+```text
+raw resource totals (labor + material + machinery + transport + energy + other)
+→ labor contributions (if applied)
+→ material delivery/transport (if applied)
+→ procurement/storage (if applied)
+→ direct cost
+→ overhead (if applied)
+→ estimate cost before profit
+→ estimated profit (if applied)
+→ estimate subtotal before limited costs and VAT
+```
+
+Formulas and explicit bases:
+
+```text
+labor contributions = labor cost × rate percent / 100
+percentage material transport = material base cost × rate percent / 100
+fixed material transport = supplied fixed amount in calculation currency
+procurement/storage = material base cost × rate percent / 100
+direct cost = raw resource total + labor contributions
+              + material delivery/transport + procurement/storage
+overhead = (direct cost OR labor cost, explicitly selected) × rate percent / 100
+estimate cost before profit = direct cost + overhead
+estimated profit = estimate cost before profit × rate percent / 100
+estimate subtotal before limited costs and VAT
+  = estimate cost before profit + estimated profit
+```
+
+Material transport here means delivery/procurement transport added outside
+normative resource consumption. Procurement/storage uses material base cost
+alone, excluding transport, storage itself and VAT. The calculator does not
+infer whether a stored material price already includes transport/storage; source
+data normalization is deferred. Percentage, overhead basis, fixed amount and
+not-applicable decisions must be supplied by the caller. Unsupported transport
+methods such as tonne-km are rejected instead of approximated.
+
+For an applied component the result retains supplied rule type and, when
+provided, calculation-rule ID, source ID and source reference, together with
+the actual basis, rate or fixed value, and amount. `not_applicable` decisions
+retain their reason and produce a deterministic zero component. All arithmetic
+uses M8.3A's 40-significant-digit Decimal helper, retains decimal strings and
+does not round intermediate/display amounts to two decimal places. Mixed
+currencies are not converted or combined: fixed material transport must match
+the calculation currency, and the stack itself has one currency.
+
+The historical CP L.01.01-2012 example in the kernel tests uses 26.5%, 7%, 2%,
+14.5% and 6% solely as an arithmetic/order fixture. None is a default or a
+current-rate claim. Likewise CP L.01.02-2012/A4:2026's 116.43 MDL/hour investor
+estimate is versioned source data, not a permanent calculator constant; that
+hourly price belongs upstream as a labor ResourcePrice.
+
+The stack is not a rule-selection or normative-applicability engine. It does
+not alter `CalculationRule` or any database schema and does not calculate VAT,
+limited costs, salary, tonne-km transport, investor/contractor-specific rates,
+or professional snapshots. Future rule resolution must provide explicit
+versioned/provenance-aware decisions; it must not infer these rates from this
+historical test fixture.
