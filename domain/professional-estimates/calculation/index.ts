@@ -24,3 +24,23 @@ export {
   type ResourceCalculationResult,
   type ResourceTypeTotals,
 } from "./resource-calculation";
+export {
+  calculateProfessionalCostStack,
+  CostStackValidationError,
+  type AppliedPercentageDecision,
+  type CostStackDecisionResult,
+  type CostStackDecisionResults,
+  type CostStackResourceCalculation,
+  type CostStackRuleApplication,
+  type CostStackValidationErrorCode,
+  type EstimatedProfitDecision,
+  type LaborContributionsDecision,
+  type MaterialTransportDecision,
+  type NotApplicableDecision,
+  type OverheadDecision,
+  type ProcurementStorageDecision,
+  type ProfessionalCostStackComponent,
+  type ProfessionalCostStackInput,
+  type ProfessionalCostStackResult,
+  type ResolvedCostRuleReference,
+} from "./cost-stack";
