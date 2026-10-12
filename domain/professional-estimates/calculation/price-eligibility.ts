@@ -52,6 +52,15 @@ export class PriceEligibilityError extends Error {
   }
 }
 
+export class PriceCandidateConsistencyError extends Error {
+  constructor(readonly resourceIds: string[]) {
+    super(
+      `All price candidates in one selection must share a resourceId; found: ${resourceIds.join(", ")}.`,
+    );
+    this.name = "PriceCandidateConsistencyError";
+  }
+}
+
 function assertIsoDate(value: string, field: string): void {
   if (typeof value !== "string" || !ISO_DATE.test(value)) {
     throw new PriceEligibilityError(field, value);
@@ -99,6 +108,9 @@ export function isPriceDateEligible(
 /**
  * Selects the eligible price for a valuation date.
  *
+ * All candidates must belong to the same resource. Mixing resources in one
+ * selection is an explicit validation error, not an `ambiguous` result.
+ *
  * - exactly one eligible price  -> `selected`
  * - zero eligible prices        -> `missing`
  * - more than one eligible price -> `ambiguous`
@@ -108,6 +120,12 @@ export function selectEligibleResourcePrice(
   valuationDate: string,
 ): PriceEligibilityResult {
   assertIsoDate(valuationDate, "valuationDate");
+  const resourceIds = [
+    ...new Set(candidates.map((candidate) => candidate.resourceId)),
+  ];
+  if (resourceIds.length > 1) {
+    throw new PriceCandidateConsistencyError(resourceIds);
+  }
   const eligible = candidates.filter((candidate) =>
     isPriceDateEligible(candidate, valuationDate),
   );

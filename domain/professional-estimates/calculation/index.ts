@@ -9,6 +9,7 @@ export {
   isPriceDateEligible,
   selectEligibleResourcePrice,
   PriceEligibilityError,
+  PriceCandidateConsistencyError,
   type PriceEligibilityResult,
   type PriceEligibilityStatus,
   type ResourcePriceCandidate,

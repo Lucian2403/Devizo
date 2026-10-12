@@ -4,6 +4,7 @@ import {
   calculateResourceLine,
   calculateResources,
   isPriceDateEligible,
+  PriceCandidateConsistencyError,
   ResourceCalculationError,
   selectEligibleResourcePrice,
   type ResourceCalculationInput,
@@ -235,7 +236,7 @@ function expectError(
 // --- Empty calculation ------------------------------------------------------
 {
   const result = calculateResources([]);
-  assert.equal(result.currency, "");
+  assert.equal(result.currency, null);
   assert.equal(result.directResourceTotal, "0");
   assert.equal(result.totalsByResourceType.labor, "0");
 }
@@ -278,6 +279,26 @@ function expectError(
   assert.equal(ambiguous.status, "ambiguous");
   assert.equal(ambiguous.eligible.length, 2);
   assert.equal(ambiguous.selected, null);
+}
+
+// --- Price eligibility: candidates must share a resource --------------------
+{
+  // Mixing resources is an explicit validation error, not an ambiguous result.
+  assert.throws(
+    () =>
+      selectEligibleResourcePrice(
+        [
+          candidate({ resourcePriceId: "rp-a", resourceId: "res-1" }),
+          candidate({ resourcePriceId: "rp-b", resourceId: "res-2" }),
+        ],
+        "2026-06-15",
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof PriceCandidateConsistencyError);
+      assert.deepEqual(error.resourceIds, ["res-1", "res-2"]);
+      return true;
+    },
+  );
 }
 
 // --- Price eligibility: inclusive boundaries and open-ended validTo ---------

@@ -110,7 +110,8 @@ export interface ResourceCalculationLine {
 export type ResourceTypeTotals = Record<ProfessionalResourceType, string>;
 
 export interface ResourceCalculationResult {
-  currency: string;
+  /** The shared currency, or null when the calculation has no lines. */
+  currency: string | null;
   lines: ResourceCalculationLine[];
   /** Deterministic sum of resourceCost grouped by resource type. */
   totalsByResourceType: ResourceTypeTotals;
@@ -255,8 +256,9 @@ function emptyTotals(): Record<ProfessionalResourceType, DecimalValue> {
 /**
  * Calculates every resource line and aggregates costs by resource type.
  *
- * All lines must share a single currency. Mixing currencies is rejected rather
- * than silently summed, because this kernel does not convert between currencies.
+ * A non-empty calculation must share a single currency. Mixing currencies is
+ * rejected rather than silently summed, because this kernel does not convert
+ * between currencies. An empty calculation has no currency and returns null.
  * Aggregation is simple deterministic addition and carries no normative meaning
  * beyond the sum itself.
  */
@@ -266,7 +268,7 @@ export function calculateResources(
   const lines = inputs.map((input) => calculateResourceLine(input));
 
   const firstLine = lines[0];
-  const currency = firstLine ? firstLine.currency : "";
+  const currency = firstLine ? firstLine.currency : null;
   for (const line of lines) {
     if (line.currency !== currency) {
       throw new ResourceCalculationError(
