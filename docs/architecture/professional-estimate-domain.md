@@ -234,3 +234,104 @@ limited costs, salary, tonne-km transport, investor/contractor-specific rates,
 or professional snapshots. Future rule resolution must provide explicit
 versioned/provenance-aware decisions; it must not infer these rates from this
 historical test fixture.
+
+## M8.3C professional rule resolution
+
+M8.3C adds a pure candidate rule resolver in
+`domain/professional-estimates/calculation/rule-resolution.ts`. It answers only
+"given an explicit context and a set of already-curated candidate rules, which
+candidate is eligible for one cost component?" It does not answer "what is the
+legally correct Moldovan rate?" and never seeds or hard-codes rates.
+
+The three professional calculation responsibilities stay separate:
+
+```text
+M8.3A  raw resource calculation (quantities and resource costs)
+   ↓
+M8.3C  explicit candidate rule resolution (which rule is eligible)
+   ↓
+M8.3B  cost-stack application (apply the resolved rate deterministically)
+```
+
+A service may later orchestrate this order, but the resolver performs no
+monetary arithmetic: it returns a resolved candidate or an explicit unresolved
+state and never applies a rate.
+
+Resolution context (`ProfessionalRuleResolutionContext`) carries the valuation
+date, `estimatePerspective` (`investor` or `contractor`, per CP L.01.01-2012),
+`workKind` (a deliberately small explicit set: `construction`, `installation`,
+`commissioning`), the currency, an optional explicit
+`procurementStorageCategory`, and an optional explicit `restrictToOrigins`.
+Perspective and work kind come from the caller; the resolver never classifies a
+work item or a resource.
+
+A `ProfessionalRuleCandidate` carries its component, value type, value,
+currency, calculation basis, validity period, perspective and work-kind
+applicability (each may be the literal `any` to mark an explicitly
+context-neutral candidate), `ruleOrigin`, an optional procurement/storage
+category, and provenance references (`calculationRuleId`, `sourceId`,
+`sourceReference`, `applicabilityDecisionId`). Resolution covers the five M8.3B
+components: labor contributions, material transport, procurement/storage,
+overhead and estimated profit. Labor hourly salary is not resolved here; it
+remains a `ResourcePrice` upstream.
+
+Matching requires: component match; inclusive `validFrom <= valuationDate` and
+(`validTo` null or `valuationDate <= validTo`) with strict `YYYY-MM-DD`
+validation consistent with M8.3A; perspective match unless the candidate is
+`any`; work-kind match unless the candidate is `any`; for a `fixed_amount`
+candidate, currency equal to the context currency; and for a category-specific
+`procurement_storage` candidate, an explicit matching
+`procurementStorageCategory`. Context-neutral is only honored when explicitly
+represented as `any`; a missing field is never inferred as neutral.
+
+`ruleOrigin` (`normative_sector_average`, `company_individual`,
+`contract_agreed`, `statutory`) is provenance, not a ranking. A contractor rule
+never beats a sector-average rule by origin. The only way to narrow by origin is
+the caller's explicit `restrictToOrigins`. If `company_individual` and
+`contract_agreed` both match and the context does not distinguish them, the
+result is `ambiguous`.
+
+The result is `selected` (exactly one eligible candidate, with provenance
+preserved), `missing` (zero) or `ambiguous` (more than one). There is no
+implicit default, no "latest wins", no newest-source/highest-rate/narrowest-range
+tie-break, and no legal interpretation from monitoring. `missing` is distinct
+from `not_applicable`: the resolver never converts a missing candidate into a
+zero rate or a not-applicable decision.
+
+Procurement/storage limitation: CP L.01.07-2012 defines different investor
+rates for ordinary construction/sanitary/electrical materials, equipment and
+metal structures, and the current resource model has no confirmed canonical
+category classification. M8.3C therefore resolves a category-specific
+procurement/storage candidate only when the caller has already supplied the
+explicit category; it never guesses a category from a resource name, and it
+never applies one rate to all investor materials.
+
+Validation rejects malformed candidates (invalid dates, `validTo` before
+`validFrom`, negative or non-decimal values, missing component/origin/
+perspective applicability, malformed basis, `fixed_amount` without currency,
+missing explicit procurement/storage category, and empty provenance references
+when supplied) using the M8.3A Decimal helper for numeric checks.
+
+M8.3C does not modify the database, add a rule repository, import official
+rates, scrape websites, classify with AI, or add UI. The percentages in its
+tests (for example 26.5%, 14.5%, 6%, 2%, 1.2%) are labelled fixtures, not
+current universal defaults.
+
+### Gaps between the candidate contract and the persisted `CalculationRule`
+
+The pure `ProfessionalRuleCandidate` model is intentionally richer than the
+current `calculation_rules` table. A later persistence milestone must decide how
+to store:
+
+- an explicit validity period (`validFrom`/`validTo`); the table has no
+  validity columns;
+- `estimatePerspective` applicability (investor/contractor/any);
+- `workKind` applicability (construction/installation/commissioning/any);
+- `ruleOrigin` provenance (sector-average/company/contract-agreed/statutory);
+- the `applicabilityDecisionId` link to an M8.2 applicability decision;
+- the procurement/storage category/scope and its "any" neutral marker.
+
+The existing table does already carry `ruleType`, `basis`, `valueType`,
+`value`, `currency`, `sourceId` and `sourceReference`, which map onto the
+candidate's component, basis, value type, value, currency and source provenance.
+Persistence is deferred; M8.3C changes no schema.

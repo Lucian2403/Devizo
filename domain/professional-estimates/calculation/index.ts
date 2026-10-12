@@ -44,3 +44,23 @@ export {
   type ProfessionalCostStackResult,
   type ResolvedCostRuleReference,
 } from "./cost-stack";
+export {
+  resolveProfessionalRule,
+  RuleResolutionValidationError,
+  ESTIMATE_PERSPECTIVES,
+  PROFESSIONAL_WORK_KINDS,
+  PROFESSIONAL_RULE_ORIGINS,
+  RULE_VALUE_TYPES,
+  RULE_CALCULATION_BASES,
+  CONTEXT_NEUTRAL,
+  type EstimatePerspective,
+  type ProfessionalWorkKind,
+  type ProfessionalRuleOrigin,
+  type RuleValueType,
+  type RuleCalculationBasis,
+  type ProfessionalRuleCandidate,
+  type ProfessionalRuleResolutionContext,
+  type ProfessionalRuleResolutionResult,
+  type RuleResolutionStatus,
+  type RuleResolutionValidationErrorCode,
+} from "./rule-resolution";
