@@ -146,6 +146,35 @@ function applicableDecision(
   };
 }
 
+function definitionRecord(
+  overrides: Partial<ProfessionalRuleDefinitionRecord> = {},
+): ProfessionalRuleDefinitionRecord {
+  const now = new Date("2026-10-12T00:00:00Z");
+  return {
+    id: "seed-1",
+    organizationId: ORG,
+    sourceId: SOURCE,
+    applicabilityDecisionId: "decision-1",
+    name: "Seeded official overhead (fixture)",
+    component: "overhead",
+    valueType: "percent",
+    value: "14.5", // fixture
+    currency: null,
+    calculationBasis: "direct_cost",
+    validFrom: "2026-01-01",
+    validTo: "2026-12-31",
+    estimatePerspective: "investor",
+    workKind: "construction",
+    ruleOrigin: "normative_sector_average",
+    procurementCategory: null,
+    sourceReference: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
 async function expectError(code: string, run: () => Promise<unknown>): Promise<void> {
   await assert.rejects(run, (error: unknown) => {
     assert.ok(
@@ -313,6 +342,105 @@ async function main(): Promise<void> {
   const candidate = mapRuleDefinitionToCandidate(created);
   assert.equal(typeof candidate.value, "string");
   assert.equal(candidate.value, "0.123456");
+}
+
+// Load-time governance revalidation for official definitions.
+// A. official definition linked to not_applicable is rejected on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(definitionRecord());
+  repo.decisions.push(applicableDecision({ decision: "not_applicable" }));
+  const service = new ProfessionalRuleDefinitionService(repo);
+  await expectError("applicability_not_applicable", () =>
+    service.loadCandidatesForComponent(ORG, "overhead"),
+  );
+}
+
+// B. official definition linked to deferred is rejected on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(definitionRecord());
+  repo.decisions.push(applicableDecision({ decision: "deferred" }));
+  const service = new ProfessionalRuleDefinitionService(repo);
+  await expectError("applicability_not_applicable", () =>
+    service.loadCandidatesForComponent(ORG, "overhead"),
+  );
+}
+
+// C. official definition starting before applicableFrom is rejected on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(definitionRecord({ validFrom: "2026-01-01" }));
+  repo.decisions.push(applicableDecision({ applicableFrom: "2026-03-01" }));
+  const service = new ProfessionalRuleDefinitionService(repo);
+  await expectError("rule_before_applicable_from", () =>
+    service.loadCandidatesForComponent(ORG, "overhead"),
+  );
+}
+
+// D. official definition extending beyond applicableUntil is rejected on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(definitionRecord({ validTo: "2026-12-31" }));
+  repo.decisions.push(applicableDecision({ applicableUntil: "2026-06-30" }));
+  const service = new ProfessionalRuleDefinitionService(repo);
+  await expectError("rule_past_applicable_until", () =>
+    service.loadCandidatesForComponent(ORG, "overhead"),
+  );
+
+  // Open-ended rule against a finite applicableUntil is also rejected on load.
+  const repo2 = new MemoryRuleDefinitionRepository();
+  repo2.definitions.push(definitionRecord({ validTo: null }));
+  repo2.decisions.push(applicableDecision({ applicableUntil: "2026-06-30" }));
+  const service2 = new ProfessionalRuleDefinitionService(repo2);
+  await expectError("rule_open_ended_past_applicable_until", () =>
+    service2.loadCandidatesForComponent(ORG, "overhead"),
+  );
+
+  // A missing linked decision is rejected on load, not silently skipped.
+  const repo3 = new MemoryRuleDefinitionRepository();
+  repo3.definitions.push(definitionRecord());
+  const service3 = new ProfessionalRuleDefinitionService(repo3);
+  await expectError("applicability_decision_not_found", () =>
+    service3.loadCandidatesForComponent(ORG, "overhead"),
+  );
+}
+
+// E. a valid official definition still maps normally on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(definitionRecord({ id: "official-valid" }));
+  repo.decisions.push(applicableDecision());
+  const service = new ProfessionalRuleDefinitionService(repo);
+  const candidates = await service.loadCandidatesForComponent(ORG, "overhead");
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.candidateId, "official-valid");
+  assert.equal(candidates[0]?.calculationRuleId, null);
+}
+
+// F. company_individual and contract_agreed are not re-gated on load.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(
+    definitionRecord({
+      id: "company-rule",
+      ruleOrigin: "company_individual",
+      applicabilityDecisionId: null,
+    }),
+    definitionRecord({
+      id: "contract-rule",
+      ruleOrigin: "contract_agreed",
+      applicabilityDecisionId: null,
+    }),
+  );
+  // No decisions seeded on purpose; these origins need no official gate.
+  const service = new ProfessionalRuleDefinitionService(repo);
+  const candidates = await service.loadCandidatesForComponent(ORG, "overhead");
+  assert.equal(candidates.length, 2);
+  assert.deepEqual(
+    candidates.map((c) => c.candidateId).sort(),
+    ["company-rule", "contract-rule"],
+  );
 }
 
 // Pure input validation rejects shapes the cost stack cannot apply.

@@ -249,7 +249,7 @@ export function validateRuleDefinitionInput(
  * its window must cover the rule's validity window.
  */
 export function validateApplicabilityProvenance(
-  input: CreateProfessionalRuleDefinitionInput,
+  rule: { validFrom: string; validTo?: string | null },
   decision: ApplicabilityDecisionForRule | null,
 ): void {
   if (decision == null) {
@@ -267,8 +267,8 @@ export function validateApplicabilityProvenance(
       "applicabilityDecisionId",
     );
   }
-  const validFrom = input.validFrom;
-  const validTo = input.validTo ?? null;
+  const validFrom = rule.validFrom;
+  const validTo = rule.validTo ?? null;
   if (decision.applicableFrom != null && validFrom < decision.applicableFrom) {
     fail(
       "rule_before_applicable_from",
@@ -354,6 +354,14 @@ export class ProfessionalRuleDefinitionService {
    * Loads curated definitions for a component and maps them to M8.3C
    * candidates. This layer never performs date/perspective/work-kind/currency/
    * category/origin matching; `resolveProfessionalRule` owns that.
+   *
+   * Official definitions (normative_sector_average, statutory) are re-gated at
+   * load time: a persisted official definition must still point to an existing,
+   * same-organization, same-source `applicable` decision whose window covers the
+   * rule. This defends against rows written through RLS member INSERT/UPDATE or
+   * migration/admin tooling. An invalid official definition fails explicitly
+   * rather than being silently skipped. Automatic superseding/revision handling
+   * remains deferred; the exact linked decision is still trusted.
    */
   async loadCandidatesForComponent(
     organizationId: string,
@@ -363,6 +371,25 @@ export class ProfessionalRuleDefinitionService {
       organizationId,
       component,
     );
-    return definitions.map(mapRuleDefinitionToCandidate);
+    const candidates: ProfessionalRuleCandidate[] = [];
+    for (const definition of definitions) {
+      if (OFFICIAL_ORIGINS.includes(definition.ruleOrigin as never)) {
+        if (!nonEmpty(definition.applicabilityDecisionId)) {
+          fail(
+            "missing_applicability_decision",
+            `Official rule definition ${definition.id} is missing its applicability decision link.`,
+            "applicabilityDecisionId",
+          );
+        }
+        const decision = await this.repository.getApplicabilityDecisionForSource(
+          organizationId,
+          definition.sourceId,
+          definition.applicabilityDecisionId as string,
+        );
+        validateApplicabilityProvenance(definition, decision);
+      }
+      candidates.push(mapRuleDefinitionToCandidate(definition));
+    }
+    return candidates;
   }
 }

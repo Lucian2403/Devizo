@@ -1,3 +1,4 @@
+ALTER TABLE "normative_applicability_decisions" ADD CONSTRAINT "normative_applicability_decisions_id_source_org_unique" UNIQUE("id","source_id","organization_id");--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "professional_rule_definitions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -62,5 +63,4 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "professional_rule_definitions_org_component_idx" ON "professional_rule_definitions" USING btree ("organization_id","component");--> statement-breakpoint
-ALTER TABLE "normative_applicability_decisions" ADD CONSTRAINT "normative_applicability_decisions_id_source_org_unique" UNIQUE("id","source_id","organization_id");
+CREATE INDEX IF NOT EXISTS "professional_rule_definitions_org_component_idx" ON "professional_rule_definitions" USING btree ("organization_id","component");
