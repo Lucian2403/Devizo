@@ -50,7 +50,7 @@ async function main() {
       await client.unsafe(readFileSync(join(policiesPath, file), "utf8"));
     }
     await client.unsafe(readFileSync("scripts/test-normative-database.sql", "utf8"));
-    console.log("Database guards, membership lifecycle, provenance, draft-only consumptions and RLS checks passed. Fixtures rolled back.");
+    console.log("Database guards, membership lifecycle, provenance, draft-only consumptions, rule-definition constraints and RLS checks passed. Fixtures rolled back.");
   } finally {
     await client.end();
   }

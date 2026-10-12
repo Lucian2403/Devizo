@@ -20,7 +20,8 @@ DECLARE
     'resource_prices',
     'calculation_contexts',
     'norm_applications',
-    'calculation_rules'
+    'calculation_rules',
+    'professional_rule_definitions'
   ];
   immutable_tables text[] := ARRAY[
     'normative_update_reviews',

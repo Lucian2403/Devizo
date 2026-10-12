@@ -23,8 +23,10 @@ import type { TranscriptionProvider } from "@/domain/ai/transcription.provider";
 import type { SupportedCurrency } from "@/domain/shared/types";
 import { NormativeIntelligenceService } from "@/domain/professional-estimates/normative-intelligence.service";
 import { NormativeGovernanceService } from "@/domain/professional-estimates/normative-governance.service";
+import { ProfessionalRuleDefinitionService } from "@/domain/professional-estimates/professional-rule-definitions.service";
 import { DrizzleNormativeIntelligenceRepository } from "@/infrastructure/db/repositories/normativeIntelligence.repository";
 import { DrizzleNormativeGovernanceRepository } from "@/infrastructure/db/repositories/normativeGovernance.repository";
+import { DrizzleProfessionalRuleDefinitionRepository } from "@/infrastructure/db/repositories/professionalRuleDefinitions.repository";
 import { HttpNormativeSourceMonitor } from "@/infrastructure/normative/http-source-monitor";
 
 /**
@@ -74,6 +76,12 @@ export function getNormativeIntelligenceService(): NormativeIntelligenceService 
 export function getNormativeGovernanceService(): NormativeGovernanceService {
   return new NormativeGovernanceService(
     new DrizzleNormativeGovernanceRepository(),
+  );
+}
+
+export function getProfessionalRuleDefinitionService(): ProfessionalRuleDefinitionService {
+  return new ProfessionalRuleDefinitionService(
+    new DrizzleProfessionalRuleDefinitionRepository(),
   );
 }
 
