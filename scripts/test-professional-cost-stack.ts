@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import Decimal from "decimal.js";
 import {
   calculateProfessionalCostStack,
+  calculateResources,
   CostStackValidationError,
+  type CostStackResourceCalculation,
   type ProfessionalCostStackInput,
   type ResolvedCostRuleReference,
 } from "../domain/professional-estimates/calculation";
@@ -25,18 +27,45 @@ const rule: ResolvedCostRuleReference = {
   sourceReference: "CP test paragraph",
 };
 
-function baseInput(
-  overrides: Partial<ProfessionalCostStackInput> = {},
-): ProfessionalCostStackInput {
+function sumTotals(totals: ResourceTypeTotals): string {
+  return (Object.keys(totals) as (keyof ResourceTypeTotals)[])
+    .reduce((acc, key) => acc.plus(new Decimal(totals[key])), new Decimal(0))
+    .toString();
+}
+
+function resourceCalc(
+  totals: ResourceTypeTotals = zeroResourceTotals,
+  currency: string | null = "MDL",
+  directResourceTotalOverride?: string,
+): CostStackResourceCalculation {
   return {
-    currency: "MDL",
-    resourceTotals: zeroResourceTotals,
+    currency,
+    totalsByResourceType: totals,
+    directResourceTotal: directResourceTotalOverride ?? sumTotals(totals),
+  };
+}
+
+function baseInput(
+  overrides: Partial<ProfessionalCostStackInput> & {
+    resourceTotals?: ResourceTypeTotals;
+    currency?: string | null;
+    directResourceTotal?: string;
+  } = {},
+): ProfessionalCostStackInput {
+  const { resourceTotals, currency, directResourceTotal, ...decisionOverrides } =
+    overrides;
+  return {
+    resourceCalculation: resourceCalc(
+      resourceTotals ?? zeroResourceTotals,
+      currency === undefined ? "MDL" : currency,
+      directResourceTotal,
+    ),
     laborContributions: noRule,
     materialTransport: noRule,
     procurementStorage: noRule,
     overhead: noRule,
     estimatedProfit: noRule,
-    ...overrides,
+    ...decisionOverrides,
   };
 }
 
@@ -344,9 +373,87 @@ function expectCostStackError(
       }),
     ),
   );
-  expectCostStackError("invalid_currency", () =>
+  expectCostStackError("missing_resource_currency", () =>
     calculateProfessionalCostStack(baseInput({ currency: " " })),
   );
+}
+
+// --- Integration hardening between M8.3A and M8.3B ---------------------------
+
+// 1. Resource totals carry their own M8.3A currency; the stack uses it and a
+//    caller cannot relabel it. The real M8.3A result is accepted directly.
+{
+  const resourceResult = calculateResources([
+    {
+      estimateNormVersionId: "env-1",
+      resourceConsumptionId: "rc-1",
+      resourceId: "res-1",
+      resourcePriceId: "rp-1",
+      normApplicationId: null,
+      resourceType: "material",
+      currency: "EUR",
+      workQuantity: "100",
+      normBasisQuantity: "100",
+      normativeConsumption: "3",
+      applicationCoefficient: "1",
+      resourcePrice: "1000",
+      priceBasisQuantity: "1000",
+    },
+  ]);
+  assert.equal(resourceResult.currency, "EUR");
+
+  const result = calculateProfessionalCostStack({
+    resourceCalculation: resourceResult,
+    laborContributions: noRule,
+    materialTransport: noRule,
+    procurementStorage: noRule,
+    overhead: noRule,
+    estimatedProfit: noRule,
+  });
+  // EUR totals stay EUR; they cannot be silently mislabeled as MDL.
+  assert.equal(result.currency, "EUR");
+  assert.equal(result.materialCost, "3");
+  assert.equal(result.rawResourceTotal, "3");
+  assert.equal(result.directCost, "3");
+}
+
+// 2. A null M8.3A currency (empty resource calculation) is rejected, not
+//    assigned an invented currency.
+{
+  const empty = calculateResources([]);
+  assert.equal(empty.currency, null);
+  expectCostStackError("missing_resource_currency", () =>
+    calculateProfessionalCostStack({
+      resourceCalculation: empty,
+      laborContributions: noRule,
+      materialTransport: noRule,
+      procurementStorage: noRule,
+      overhead: noRule,
+      estimatedProfit: noRule,
+    }),
+  );
+}
+
+// 3. A directResourceTotal that does not match the recomputed raw total is
+//    rejected without rounding.
+{
+  expectCostStackError("resource_total_mismatch", () =>
+    calculateProfessionalCostStack(
+      baseInput({
+        resourceTotals: { ...zeroResourceTotals, labor: "100", material: "50" },
+        directResourceTotal: "151",
+      }),
+    ),
+  );
+  // An equal-but-differently-scaled decimal string still matches by value.
+  const matching = calculateProfessionalCostStack(
+    baseInput({
+      resourceTotals: { ...zeroResourceTotals, labor: "100", material: "50" },
+      directResourceTotal: "150.00",
+    }),
+  );
+  assert.equal(matching.rawResourceTotal, "150");
+  assert.equal(matching.directCost, "150");
 }
 
 // Decimal-only arithmetic: float-unsafe raw values stay exact in aggregation.

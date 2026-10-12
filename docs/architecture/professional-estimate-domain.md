@@ -157,13 +157,23 @@ will later need.
 ## M8.3B professional cost stack semantics
 
 M8.3B adds a pure cost-stack function in
-`domain/professional-estimates/calculation/cost-stack.ts`. It accepts raw
-resource totals from M8.3A and explicit decisions for labor contributions,
+`domain/professional-estimates/calculation/cost-stack.ts`. It accepts the M8.3A
+resource calculation result (currency, `totalsByResourceType` and
+`directResourceTotal`) and explicit decisions for labor contributions,
 material delivery transport, procurement/storage, overhead and estimated
 profit. Every component must say either `applied` with an already-resolved
 rule, or `not_applicable` with a reason. Missing or malformed decisions fail;
 the calculator does not decide which rules apply and never supplies default
 rates.
+
+The cost stack takes the raw resource totals and their currency together as one
+structured M8.3A result rather than as independent values, so a caller cannot
+relabel EUR totals as MDL. The currency must be a non-null, non-empty string:
+an empty M8.3A calculation has currency `null` and is rejected rather than
+assigned an invented currency. As an integrity check, the recomputed raw total
+(`labor + material + machinery + transport + energy + other`) must equal the
+supplied `directResourceTotal` exactly by Decimal comparison; a mismatch is a
+validation error and no rounding is introduced.
 
 The implemented order is:
 

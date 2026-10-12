@@ -30,6 +30,7 @@ export {
   type AppliedPercentageDecision,
   type CostStackDecisionResult,
   type CostStackDecisionResults,
+  type CostStackResourceCalculation,
   type CostStackRuleApplication,
   type CostStackValidationErrorCode,
   type EstimatedProfitDecision,

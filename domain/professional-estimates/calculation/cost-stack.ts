@@ -28,7 +28,9 @@ export type CostStackValidationErrorCode =
   | "invalid_overhead_basis"
   | "unsupported_transport_method"
   | "currency_mismatch"
-  | "invalid_currency";
+  | "missing_resource_calculation"
+  | "missing_resource_currency"
+  | "resource_total_mismatch";
 
 export class CostStackValidationError extends Error {
   constructor(
@@ -106,13 +108,28 @@ export type EstimatedProfitDecision =
   | AppliedPercentageDecision;
 
 export interface ProfessionalCostStackInput {
-  currency: string;
-  resourceTotals: ResourceTypeTotals;
+  /**
+   * The M8.3A resource calculation result (or an equivalent structure). The raw
+   * resource totals carry their own currency so a caller cannot relabel EUR
+   * totals as MDL. `ResourceCalculationResult` is assignable here directly.
+   */
+  resourceCalculation: CostStackResourceCalculation;
   laborContributions: LaborContributionsDecision;
   materialTransport: MaterialTransportDecision;
   procurementStorage: ProcurementStorageDecision;
   overhead: OverheadDecision;
   estimatedProfit: EstimatedProfitDecision;
+}
+
+/**
+ * The subset of the M8.3A `ResourceCalculationResult` the cost stack consumes.
+ * `currency` is nullable because an empty M8.3A calculation has no currency;
+ * the cost stack rejects that case rather than inventing one.
+ */
+export interface CostStackResourceCalculation {
+  currency: string | null;
+  totalsByResourceType: ResourceTypeTotals;
+  directResourceTotal: string;
 }
 
 export interface CostStackRuleApplication {
@@ -378,16 +395,28 @@ function percentAmount(
 export function calculateProfessionalCostStack(
   input: ProfessionalCostStackInput,
 ): ProfessionalCostStackResult {
-  if (typeof input.currency !== "string" || input.currency.trim() === "") {
+  const resourceCalculation = input.resourceCalculation;
+  if (!isRecord(resourceCalculation)) {
     throw new CostStackValidationError(
-      "invalid_currency",
-      "A non-empty calculation currency is required.",
-      undefined,
+      "missing_resource_calculation",
+      "A resource calculation result from M8.3A is required.",
+      "resource_totals",
+    );
+  }
+  if (
+    typeof resourceCalculation.currency !== "string" ||
+    resourceCalculation.currency.trim() === ""
+  ) {
+    // An empty M8.3A calculation has currency null; never invent one here.
+    throw new CostStackValidationError(
+      "missing_resource_currency",
+      "The resource calculation currency must be a non-null, non-empty string. An empty resource calculation cannot be costed.",
+      "resource_totals",
       "currency",
     );
   }
-  const currency = input.currency.trim();
-  if (!isRecord(input.resourceTotals)) {
+  const currency = resourceCalculation.currency.trim();
+  if (!isRecord(resourceCalculation.totalsByResourceType)) {
     throw new CostStackValidationError(
       "invalid_decision",
       "Raw resource totals from M8.3A are required.",
@@ -411,7 +440,7 @@ export function calculateProfessionalCostStack(
     resourceType: keyof ResourceTypeTotals,
   ): InstanceType<typeof Decimal> => {
     const value = decimal(
-      input.resourceTotals[resourceType],
+      resourceCalculation.totalsByResourceType[resourceType],
       `${resourceType}Cost`,
       "resource_totals",
     );
@@ -438,6 +467,22 @@ export function calculateProfessionalCostStack(
     .plus(transportResourceCost)
     .plus(energyCost)
     .plus(otherCost);
+
+  // Integrity: the recomputed raw total must match M8.3A's directResourceTotal
+  // exactly, so tampered or inconsistent inputs are rejected without rounding.
+  const suppliedDirectResourceTotal = decimal(
+    resourceCalculation.directResourceTotal,
+    "directResourceTotal",
+    "resource_totals",
+  );
+  if (!rawResourceTotal.equals(suppliedDirectResourceTotal)) {
+    throw new CostStackValidationError(
+      "resource_total_mismatch",
+      `Recomputed raw resource total ${toDecimalString(rawResourceTotal)} does not match the supplied M8.3A directResourceTotal ${toDecimalString(suppliedDirectResourceTotal)}.`,
+      "resource_totals",
+      "directResourceTotal",
+    );
+  }
 
   const appliedRules: CostStackRuleApplication[] = [];
 
