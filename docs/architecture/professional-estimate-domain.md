@@ -102,11 +102,54 @@ FKs. Applicability source snapshots are validated by the database on insertion.
 Applicability corrections append revisions; review/relation corrections are
 deferred and must not be implemented by editing or deleting old audit rows.
 
-M8.2 deliberately does not define a normative package/basis composition, the
-meaning of old/new WinSmeta bases, annual update behavior, coefficients, or
-professional forms. Those decisions require observation of the real workflow.
-When professional calculation snapshots are implemented, they must preserve
-the exact source identity and evidence, applicability revision, norm version,
-resource consumptions, price records and rule inputs used at the valuation
-date. Source monitoring and later decisions must never rewrite a historical
-snapshot.
+## M8.3A deterministic resource calculation kernel
+
+M8.3A adds the pure deterministic core of the resource method and nothing else.
+It lives in `domain/professional-estimates/calculation/` and is independent of
+the commercial quote pricing engine (`domain/quotes/pricing.ts`). It does not
+read catalog items, selling prices or commercial quote prices, and it performs
+no database access, UI, PDF, VAT, overhead, estimated profit, transport,
+procurement/storage, salary or AI behaviour.
+
+All arithmetic uses a fixed decimal.js configuration (`calculation/decimal.ts`:
+40 significant digits, plain notation). Native JavaScript floating-point
+arithmetic is never used for quantities or money. Quantities and prices stay as
+decimal strings on the way in and out; the kernel does not round to a money
+scale, because official-form rounding rules are a separate, later concern.
+
+Formulas implemented (`calculation/resource-calculation.ts`):
+
+```text
+resourceQuantity   = workQuantity / normBasisQuantity
+                     × normativeConsumption × applicationCoefficient
+effectiveUnitPrice = resourcePrice / priceBasisQuantity
+resourceCost       = resourceQuantity × effectiveUnitPrice
+```
+
+Per-resource results echo their inputs and preserve provenance identifiers
+(estimate norm version, resource consumption, resource, resource price and
+norm application) so a later professional calculation snapshot can reference the
+exact records used. Costs are aggregated deterministically by resource type
+(labor, material, machinery, transport, energy, other) and as a single direct
+resource total. These totals carry no normative meaning beyond simple addition.
+All lines in one calculation must share a currency; mixing currencies is
+rejected rather than silently summed, because the kernel performs no conversion.
+
+Validation rejects, without silent correction: `normBasisQuantity <= 0`,
+`priceBasisQuantity <= 0`, `applicationCoefficient <= 0`, `workQuantity < 0`,
+`normativeConsumption < 0`, `resourcePrice < 0`, non-decimal inputs and unknown
+resource types.
+
+Price eligibility is a separate pure function (`calculation/price-eligibility.ts`).
+A ResourcePrice is date-eligible when `validFrom <= valuationDate` and
+(`validTo is null` or `valuationDate <= validTo`); both boundaries are
+inclusive. The result distinguishes exactly one eligible price (`selected`),
+zero (`missing`) and more than one (`ambiguous`). No overlap tie-break rule is
+invented: ambiguity stays visible because no confirmed normative rule exists for
+resolving overlapping prices yet.
+
+M8.3A does not change the `CalculationRule` schema and does not implement
+calculation-rule semantics (overhead, estimated profit, procurement/storage and
+similar), which require separate normative analysis. It also does not build the
+calculation snapshot persistence; it only preserves the references a snapshot
+will later need.
