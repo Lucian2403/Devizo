@@ -291,6 +291,15 @@ RESET ROLE;
 
 -- === M8.3D professional_rule_definitions constraint and RLS checks ===
 
+-- The previous RLS test left request.jwt.claim.sub set to a nonmember UUID, and
+-- RESET ROLE does not clear session-local settings. The following privileged
+-- fixture inserts governance rows (e.g. an applicability decision) whose actor
+-- is validated against auth.uid() by guard_normative_governance_actor_insert().
+-- Clear the stale claim so auth.uid() is NULL here, matching how the first
+-- privileged governance fixture at the top of this file runs. This keeps the
+-- governance guard fully intact; it only removes leaked authentication state.
+SELECT set_config('request.jwt.claim.sub', '', true);
+
 DO $$
 DECLARE
   org_p uuid := gen_random_uuid();
