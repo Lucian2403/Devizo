@@ -280,6 +280,9 @@ export const normativeApplicabilityDecisions = pgTable(
       table.id,
       table.organizationId,
     ),
+    idSourceOrgUnique: unique(
+      "normative_applicability_decisions_id_source_org_unique",
+    ).on(table.id, table.sourceId, table.organizationId),
     sourceRevisionUnique: unique(
       "normative_applicability_source_revision_unique",
     ).on(table.organizationId, table.sourceId, table.revision),
@@ -913,6 +916,136 @@ export const calculationRules = pgTable(
   }),
 );
 
+/**
+ * Reusable, curated professional rule library (M8.3D).
+ *
+ * This is intentionally separate from `calculation_rules`, which is bound to a
+ * specific `calculation_context_id`. A row here MAY later become a
+ * `ProfessionalRuleCandidate` for the M8.3C resolver. DB CHECK constraints
+ * reject any shape the M8.3C/M8.3B pipeline cannot use, so invalid rules cannot
+ * enter even if application validation is bypassed. No real rate data is seeded.
+ */
+export const professionalRuleDefinitions = pgTable(
+  "professional_rule_definitions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id").notNull(),
+    applicabilityDecisionId: uuid("applicability_decision_id"),
+    name: text("name").notNull(),
+    component: text("component").notNull(),
+    valueType: text("value_type").notNull(),
+    value: numeric("value", { precision: 18, scale: 6 }).notNull(),
+    currency: text("currency"),
+    calculationBasis: text("calculation_basis").notNull(),
+    validFrom: date("valid_from").notNull(),
+    validTo: date("valid_to"),
+    estimatePerspective: text("estimate_perspective").notNull(),
+    workKind: text("work_kind").notNull(),
+    ruleOrigin: text("rule_origin").notNull(),
+    procurementCategory: text("procurement_category"),
+    sourceReference: text("source_reference"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    sourceOrgFk: foreignKey({
+      columns: [table.sourceId, table.organizationId],
+      foreignColumns: [normativeSources.id, normativeSources.organizationId],
+      name: "professional_rule_definitions_source_org_fkey",
+    }).onDelete("restrict"),
+    // A linked applicability decision must belong to the same organization AND
+    // the same source. A null applicabilityDecisionId is allowed (MATCH SIMPLE).
+    applicabilityDecisionOrgSourceFk: foreignKey({
+      columns: [
+        table.applicabilityDecisionId,
+        table.sourceId,
+        table.organizationId,
+      ],
+      foreignColumns: [
+        normativeApplicabilityDecisions.id,
+        normativeApplicabilityDecisions.sourceId,
+        normativeApplicabilityDecisions.organizationId,
+      ],
+      name: "professional_rule_definitions_applicability_source_org_fkey",
+    }).onDelete("restrict"),
+    orgIdUnique: unique("professional_rule_definitions_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    orgComponentIdx: index(
+      "professional_rule_definitions_org_component_idx",
+    ).on(table.organizationId, table.component),
+    componentCheck: check(
+      "professional_rule_definitions_component_check",
+      sql`${table.component} in ('labor_contributions', 'material_transport', 'procurement_storage', 'overhead', 'estimated_profit')`,
+    ),
+    perspectiveCheck: check(
+      "professional_rule_definitions_perspective_check",
+      sql`${table.estimatePerspective} in ('investor', 'contractor', 'any')`,
+    ),
+    workKindCheck: check(
+      "professional_rule_definitions_work_kind_check",
+      sql`${table.workKind} in ('construction', 'installation', 'commissioning', 'any')`,
+    ),
+    ruleOriginCheck: check(
+      "professional_rule_definitions_rule_origin_check",
+      sql`${table.ruleOrigin} in ('normative_sector_average', 'company_individual', 'contract_agreed', 'statutory')`,
+    ),
+    valueCheck: check(
+      "professional_rule_definitions_value_check",
+      sql`${table.value} >= 0`,
+    ),
+    validityCheck: check(
+      "professional_rule_definitions_validity_check",
+      sql`${table.validTo} is null or ${table.validTo} >= ${table.validFrom}`,
+    ),
+    // Semantic component/valueType/basis contract the cost stack can apply.
+    // `coefficient` is deliberately not representable for any component.
+    semanticsCheck: check(
+      "professional_rule_definitions_semantics_check",
+      sql`(
+        (${table.component} = 'labor_contributions' and ${table.valueType} = 'percent' and ${table.calculationBasis} = 'labor_cost')
+        or (${table.component} = 'material_transport' and ${table.valueType} = 'percent' and ${table.calculationBasis} = 'material_cost')
+        or (${table.component} = 'material_transport' and ${table.valueType} = 'fixed_amount' and ${table.calculationBasis} = 'fixed_amount')
+        or (${table.component} = 'procurement_storage' and ${table.valueType} = 'percent' and ${table.calculationBasis} = 'material_cost')
+        or (${table.component} = 'overhead' and ${table.valueType} = 'percent' and ${table.calculationBasis} in ('direct_cost', 'labor_cost'))
+        or (${table.component} = 'estimated_profit' and ${table.valueType} = 'percent' and ${table.calculationBasis} = 'estimate_cost_before_profit')
+      )`,
+    ),
+    // fixed_amount carries a supported currency; any other value type has none.
+    currencyCheck: check(
+      "professional_rule_definitions_currency_check",
+      sql`(${table.valueType} = 'fixed_amount' and ${table.currency} is not null and ${table.currency} in ('MDL', 'EUR', 'RON', 'USD', 'GBP'))
+        or (${table.valueType} <> 'fixed_amount' and ${table.currency} is null)`,
+    ),
+    // Procurement/storage declares an explicit category ("any" allowed); every
+    // other component must not carry a category.
+    procurementCategoryCheck: check(
+      "professional_rule_definitions_procurement_category_check",
+      sql`(${table.component} = 'procurement_storage' and ${table.procurementCategory} is not null and length(trim(${table.procurementCategory})) > 0)
+        or (${table.component} <> 'procurement_storage' and ${table.procurementCategory} is null)`,
+    ),
+    // Official rules must carry M8.2 applicability provenance.
+    officialDecisionCheck: check(
+      "professional_rule_definitions_official_decision_check",
+      sql`${table.ruleOrigin} not in ('normative_sector_average', 'statutory')
+        or ${table.applicabilityDecisionId} is not null`,
+    ),
+    sourceReferenceCheck: check(
+      "professional_rule_definitions_source_reference_check",
+      sql`${table.sourceReference} is null or length(trim(${table.sourceReference})) > 0`,
+    ),
+    nameCheck: check(
+      "professional_rule_definitions_name_check",
+      sql`length(trim(${table.name})) > 0`,
+    ),
+  }),
+);
+
 export type ConstructionObject = typeof constructionObjects.$inferSelect;
 export type WorkQuantityList = typeof workQuantityLists.$inferSelect;
 export type WorkQuantityItem = typeof workQuantityItems.$inferSelect;
@@ -930,3 +1063,5 @@ export type ResourcePrice = typeof resourcePrices.$inferSelect;
 export type CalculationContext = typeof calculationContexts.$inferSelect;
 export type NormApplication = typeof normApplications.$inferSelect;
 export type CalculationRule = typeof calculationRules.$inferSelect;
+export type ProfessionalRuleDefinition =
+  typeof professionalRuleDefinitions.$inferSelect;

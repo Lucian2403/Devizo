@@ -288,4 +288,142 @@ BEGIN
 END
 $$;
 RESET ROLE;
+
+-- === M8.3D professional_rule_definitions constraint and RLS checks ===
+
+-- The previous RLS test left request.jwt.claim.sub set to a nonmember UUID, and
+-- RESET ROLE does not clear session-local settings. The following privileged
+-- fixture inserts governance rows (e.g. an applicability decision) whose actor
+-- is validated against auth.uid() by guard_normative_governance_actor_insert().
+-- Clear the stale claim so auth.uid() is NULL here, matching how the first
+-- privileged governance fixture at the top of this file runs. This keeps the
+-- governance guard fully intact; it only removes leaked authentication state.
+SELECT set_config('request.jwt.claim.sub', '', true);
+
+DO $$
+DECLARE
+  org_p uuid := gen_random_uuid();
+  org_q uuid := gen_random_uuid();
+  user_p uuid := gen_random_uuid();
+  source_p uuid := gen_random_uuid();
+  source_p2 uuid := gen_random_uuid();
+  source_q uuid := gen_random_uuid();
+  decision_p uuid;
+  def_company uuid;
+  cols text := '(organization_id, source_id, name, component, value_type, value, calculation_basis, valid_from, valid_to, estimate_perspective, work_kind, rule_origin, currency, procurement_category, applicability_decision_id)';
+BEGIN
+  INSERT INTO auth.users (id) VALUES (user_p);
+  INSERT INTO public.organizations (id, name, slug) VALUES
+    (org_p, 'Ruledef P', org_p::text), (org_q, 'Ruledef Q', org_q::text);
+  INSERT INTO public.organization_members (organization_id, user_id, role)
+    VALUES (org_p, user_p, 'owner');
+  INSERT INTO public.normative_sources
+    (id, organization_id, code, title, edition, source_type, jurisdiction, official_status)
+    VALUES
+    (source_p, org_p, 'RULEDEF-P', 'Rule source P', '2026', 'normative_document', 'MD', 'in_force'),
+    (source_p2, org_p, 'RULEDEF-P2', 'Rule source P2', '2026', 'normative_document', 'MD', 'in_force'),
+    (source_q, org_q, 'RULEDEF-Q', 'Rule source Q', '2026', 'normative_document', 'MD', 'in_force');
+  -- Snapshot the full current source, matching production
+  -- guard_normative_applicability_insert() which requires an exact snapshot.
+  INSERT INTO public.normative_applicability_decisions
+    (organization_id, source_id, revision, decision, decided_by_user_id, basis_note,
+     source_code, source_edition, source_title, source_publisher, source_jurisdiction,
+     source_authority, source_uri, source_fingerprint, official_status, applicable_from)
+    SELECT org_p, id, 1, 'applicable', user_p, 'Applicable fixture',
+      code, edition, title, publisher, jurisdiction, authority, source_uri, content_fingerprint,
+      official_status, '2026-01-01'
+    FROM public.normative_sources
+    WHERE id = source_p AND organization_id = org_p
+    RETURNING id INTO decision_p;
+
+  -- Valid company rule (no applicability decision needed) inserts.
+  INSERT INTO public.professional_rule_definitions
+    (organization_id, source_id, name, component, value_type, value, calculation_basis,
+     valid_from, valid_to, estimate_perspective, work_kind, rule_origin)
+    VALUES (org_p, source_p, 'Company overhead fixture', 'overhead', 'percent', 10, 'direct_cost',
+      '2026-01-01', '2026-12-31', 'investor', 'construction', 'company_individual')
+    RETURNING id INTO def_company;
+  IF def_company IS NULL THEN RAISE EXCEPTION 'Valid company rule insert failed'; END IF;
+
+  -- Valid official rule referencing the applicable decision inserts.
+  INSERT INTO public.professional_rule_definitions
+    (organization_id, source_id, applicability_decision_id, name, component, value_type, value,
+     calculation_basis, valid_from, valid_to, estimate_perspective, work_kind, rule_origin)
+    VALUES (org_p, source_p, decision_p, 'Official overhead fixture', 'overhead', 'percent', 12,
+      'direct_cost', '2026-01-01', '2026-12-31', 'investor', 'construction', 'normative_sector_average');
+
+  -- invalid component
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''vat'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- invalid perspective
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''beneficiary'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- invalid work kind
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''demolition'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- invalid rule origin
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''made_up'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- negative value
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',-1,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- invalid validity range (valid_to before valid_from)
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-12-31'',''2026-01-01'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- percent with currency
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',''MDL'',NULL,NULL)', cols, org_p, source_p), '23514');
+  -- fixed amount without currency
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''material_transport'',''fixed_amount'',10,''fixed_amount'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- incompatible component/valueType/basis
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''material_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- procurement_storage without category
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''procurement_storage'',''percent'',10,''material_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- category on a non-procurement component
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,''equipment'',NULL)', cols, org_p, source_p), '23514');
+  -- official origin without applicabilityDecisionId
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''normative_sector_average'',NULL,NULL,NULL)', cols, org_p, source_p), '23514');
+  -- applicability decision from another source (decision_p belongs to source_p, not source_p2)
+  PERFORM pg_temp.expect_failure(format('INSERT INTO public.professional_rule_definitions %s VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',''2026-12-31'',''investor'',''construction'',''company_individual'',NULL,NULL,%L)', cols, org_p, source_p2, decision_p), '23503');
+
+  PERFORM set_config('devizo.ruledef_org', org_p::text, true);
+  PERFORM set_config('devizo.ruledef_member', user_p::text, true);
+  PERFORM set_config('devizo.ruledef_source', source_p::text, true);
+  PERFORM set_config('devizo.ruledef_foreign_org', org_q::text, true);
+  PERFORM set_config('devizo.ruledef_foreign_source', source_q::text, true);
+END
+$$;
+
+SET LOCAL ROLE devizo_normative_guard_test;
+SELECT set_config('request.jwt.claim.sub', current_setting('devizo.ruledef_member'), true);
+DO $$
+DECLARE
+  org_p uuid := current_setting('devizo.ruledef_org')::uuid;
+  org_q uuid := current_setting('devizo.ruledef_foreign_org')::uuid;
+  source_p uuid := current_setting('devizo.ruledef_source')::uuid;
+  source_q uuid := current_setting('devizo.ruledef_foreign_source')::uuid;
+  affected int;
+BEGIN
+  -- Member of P can read P definitions.
+  IF (SELECT count(*) FROM public.professional_rule_definitions WHERE organization_id = org_p) < 2 THEN
+    RAISE EXCEPTION 'Member SELECT denied for own rule definitions';
+  END IF;
+  -- Member of P cannot see Q definitions.
+  IF EXISTS (SELECT 1 FROM public.professional_rule_definitions WHERE organization_id = org_q) THEN
+    RAISE EXCEPTION 'Cross-org rule definition visible';
+  END IF;
+  -- Member INSERT into own organization succeeds.
+  INSERT INTO public.professional_rule_definitions
+    (organization_id, source_id, name, component, value_type, value, calculation_basis,
+     valid_from, valid_to, estimate_perspective, work_kind, rule_origin)
+    VALUES (org_p, source_p, 'Member insert', 'overhead', 'percent', 11, 'labor_cost',
+      '2026-01-01', null, 'contractor', 'installation', 'company_individual');
+  -- Member INSERT into another organization is blocked by RLS.
+  PERFORM pg_temp.expect_failure(format(
+    'INSERT INTO public.professional_rule_definitions (organization_id, source_id, name, component, value_type, value, calculation_basis, valid_from, valid_to, estimate_perspective, work_kind, rule_origin) VALUES (%L,%L,''X'',''overhead'',''percent'',10,''direct_cost'',''2026-01-01'',null,''investor'',''construction'',''company_individual'')',
+    org_q, source_q), '42501');
+  -- Member UPDATE on another organization affects nothing.
+  UPDATE public.professional_rule_definitions SET notes = 'forbidden' WHERE organization_id = org_q;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'RLS allowed cross-org UPDATE'; END IF;
+  -- DELETE is not granted by the member policies.
+  DELETE FROM public.professional_rule_definitions WHERE organization_id = org_p;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'RLS allowed DELETE'; END IF;
+END
+$$;
+RESET ROLE;
 ROLLBACK;

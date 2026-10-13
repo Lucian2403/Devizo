@@ -352,3 +352,104 @@ The existing table does already carry `ruleType`, `basis`, `valueType`,
 `value`, `currency`, `sourceId` and `sourceReference`, which map onto the
 candidate's component, basis, value type, value, currency and source provenance.
 Persistence is deferred; M8.3C changes no schema.
+
+## M8.3D professional rule definition persistence
+
+M8.3D persists the reusable, curated rule library that feeds M8.3C. It stores
+rule *definitions*; it does not apply rules to an estimate. The chain is:
+
+```text
+Normative source / company source
+    ↓
+Applicability review (M8.2) where required
+    ↓
+professional_rule_definitions   (reusable curated library — M8.3D)
+    ↓
+M8.3C resolver                  (selected / missing / ambiguous)
+    ↓
+M8.3B cost stack                (deterministic application)
+    ↓
+future applied-rule snapshot / materialization (deferred)
+```
+
+### Why `calculation_rules` was not reused
+
+`calculation_rules` is bound to a `calculation_context_id`, so it is specific to
+one professional estimate. It is therefore the wrong home for a reusable,
+cross-estimate rule library. M8.3D leaves `calculation_rules` unchanged; its
+future role may be to materialize/preserve the exact rule a concrete calculation
+selected and used. That materialization is a later milestone. The new table is
+`professional_rule_definitions`.
+
+### Table and database constraints
+
+`professional_rule_definitions` stores organization-owned rows with: source and
+optional applicability-decision provenance, name, component, value type, value,
+optional currency, calculation basis, validity period, estimate perspective,
+work kind, rule origin, optional procurement category, optional source reference
+and notes. The row id becomes the M8.3C `candidateId`. Database CHECK
+constraints reject any shape M8.3C/M8.3B cannot use, even if application
+validation is bypassed:
+
+- component, perspective, work kind and rule origin are restricted to the known
+  values; perspective and work kind include the explicit `any`;
+- `value >= 0`; `validTo` is null or `>= validFrom`;
+- the component/value-type/basis contract mirrors the M8.3C resolver
+  (`coefficient` is not representable for any component);
+- a `fixed_amount` rule carries a supported currency; any other value type must
+  have a null currency (this also closes the percent-with-currency gap);
+- a `procurement_storage` row has a non-empty category (which may be `"any"`);
+  every other component must not carry a category;
+- an official origin (`normative_sector_average`, `statutory`) must carry an
+  `applicability_decision_id`;
+- name is non-empty and source reference, when present, is non-blank.
+
+`source_id` references `normative_sources` via the organization-safe composite FK
+`(source_id, organization_id)` with `ON DELETE RESTRICT`, so a rule can never
+reference another organization's source. `applicability_decision_id` references
+`normative_applicability_decisions` via the composite FK
+`(applicability_decision_id, source_id, organization_id)` (a new unique key was
+added on the decisions table to support it), so a linked decision must belong to
+the same organization and the same source. A null decision id is allowed.
+
+### Source / applicability integrity (service)
+
+Database FKs cannot prove the *meaning* of a decision, so the service adds
+validation: for official origins the referenced applicability decision must
+exist for the same organization and source, its `decision` must be `applicable`
+(never `not_applicable`, `deferred` or `unknown`), and its window must cover the
+rule — `validFrom` not before `applicableFrom`, `validTo` not beyond a finite
+`applicableUntil`, and an open-ended `validTo` is invalid when the decision has a
+finite `applicableUntil`. Rule origin is never inferred from `sourceType`.
+`company_individual` and `contract_agreed` rules may omit the decision link.
+
+### Repository, mapping and governance gate
+
+The dedicated, organization-scoped repository exposes `createRuleDefinition`,
+`getRuleDefinition` and `listRuleDefinitionsForComponent`; candidate resolution
+never queries `calculation_rules`. A pure mapper turns a definition into a
+`ProfessionalRuleCandidate` with `candidateId = definition.id` and
+`calculationRuleId = null` (a reusable definition is not an applied
+`calculation_rules` row; the two identities are never blurred). Decimal values
+stay strings. Loading curated definitions and mapping them is all this layer
+does: M8.3C still owns date, perspective, work-kind, currency, category and
+origin matching, including the explicit `contract_agreed` opt-in — mapping a
+contract-agreed definition does not bypass that gate.
+
+The governance gate for official rules is the linked `applicable` decision, not
+`normative_sources.officialStatus` and not monitoring status. For now the exact
+linked decision is trusted at creation time; automatic response to a later
+governance revision (for example a superseding applicability decision) is
+deferred to a future monitoring/orchestration milestone.
+
+### RLS, migration and scope
+
+`professional_rule_definitions` joins the professional RLS policy set with
+member SELECT/INSERT/UPDATE and no DELETE, consistent with the professional
+history policy; cross-organization access stays blocked. The additive migration
+was generated with Drizzle (no destructive rewrite, no backfill of guessed
+values). No real Moldovan rate data is seeded in M8.3D; test values are labelled
+fixtures. `calculation_rules` and `calculation_contexts` are unchanged — in
+particular, `estimatePerspective`, `workKind` and `procurementStorageCategory`
+are intentionally not added to `calculation_contexts` yet, because work kind can
+vary within one estimate and the permanent scope needs field evidence.
