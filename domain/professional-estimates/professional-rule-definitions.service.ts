@@ -392,4 +392,23 @@ export class ProfessionalRuleDefinitionService {
     }
     return candidates;
   }
+
+  /**
+   * Raw list of persisted rule-definition records for a component, WITHOUT the
+   * official load-time governance gate applied by `loadCandidatesForComponent`.
+   *
+   * This is for administrative/installer use (for example idempotency checks in
+   * an official rule pack), not for feeding the M8.3C resolver. Callers that
+   * resolve rules must use `loadCandidatesForComponent`, which re-gates official
+   * definitions.
+   */
+  async listDefinitionsForComponent(
+    organizationId: string,
+    component: ProfessionalCostStackComponent,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.repository.listRuleDefinitionsForComponent(
+      organizationId,
+      component,
+    );
+  }
 }

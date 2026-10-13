@@ -94,6 +94,19 @@ export class NormativeIntelligenceService {
     );
   }
 
+  /**
+   * Loads a single persisted normative source by its exact id, scoped to the
+   * organization. The caller supplies the exact id; this never resolves a
+   * source by code or picks a "latest" source. Used by official rule-pack
+   * installers to gate rules to the correct source.
+   */
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    return this.repository.getSource(organizationId, sourceId);
+  }
+
   async verifyOrganization(
     organizationId: string,
   ): Promise<VerificationRunResult> {

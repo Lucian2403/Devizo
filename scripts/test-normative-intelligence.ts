@@ -119,6 +119,19 @@ class MemoryRepository implements NormativeIntelligenceRepository {
     ];
   }
 
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    if (
+      this.source.organizationId === organizationId &&
+      this.source.id === sourceId
+    ) {
+      return { ...this.source };
+    }
+    return null;
+  }
+
   async listUpdates(): Promise<NormativeUpdateRecord[]> {
     return [];
   }

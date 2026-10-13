@@ -24,6 +24,7 @@ import type { SupportedCurrency } from "@/domain/shared/types";
 import { NormativeIntelligenceService } from "@/domain/professional-estimates/normative-intelligence.service";
 import { NormativeGovernanceService } from "@/domain/professional-estimates/normative-governance.service";
 import { ProfessionalRuleDefinitionService } from "@/domain/professional-estimates/professional-rule-definitions.service";
+import { CpL010720112RulePackInstaller } from "@/domain/professional-estimates/official-rule-packs/cp-l-01-07-2012";
 import { DrizzleNormativeIntelligenceRepository } from "@/infrastructure/db/repositories/normativeIntelligence.repository";
 import { DrizzleNormativeGovernanceRepository } from "@/infrastructure/db/repositories/normativeGovernance.repository";
 import { DrizzleProfessionalRuleDefinitionRepository } from "@/infrastructure/db/repositories/professionalRuleDefinitions.repository";
@@ -82,6 +83,13 @@ export function getNormativeGovernanceService(): NormativeGovernanceService {
 export function getProfessionalRuleDefinitionService(): ProfessionalRuleDefinitionService {
   return new ProfessionalRuleDefinitionService(
     new DrizzleProfessionalRuleDefinitionRepository(),
+  );
+}
+
+export function getCpL010720112RulePackInstaller(): CpL010720112RulePackInstaller {
+  return new CpL010720112RulePackInstaller(
+    getNormativeIntelligenceService(),
+    getProfessionalRuleDefinitionService(),
   );
 }
 

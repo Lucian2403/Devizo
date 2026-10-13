@@ -109,6 +109,17 @@ export interface NormativeIntelligenceRepository {
     organizationId: string,
   ): Promise<NormativeSourceOverview[]>;
 
+  /**
+   * Loads a single persisted normative source by its exact id, scoped to the
+   * organization. Returns null when no such source exists for that organization.
+   * This is an explicit, caller-supplied lookup: it never performs a
+   * "latest source wins" or code-based resolution.
+   */
+  getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null>;
+
   listUpdates(
     organizationId: string,
     limit?: number,

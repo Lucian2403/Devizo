@@ -94,6 +94,23 @@ export class DrizzleNormativeIntelligenceRepository
     }));
   }
 
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    const [row] = await db
+      .select()
+      .from(normativeSources)
+      .where(
+        and(
+          eq(normativeSources.organizationId, organizationId),
+          eq(normativeSources.id, sourceId),
+        ),
+      )
+      .limit(1);
+    return row ? toSourceRecord(row) : null;
+  }
+
   // Counts the dependent professional records of every source with four
   // grouped queries, instead of four queries per source.
   private async getUsageBySource(
