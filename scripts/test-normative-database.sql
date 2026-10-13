@@ -323,11 +323,17 @@ BEGIN
     (source_p, org_p, 'RULEDEF-P', 'Rule source P', '2026', 'normative_document', 'MD', 'in_force'),
     (source_p2, org_p, 'RULEDEF-P2', 'Rule source P2', '2026', 'normative_document', 'MD', 'in_force'),
     (source_q, org_q, 'RULEDEF-Q', 'Rule source Q', '2026', 'normative_document', 'MD', 'in_force');
+  -- Snapshot the full current source, matching production
+  -- guard_normative_applicability_insert() which requires an exact snapshot.
   INSERT INTO public.normative_applicability_decisions
     (organization_id, source_id, revision, decision, decided_by_user_id, basis_note,
-     source_code, source_edition, official_status, applicable_from)
-    VALUES (org_p, source_p, 1, 'applicable', user_p, 'Applicable fixture',
-      'RULEDEF-P', '2026', 'in_force', '2026-01-01')
+     source_code, source_edition, source_title, source_publisher, source_jurisdiction,
+     source_authority, source_uri, source_fingerprint, official_status, applicable_from)
+    SELECT org_p, id, 1, 'applicable', user_p, 'Applicable fixture',
+      code, edition, title, publisher, jurisdiction, authority, source_uri, content_fingerprint,
+      official_status, '2026-01-01'
+    FROM public.normative_sources
+    WHERE id = source_p AND organization_id = org_p
     RETURNING id INTO decision_p;
 
   -- Valid company rule (no applicability decision needed) inserts.
