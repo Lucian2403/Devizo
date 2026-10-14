@@ -3,6 +3,7 @@ import type {
   ProfessionalRuleDefinitionRecord,
 } from "../professional-rule-definitions.repository";
 import type { ProfessionalRuleDefinitionService } from "../professional-rule-definitions.service";
+import { DecimalParseError, parseDecimal } from "../calculation";
 import { OfficialRulePackError } from "./official-rule-pack.error";
 
 /**
@@ -256,9 +257,19 @@ export class CpL010720112RulePackInstaller {
         exact: hasConflict
           ? null
           : (slotMatches[0] ?? null),
+        duplicate: slotMatches.length > 1,
         hasConflict,
       };
     });
+
+    const duplicate = preflight.find((entry) => entry.duplicate);
+    if (duplicate) {
+      throw new OfficialRulePackError(
+        "duplicate_existing_definition",
+        `Multiple persisted procurement/storage definitions occupy category ${duplicate.packRule.procurementCategory} under source ${sourceId} and applicability decision ${applicabilityDecisionId}; refusing to choose one.`,
+        "procurementCategory",
+      );
+    }
 
     const conflict = preflight.find((entry) => entry.hasConflict);
     if (conflict) {
@@ -308,10 +319,19 @@ function matchesPackValues(
   record: ProfessionalRuleDefinitionRecord,
   desired: CreateProfessionalRuleDefinitionInput,
 ): boolean {
-  return VALUE_FIELDS.every(
-    (field) =>
-      normalizeField(record[field]) === normalizeField(desired[field]),
-  );
+  return VALUE_FIELDS.every((field) => {
+    if (field === "value") {
+      try {
+        return parseDecimal(record.value, "value").equals(
+          parseDecimal(desired.value, "value"),
+        );
+      } catch (error) {
+        if (error instanceof DecimalParseError) return false;
+        throw error;
+      }
+    }
+    return normalizeField(record[field]) === normalizeField(desired[field]);
+  });
 }
 
 function normalizeField(value: unknown): string | null {

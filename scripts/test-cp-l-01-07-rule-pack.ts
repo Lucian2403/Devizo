@@ -455,6 +455,76 @@ async function main(): Promise<void> {
     );
   }
 
+  // NUMERIC(18,6) values returned by PostgreSQL may have fixed scale; compare
+  // them numerically rather than treating equivalent decimal strings as conflicts.
+  {
+    const { repo, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    const construction = repo.definitions.find(
+      (definition) =>
+        definition.procurementCategory ===
+        CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+    );
+    const metal = repo.definitions.find(
+      (definition) =>
+        definition.procurementCategory ===
+        CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES,
+    );
+    assert.ok(construction && metal);
+    construction.value = "2.000000";
+    metal.value = "0.750000";
+
+    const reused = await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    assert.equal(repo.createCalls, 2);
+    assert.equal(repo.definitions.length, 2);
+    assert.ok(reused.definitions.every((entry) => entry.reused));
+    assert.deepEqual(
+      reused.definitions.map((entry) => entry.definition.id).sort(),
+      [construction.id, metal.id].sort(),
+    );
+  }
+
+  // More than one persisted row in a single pack slot is an integrity failure,
+  // even when both definitions are otherwise identical.
+  {
+    const { repo, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    const construction = repo.definitions.find(
+      (definition) =>
+        definition.procurementCategory ===
+        CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+    );
+    assert.ok(construction);
+    repo.definitions.push({
+      ...construction,
+      id: "duplicate-construction-definition",
+    });
+
+    const countBeforeRetry = repo.definitions.length;
+    const createCallsBeforeRetry = repo.createCalls;
+    await expectPackError("duplicate_existing_definition", () =>
+      installer.install({
+        organizationId: ORG,
+        sourceId: SOURCE,
+        applicabilityDecisionId: DECISION,
+      }),
+    );
+    assert.equal(repo.createCalls, createCallsBeforeRetry);
+    assert.equal(repo.definitions.length, countBeforeRetry);
+  }
+
   // 12. Preflight detects a metal conflict before creating the missing
   // construction-materials definition; no partial installation is allowed.
   {

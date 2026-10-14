@@ -3,7 +3,8 @@ export type OfficialRulePackErrorCode =
   | "source_organization_mismatch"
   | "source_code_mismatch"
   | "source_edition_mismatch"
-  | "conflicting_existing_definition";
+  | "conflicting_existing_definition"
+  | "duplicate_existing_definition";
 
 /**
  * Explicit, typed failure for official rule-pack installation. A pack is
