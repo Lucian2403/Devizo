@@ -421,4 +421,14 @@ export class ProfessionalRuleDefinitionService {
       component,
     );
   }
+
+  async listRuleDefinitionsForSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.repository.listRuleDefinitionsForSource(
+      organizationId,
+      sourceId,
+    );
+  }
 }

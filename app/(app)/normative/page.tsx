@@ -2,9 +2,17 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getNormativeGovernanceService,
   getNormativeIntelligenceService,
+  getProfessionalRuleDefinitionService,
 } from "@/server/container";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { GovernanceForm } from "./governance-form";
+import { CpL010720112RulePackPanel } from "./cp-l-01-07-rule-pack-panel";
+import {
+  CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+  CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES,
+  CP_L_01_07_2012_SOURCE_CODE,
+  CP_L_01_07_2012_SOURCE_EDITION,
+} from "@/domain/professional-estimates/official-rule-packs/cp-l-01-07-2012";
 import {
   bootstrapMoldovaSources,
   decideNormativeApplicability,
@@ -122,6 +130,39 @@ export default async function NormativePage() {
     getNormativeIntelligenceService().getOverview(org.id),
     getNormativeGovernanceService().getOverview(org.id),
   ]);
+  const cpSource = overview.sources.find(
+    (source) =>
+      source.code === CP_L_01_07_2012_SOURCE_CODE &&
+      source.edition === CP_L_01_07_2012_SOURCE_EDITION,
+  );
+  const cpRules = cpSource
+    ? await getProfessionalRuleDefinitionService().listRuleDefinitionsForSource(
+        org.id,
+        cpSource.id,
+      )
+    : [];
+  const cpApplicabilityChoices = cpSource
+    ? governance.applicability
+        .filter(
+          (decision) =>
+            decision.sourceId === cpSource.id &&
+            decision.decision === "applicable",
+        )
+        .map((decision) => ({
+          id: decision.id,
+          revision: decision.revision,
+          applicableFrom: decision.applicableFrom,
+          applicableUntil: decision.applicableUntil,
+        }))
+    : [];
+  const hasCpPackRule = cpRules.some(
+    (rule) =>
+      rule.component === "procurement_storage" &&
+      rule.ruleOrigin === "normative_sector_average" &&
+      (rule.procurementCategory ===
+        CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS ||
+        rule.procurementCategory === CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES),
+  );
   const applicabilityBySource = new Map<
     string,
     typeof governance.applicability
@@ -596,6 +637,27 @@ export default async function NormativePage() {
             </div>
           </div>
         )}
+        {cpSource ? (
+          <CpL010720112RulePackPanel
+            sourceId={cpSource.id}
+            decisions={cpApplicabilityChoices}
+            rules={cpRules.map((rule) => ({
+              id: rule.id,
+              name: rule.name,
+              component: rule.component,
+              value: rule.value,
+              valueType: rule.valueType,
+              validFrom: rule.validFrom,
+              validTo: rule.validTo,
+              estimatePerspective: rule.estimatePerspective,
+              procurementCategory: rule.procurementCategory,
+              ruleOrigin: rule.ruleOrigin,
+              sourceReference: rule.sourceReference,
+              applicabilityDecisionId: rule.applicabilityDecisionId,
+            }))}
+            hasPackRule={hasCpPackRule}
+          />
+        ) : null}
       </section>
 
       <section className="space-y-3">

@@ -3,10 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { NormativeGovernanceValidationError } from "@/domain/professional-estimates/normative-governance.error";
+import { OfficialRulePackError } from "@/domain/professional-estimates/official-rule-packs/official-rule-pack.error";
+import { ProfessionalRuleDefinitionValidationError } from "@/domain/professional-estimates/professional-rule-definitions.error";
+import {
+  calculateCpL0107Preview,
+  CpL0107PreviewValidationError,
+  CP_L_01_07_PREVIEW_CATEGORIES,
+  type CpL0107PreviewResult,
+} from "@/domain/professional-estimates/cp-l-01-07-preview";
+import {
+  CP_L_01_07_2012_SOURCE_CODE,
+  CP_L_01_07_2012_SOURCE_EDITION,
+} from "@/domain/professional-estimates/official-rule-packs/cp-l-01-07-2012";
+import {
+  CostStackValidationError,
+  ResourceCalculationError,
+  RuleResolutionValidationError,
+} from "@/domain/professional-estimates/calculation";
 import type { GovernanceFormState } from "./governance-form";
 import {
+  getCpL010720112RulePackInstaller,
   getNormativeGovernanceService,
   getNormativeIntelligenceService,
+  getProfessionalRuleDefinitionService,
 } from "@/server/container";
 import {
   NORMATIVE_APPLICABILITY_DECISIONS,
@@ -163,4 +182,94 @@ export async function relateNormativeSources(
   data: FormData,
 ): Promise<GovernanceFormState> {
   return submitGovernance(saveRelation, data);
+}
+
+export type RulePackFormState =
+  | { error: string }
+  | { created: number; reused: number }
+  | null;
+
+export async function installCpL010720112RulePack(
+  _state: RulePackFormState,
+  data: FormData,
+): Promise<RulePackFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    const result = await getCpL010720112RulePackInstaller().install({
+      organizationId: org.id,
+      sourceId: uuidField(data, "sourceId"),
+      applicabilityDecisionId: uuidField(data, "applicabilityDecisionId"),
+    });
+    const created = result.definitions.filter((entry) => !entry.reused).length;
+    const reused = result.definitions.filter((entry) => entry.reused).length;
+    revalidatePath("/normative");
+    return { created, reused };
+  } catch (error) {
+    if (
+      error instanceof OfficialRulePackError ||
+      error instanceof ProfessionalRuleDefinitionValidationError ||
+      error instanceof NormativeGovernanceValidationError
+    ) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+}
+
+export type CpL0107PreviewFormState =
+  | { error: string }
+  | { result: CpL0107PreviewResult }
+  | null;
+
+export async function verifyCpL010720112Calculation(
+  _state: CpL0107PreviewFormState,
+  data: FormData,
+): Promise<CpL0107PreviewFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    const sourceId = uuidField(data, "sourceId");
+    const source = await getNormativeIntelligenceService().getSource(
+      org.id,
+      sourceId,
+    );
+    if (!source) {
+      throw new OfficialRulePackError(
+        "source_not_found",
+        "Sursa normativă nu a fost găsită pentru compania curentă.",
+      );
+    }
+    if (
+      source.code !== CP_L_01_07_2012_SOURCE_CODE ||
+      source.edition !== CP_L_01_07_2012_SOURCE_EDITION
+    ) {
+      throw new OfficialRulePackError(
+        "source_code_mismatch",
+        "Verificarea calculului este disponibilă numai pentru sursa CP L.01.07-2012, ediția 2012.",
+      );
+    }
+    const result = await calculateCpL0107Preview(
+      getProfessionalRuleDefinitionService(),
+      {
+        organizationId: org.id,
+        sourceId,
+        valuationDate: requiredField(data, "valuationDate"),
+        category: enumField(data, "category", CP_L_01_07_PREVIEW_CATEGORIES),
+        materialBase: requiredField(data, "materialBase"),
+      },
+    );
+    return { result };
+  } catch (error) {
+    if (
+      error instanceof OfficialRulePackError ||
+      error instanceof NormativeGovernanceValidationError ||
+      error instanceof ProfessionalRuleDefinitionValidationError ||
+      error instanceof RuleResolutionValidationError ||
+      error instanceof ResourceCalculationError ||
+      error instanceof CostStackValidationError ||
+      error instanceof CpL0107PreviewValidationError
+    ) {
+      return { error: error.message };
+    }
+    throw error;
+  }
 }

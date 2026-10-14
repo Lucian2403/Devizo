@@ -12,6 +12,10 @@ import { OfficialRulePackError } from "../domain/professional-estimates/official
 import { ProfessionalRuleDefinitionValidationError } from "../domain/professional-estimates/professional-rule-definitions.error";
 import { ProfessionalRuleDefinitionService } from "../domain/professional-estimates/professional-rule-definitions.service";
 import {
+  calculateCpL0107Preview,
+  CpL0107PreviewValidationError,
+} from "../domain/professional-estimates/cp-l-01-07-preview";
+import {
   calculateProfessionalCostStack,
   calculateResources,
   resolveProfessionalRule,
@@ -95,6 +99,15 @@ class MemoryRuleDefinitionRepository
   ): Promise<ProfessionalRuleDefinitionRecord[]> {
     return this.definitions.filter(
       (d) => d.organizationId === organizationId && d.component === component,
+    );
+  }
+
+  async listRuleDefinitionsForSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.definitions.filter(
+      (d) => d.organizationId === organizationId && d.sourceId === sourceId,
     );
   }
 
@@ -455,6 +468,28 @@ async function main(): Promise<void> {
     );
   }
 
+  // The install call uses the exact caller-selected applicability decision,
+  // regardless of another (later) applicable decision for the same source.
+  {
+    const { repo, installer } = seededReady();
+    repo.decisions.push(
+      applicableDecision({
+        id: "later-applicability-decision",
+        applicableFrom: "2020-01-01",
+      }),
+    );
+    const installed = await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    assert.ok(
+      installed.definitions.every(
+        (entry) => entry.definition.applicabilityDecisionId === DECISION,
+      ),
+    );
+  }
+
   // NUMERIC(18,6) values returned by PostgreSQL may have fixed scale; compare
   // them numerically rather than treating equivalent decimal strings as conflicts.
   {
@@ -678,6 +713,165 @@ async function main(): Promise<void> {
     assert.equal(result.materialCost, "100000");
     assert.equal(result.procurementStorage, "750");
     assert.equal(result.directCost, "100750");
+  }
+
+  // M8.3F preview uses persisted candidates through governance, M8.3C and M8.3A/B.
+  {
+    const { service, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+
+    const construction = await calculateCpL0107Preview(service, {
+      organizationId: ORG,
+      sourceId: SOURCE,
+      valuationDate: "2026-10-14",
+      category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      materialBase: "100000",
+    });
+    assert.equal(construction.status, "selected");
+    if (construction.status === "selected") {
+      assert.equal(construction.ratePercent, "2");
+      assert.equal(construction.procurementStorage, "2000");
+      assert.equal(construction.directCost, "102000");
+      assert.equal(construction.sourceReference, "CP L.01.07-2012, pct. 3.2, 3.3(a)");
+    }
+
+    const metal = await calculateCpL0107Preview(service, {
+      organizationId: ORG,
+      sourceId: SOURCE,
+      valuationDate: "2026-10-14",
+      category: CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES,
+      materialBase: "100000",
+    });
+    assert.equal(metal.status, "selected");
+    if (metal.status === "selected") {
+      assert.equal(metal.ratePercent, "0.75");
+      assert.equal(metal.procurementStorage, "750");
+      assert.equal(metal.directCost, "100750");
+    }
+
+    const beforeValidity = await calculateCpL0107Preview(service, {
+      organizationId: ORG,
+      sourceId: SOURCE,
+      valuationDate: "2012-08-16",
+      category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      materialBase: "100000",
+    });
+    assert.equal(beforeValidity.status, "missing");
+
+    await assert.rejects(
+      calculateCpL0107Preview(service, {
+        organizationId: ORG,
+        sourceId: SOURCE,
+        valuationDate: "2026-10-14",
+        category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+        materialBase: "not-a-decimal",
+      }),
+      CpL0107PreviewValidationError,
+    );
+    await assert.rejects(
+      calculateCpL0107Preview(service, {
+        organizationId: ORG,
+        sourceId: SOURCE,
+        valuationDate: "2026-10-14",
+        category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+        materialBase: "-1",
+      }),
+      CpL0107PreviewValidationError,
+    );
+    await assert.rejects(
+      calculateCpL0107Preview(service, {
+        organizationId: ORG,
+        sourceId: SOURCE,
+        valuationDate: "2026-10-14",
+        category: "equipment",
+        materialBase: "100000",
+      }),
+      CpL0107PreviewValidationError,
+    );
+
+    const sourceRules = await service.listRuleDefinitionsForSource(ORG, SOURCE);
+    assert.equal(sourceRules.length, 2);
+    assert.ok(sourceRules.every((rule) => rule.sourceId === SOURCE));
+  }
+
+  // Multiple eligible persisted candidates are surfaced as ambiguous.
+  {
+    const { service, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    await service.createRuleDefinition({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      name: "Overlapping investor fixture",
+      component: "procurement_storage",
+      valueType: "percent",
+      value: "2",
+      currency: null,
+      calculationBasis: "material_cost",
+      validFrom: "2012-08-17",
+      validTo: null,
+      estimatePerspective: "investor",
+      workKind: "construction",
+      ruleOrigin: "company_individual",
+      procurementCategory: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      sourceReference: null,
+    });
+    const result = await calculateCpL0107Preview(service, {
+      organizationId: ORG,
+      sourceId: SOURCE,
+      valuationDate: "2026-10-14",
+      category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      materialBase: "100000",
+    });
+    assert.equal(result.status, "ambiguous");
+    if (result.status === "ambiguous") {
+      assert.equal(result.candidateIds.length, 2);
+    }
+  }
+
+  // An eligible contractor definition cannot override the preview's explicit investor perspective.
+  {
+    const { service, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    await service.createRuleDefinition({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      name: "Contractor material fixture",
+      component: "procurement_storage",
+      valueType: "percent",
+      value: "3",
+      currency: null,
+      calculationBasis: "material_cost",
+      validFrom: "2012-08-17",
+      validTo: null,
+      estimatePerspective: "contractor",
+      workKind: "construction",
+      ruleOrigin: "company_individual",
+      procurementCategory: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      sourceReference: null,
+    });
+    const result = await calculateCpL0107Preview(service, {
+      organizationId: ORG,
+      sourceId: SOURCE,
+      valuationDate: "2026-10-14",
+      category: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      materialBase: "100000",
+    });
+    assert.equal(result.status, "selected");
+    if (result.status === "selected") {
+      assert.equal(result.ratePercent, "2");
+    }
   }
 
   // Pack data sanity: exactly the two investor sector-average rules, no

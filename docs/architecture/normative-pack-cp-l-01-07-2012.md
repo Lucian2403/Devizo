@@ -141,6 +141,56 @@ requires an explicit `organizationId`, `sourceId` and `applicabilityDecisionId`.
 
 This pack implements only verified clauses **3.2** and **3.3(a)/(c)** of
 CP L.01.07-2012. It does **not** claim to implement the entire normative. It
-adds no schema, UI, PDF/forms, VAT, annual profit rate, overhead rates, salary
+adds no schema, PDF/forms, VAT, annual profit rate, overhead rates, salary
 rules, production auto-monitoring reaction, automatic legal applicability
-decision, or AI category inference.
+decision, or AI category inference. M8.3F adds only the bounded activation and
+technical verification UI described below, not a general normative editor.
+
+## M8.3F manual UI verification
+
+The `/normative` page exposes an explicit installer for this exact source and
+edition. Only an applicable decision belonging to this source can be selected;
+the selector starts blank and installation passes the selected decision ID
+through to the existing installer. Re-installation reports created/reused
+counts. Persisted rule definitions are loaded by organization and source, and
+the optional calculation panel loads candidates through the M8.3D governance
+gate before using M8.3C, M8.3A and M8.3B.
+
+The panel is only a technical verification instrument, not a professional
+estimate editor or final estimate. Its material base is manually supplied,
+explicitly declared VAT-exclusive, and excludes delivery transport. It does not
+allocate mixed categories or implement equipment, contractor-specific rates,
+VAT, overhead, salary, estimated profit or final forms. It creates no
+professional calculation snapshot and changes no commercial quote.
+
+### Manual acceptance checklist
+
+1. `git pull`
+2. start Devizo locally
+3. open `/normative`
+4. ensure Moldova baseline is loaded
+5. locate `CP L.01.07-2012`
+6. if necessary, record an explicit applicability decision:
+   - decision: Aplicabilă
+   - applicableFrom appropriate to the verified source
+   - explicit basis note
+   - evidence link
+7. choose that exact applicability decision in the CP L.01.07 Rule Pack panel
+8. click "Instalează / verifică regulile"
+9. visually confirm two persisted rules appear
+10. click install again
+11. confirm no duplicates are created
+12. use "Verificare calcul":
+    - 100000
+    - construction_materials
+    - investor / MDL fixed by the panel
+13. confirm:
+    - 2%
+    - 2000
+    - 102000
+14. switch to metal_structures
+15. confirm:
+    - 0.75%
+    - 750
+    - 100750
+16. refresh the page and confirm the rules remain visible
