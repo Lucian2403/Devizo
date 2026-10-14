@@ -268,7 +268,7 @@ async function main(): Promise<void> {
   // 8. unknown category returns missing.
   {
     const { service, installer } = seededReady();
-    await installer.install({
+    const installed = await installer.install({
       organizationId: ORG,
       sourceId: SOURCE,
       applicabilityDecisionId: DECISION,
@@ -282,6 +282,15 @@ async function main(): Promise<void> {
       assert.equal(candidate.calculationRuleId, null);
       assert.equal(candidate.sourceId, SOURCE);
       assert.equal(candidate.applicabilityDecisionId, DECISION);
+      const persisted = installed.definitions.find(
+        (entry) => entry.definition.id === candidate.candidateId,
+      );
+      assert.ok(persisted, "candidateId must be the persisted definition id");
+      assert.equal(candidate.sourceReference, persisted.definition.sourceReference);
+      assert.equal(
+        candidate.applicabilityDecisionId,
+        persisted.definition.applicabilityDecisionId,
+      );
     }
 
     const base: ProfessionalRuleResolutionContext = {

@@ -144,6 +144,7 @@ const SLOT_FIELDS = [
 
 /** Fields whose divergence within one slot is a conflict, never an update. */
 const VALUE_FIELDS = [
+  "name",
   "value",
   "valueType",
   "calculationBasis",
@@ -153,6 +154,7 @@ const VALUE_FIELDS = [
   "workKind",
   "ruleOrigin",
   "sourceReference",
+  "notes",
 ] as const;
 
 /**
