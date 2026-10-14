@@ -222,8 +222,7 @@ export class CpL010720112RulePackInstaller {
         "procurement_storage",
       );
 
-    const definitions: InstalledRulePackDefinition[] = [];
-    for (const packRule of CP_L_01_07_2012_RULE_PACK) {
+    const preflight = CP_L_01_07_2012_RULE_PACK.map((packRule) => {
       const desired: CreateProfessionalRuleDefinitionInput = {
         organizationId,
         sourceId,
@@ -248,32 +247,46 @@ export class CpL010720112RulePackInstaller {
         occupiesSameSlot(record, desired),
       );
 
-      const exact = slotMatches.find((record) =>
-        matchesPackValues(record, desired),
+      const hasConflict = slotMatches.some(
+        (record) => !matchesPackValues(record, desired),
       );
-      if (exact) {
-        definitions.push({
-          procurementCategory: packRule.procurementCategory,
-          definition: exact,
-          reused: true,
-        });
-        continue;
-      }
+      return {
+        packRule,
+        desired,
+        exact: hasConflict
+          ? null
+          : (slotMatches[0] ?? null),
+        hasConflict,
+      };
+    });
 
-      if (slotMatches.length > 0) {
-        throw new OfficialRulePackError(
-          "conflicting_existing_definition",
-          `A persisted procurement/storage definition for category ${packRule.procurementCategory} under source ${sourceId} and applicability decision ${applicabilityDecisionId} already exists with conflicting values; refusing to mutate official normative data.`,
-          "procurementCategory",
+    const conflict = preflight.find((entry) => entry.hasConflict);
+    if (conflict) {
+      throw new OfficialRulePackError(
+        "conflicting_existing_definition",
+        `A persisted procurement/storage definition for category ${conflict.packRule.procurementCategory} under source ${sourceId} and applicability decision ${applicabilityDecisionId} already exists with conflicting values; refusing to mutate official normative data.`,
+        "procurementCategory",
+      );
+    }
+
+    // Re-gate every reusable official record before creating any missing rows.
+    for (const entry of preflight) {
+      if (entry.exact) {
+        await this.ruleDefinitionService.validatePersistedDefinitionGovernance(
+          entry.exact,
         );
       }
+    }
 
-      const created =
-        await this.ruleDefinitionService.createRuleDefinition(desired);
+    const definitions: InstalledRulePackDefinition[] = [];
+    for (const entry of preflight) {
+      const definition =
+        entry.exact ??
+        (await this.ruleDefinitionService.createRuleDefinition(entry.desired));
       definitions.push({
-        procurementCategory: packRule.procurementCategory,
-        definition: created,
-        reused: false,
+        procurementCategory: entry.packRule.procurementCategory,
+        definition,
+        reused: entry.exact !== null,
       });
     }
 

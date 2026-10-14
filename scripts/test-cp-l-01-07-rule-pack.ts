@@ -9,6 +9,7 @@ import {
   type NormativeSourceReader,
 } from "../domain/professional-estimates/official-rule-packs/cp-l-01-07-2012";
 import { OfficialRulePackError } from "../domain/professional-estimates/official-rule-packs/official-rule-pack.error";
+import { ProfessionalRuleDefinitionValidationError } from "../domain/professional-estimates/professional-rule-definitions.error";
 import { ProfessionalRuleDefinitionService } from "../domain/professional-estimates/professional-rule-definitions.service";
 import {
   calculateProfessionalCostStack,
@@ -195,7 +196,7 @@ async function expectPackError(
 }
 
 /** Builds a deterministic M8.3A material-only calculation with a given cost. */
-function materialResourceCalculation(materialCost: string) {
+function vatExclusiveMaterialResourceCalculation(materialCost: string) {
   return calculateResources([
     {
       estimateNormVersionId: "nv-1",
@@ -454,20 +455,21 @@ async function main(): Promise<void> {
     );
   }
 
-  // 12. conflicting existing persisted definition causes explicit failure.
+  // 12. Preflight detects a metal conflict before creating the missing
+  // construction-materials definition; no partial installation is allowed.
   {
     const { repo, installer } = seededReady();
-    // Pre-seed a construction_materials investor rule with a different rate.
+    // Pre-seed a metal_structures investor rule with a different rate.
     const now = new Date("2026-10-13T00:00:00Z");
     repo.definitions.push({
       id: "pre-existing",
       organizationId: ORG,
       sourceId: SOURCE,
       applicabilityDecisionId: DECISION,
-      name: "Tampered construction materials rate",
+      name: "Tampered metal structures rate",
       component: "procurement_storage",
       valueType: "percent",
-      value: "3", // conflicts with normative 2%
+      value: "1", // conflicts with normative 0.75%
       currency: null,
       calculationBasis: "material_cost",
       validFrom: "2012-08-17",
@@ -475,8 +477,8 @@ async function main(): Promise<void> {
       estimatePerspective: "investor",
       workKind: "any",
       ruleOrigin: "normative_sector_average",
-      procurementCategory: CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
-      sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
+      procurementCategory: CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES,
+      sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(c)",
       notes: null,
       createdAt: now,
       updatedAt: now,
@@ -488,12 +490,54 @@ async function main(): Promise<void> {
         applicabilityDecisionId: DECISION,
       }),
     );
+    assert.equal(repo.createCalls, 0);
+    assert.equal(repo.definitions.length, 1);
+    assert.equal(
+      repo.definitions.some(
+        (definition) =>
+          definition.procurementCategory ===
+          CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      ),
+      false,
+      "the missing construction_materials rule must not be partially created",
+    );
     // The conflicting row is never mutated to the normative rate.
     const preExisting = repo.definitions.find((d) => d.id === "pre-existing");
-    assert.equal(preExisting?.value, "3");
+    assert.equal(preExisting?.value, "1");
   }
 
-  // 15a. End-to-end Scenario A — construction materials, 100000 MDL base.
+  // Exact rows are not trusted for reuse unless their exact linked decision
+  // still passes the M8.3D governance gate.
+  {
+    const { repo, installer } = seededReady();
+    await installer.install({
+      organizationId: ORG,
+      sourceId: SOURCE,
+      applicabilityDecisionId: DECISION,
+    });
+    repo.decisions[0]!.decision = "not_applicable";
+    const rowsBeforeRetry = repo.definitions.length;
+    const createCallsBeforeRetry = repo.createCalls;
+    await assert.rejects(
+      installer.install({
+        organizationId: ORG,
+        sourceId: SOURCE,
+        applicabilityDecisionId: DECISION,
+      }),
+      (error: unknown) => {
+        assert.ok(
+          error instanceof ProfessionalRuleDefinitionValidationError,
+        );
+        assert.equal(error.code, "applicability_not_applicable");
+        return true;
+      },
+    );
+    assert.equal(repo.definitions.length, rowsBeforeRetry);
+    assert.equal(repo.createCalls, createCallsBeforeRetry);
+  }
+
+  // 15a. VAT-exclusive homogeneous material base: construction materials,
+  // 100000 MDL.
   {
     const { service, installer } = seededReady();
     await installer.install({
@@ -530,7 +574,7 @@ async function main(): Promise<void> {
     assert.equal(result.directCost, "102000");
   }
 
-  // 15b. End-to-end Scenario B — metal structures, 100000 MDL base.
+  // 15b. VAT-exclusive homogeneous material base: metal structures, 100000 MDL.
   {
     const { service, installer } = seededReady();
     await installer.install({
@@ -590,7 +634,8 @@ function costStackInputFromRule(
   selected: ProfessionalRuleCandidate,
 ): ProfessionalCostStackInput {
   return {
-    resourceCalculation: materialResourceCalculation(materialCost),
+    // This M8.3E fixture assumes the resource price is known to be VAT-exclusive.
+    resourceCalculation: vatExclusiveMaterialResourceCalculation(materialCost),
     laborContributions: notApplicable("No labor in this homogeneous scenario."),
     materialTransport: notApplicable("Transport excluded from the base here."),
     procurementStorage: {

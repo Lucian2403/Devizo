@@ -48,6 +48,11 @@ export function formatSourceImpact(usage: NormativeSourceUsage): string {
       `${usage.calculationRules} ${usage.calculationRules === 1 ? "regulă de calcul" : "reguli de calcul"}`,
     );
   }
+  if (usage.professionalRuleDefinitions > 0) {
+    parts.push(
+      `${usage.professionalRuleDefinitions} ${usage.professionalRuleDefinitions === 1 ? "definiție de regulă profesională" : "definiții de reguli profesionale"}`,
+    );
+  }
 
   return parts.length > 0
     ? `Sursa este folosită de: ${parts.join(" · ")}.`
