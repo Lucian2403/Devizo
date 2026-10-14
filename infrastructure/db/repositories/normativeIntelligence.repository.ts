@@ -6,6 +6,7 @@ import {
   normativeSources,
   normativeUpdates,
   professionalResources,
+  professionalRuleDefinitions,
   resourcePrices,
 } from "@/infrastructure/db/schema";
 import type {
@@ -32,6 +33,7 @@ function emptyUsage(): NormativeSourceUsage {
     resources: 0,
     resourcePrices: 0,
     calculationRules: 0,
+    professionalRuleDefinitions: 0,
   };
 }
 
@@ -94,13 +96,36 @@ export class DrizzleNormativeIntelligenceRepository
     }));
   }
 
-  // Counts the dependent professional records of every source with four
-  // grouped queries, instead of four queries per source.
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    const [row] = await db
+      .select()
+      .from(normativeSources)
+      .where(
+        and(
+          eq(normativeSources.organizationId, organizationId),
+          eq(normativeSources.id, sourceId),
+        ),
+      )
+      .limit(1);
+    return row ? toSourceRecord(row) : null;
+  }
+
+  // Counts the dependent professional records of every source with five
+  // grouped queries, instead of five queries per source.
   private async getUsageBySource(
     organizationId: string,
   ): Promise<Map<string, NormativeSourceUsage>> {
     const count = sql<number>`count(*)::int`;
-    const [normVersionRows, resourceRows, priceRows, ruleRows] =
+    const [
+      normVersionRows,
+      resourceRows,
+      priceRows,
+      ruleRows,
+      professionalRuleRows,
+    ] =
       await Promise.all([
         db
           .select({ sourceId: estimateNormVersions.sourceId, count })
@@ -127,6 +152,16 @@ export class DrizzleNormativeIntelligenceRepository
           .from(calculationRules)
           .where(eq(calculationRules.organizationId, organizationId))
           .groupBy(calculationRules.sourceId),
+        db
+          .select({
+            sourceId: professionalRuleDefinitions.sourceId,
+            count,
+          })
+          .from(professionalRuleDefinitions)
+          .where(
+            eq(professionalRuleDefinitions.organizationId, organizationId),
+          )
+          .groupBy(professionalRuleDefinitions.sourceId),
       ]);
 
     const usage = new Map<string, NormativeSourceUsage>();
@@ -145,6 +180,7 @@ export class DrizzleNormativeIntelligenceRepository
     add(resourceRows, "resources");
     add(priceRows, "resourcePrices");
     add(ruleRows, "calculationRules");
+    add(professionalRuleRows, "professionalRuleDefinitions");
     return usage;
   }
 
@@ -273,7 +309,13 @@ export class DrizzleNormativeIntelligenceRepository
     organizationId: string,
     sourceId: string,
   ): Promise<NormativeSourceUsage> {
-    const [normVersionRows, resourceRows, priceRows, ruleRows] =
+    const [
+      normVersionRows,
+      resourceRows,
+      priceRows,
+      ruleRows,
+      professionalRuleRows,
+    ] =
       await Promise.all([
         db
           .select({ count: sql<number>`count(*)::int` })
@@ -311,6 +353,15 @@ export class DrizzleNormativeIntelligenceRepository
               eq(calculationRules.sourceId, sourceId),
             ),
           ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(professionalRuleDefinitions)
+          .where(
+            and(
+              eq(professionalRuleDefinitions.organizationId, organizationId),
+              eq(professionalRuleDefinitions.sourceId, sourceId),
+            ),
+          ),
       ]);
 
     return {
@@ -318,6 +369,7 @@ export class DrizzleNormativeIntelligenceRepository
       resources: resourceRows[0]?.count ?? 0,
       resourcePrices: priceRows[0]?.count ?? 0,
       calculationRules: ruleRows[0]?.count ?? 0,
+      professionalRuleDefinitions: professionalRuleRows[0]?.count ?? 0,
     };
   }
 

@@ -99,12 +99,14 @@ function usageTotal(usage: {
   resources: number;
   resourcePrices: number;
   calculationRules: number;
+  professionalRuleDefinitions: number;
 }): number {
   return (
     usage.normVersions +
     usage.resources +
     usage.resourcePrices +
-    usage.calculationRules
+    usage.calculationRules +
+    usage.professionalRuleDefinitions
   );
 }
 

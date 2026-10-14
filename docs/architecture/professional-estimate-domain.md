@@ -206,12 +206,16 @@ estimate subtotal before limited costs and VAT
 ```
 
 Material transport here means delivery/procurement transport added outside
-normative resource consumption. Procurement/storage uses material base cost
-alone, excluding transport, storage itself and VAT. The calculator does not
-infer whether a stored material price already includes transport/storage; source
-data normalization is deferred. Percentage, overhead basis, fixed amount and
-not-applicable decisions must be supplied by the caller. Unsupported transport
-methods such as tonne-km are rejected instead of approximated.
+normative resource consumption. Procurement/storage applies to the supplied
+material-cost base, while transport is a separate cost-stack component. This
+separates transport from that base, but the model has no tax-basis provenance to
+verify that arbitrary material prices exclude VAT. The CP L.01.07-2012 VAT
+exclusion is therefore a required input condition, not a guarantee made by the
+calculator. The calculator also does not infer whether a stored material price
+already includes transport/storage; source data normalization is deferred.
+Percentage, overhead basis, fixed amount and not-applicable decisions must be
+supplied by the caller. Unsupported transport methods such as tonne-km are
+rejected instead of approximated.
 
 For an applied component the result retains supplied rule type and, when
 provided, calculation-rule ID, source ID and source reference, together with
@@ -453,3 +457,90 @@ fixtures. `calculation_rules` and `calculation_contexts` are unchanged — in
 particular, `estimatePerspective`, `workKind` and `procurementStorageCategory`
 are intentionally not added to `calculation_contexts` yet, because work kind can
 vary within one estimate and the permanent scope needs field evidence.
+
+## M8.3E first official rule pack (CP L.01.07-2012)
+
+M8.3E introduces the first real curated Moldovan normative rules into the
+pipeline and proves the complete chain end to end:
+
+```text
+official normative source        (normative_sources, CP L.01.07-2012)
+        ↓
+explicit applicability decision  (normative_applicability_decisions, "applicable")
+        ↓
+curated rule pack                (domain/.../official-rule-packs/cp-l-01-07-2012.ts)
+        ↓
+professional_rule_definitions    (M8.3D persistence + governance gate)
+        ↓
+M8.3C resolver                   (selected / missing / ambiguous)
+        ↓
+M8.3B cost stack                 (deterministic application)
+```
+
+It is **not** a general legal-data import system. It materializes only the
+verified investor sector-average procurement/storage rates from
+CP L.01.07-2012, clauses 3.2 and 3.3(a)/(c):
+
+| Category | Clause | valueType | basis | value | perspective | origin |
+| --- | --- | --- | --- | --- | --- | --- |
+| `construction_materials` | 3.2, 3.3(a) | percent | material_cost | 2 | investor | normative_sector_average |
+| `metal_structures` | 3.2, 3.3(c) | percent | material_cost | 0.75 | investor | normative_sector_average |
+
+Clause 3.2 requires procurement/storage to be a percent of material cost
+**excluding transport and VAT**. The cost stack applies the selected rule to
+material cost and keeps transport separate, but it cannot currently verify that
+arbitrary material prices are VAT-exclusive: `ResourcePrice` has no VAT-basis
+provenance. The M8.3E end-to-end scenarios use a material base assumed/known to
+be VAT-exclusive; they prove the rule pipeline and arithmetic, not VAT-basis
+enforcement for real price data.
+
+### What is deliberately excluded
+
+- **The 1.2% equipment ("utilaje") rate from 3.3(b) is deferred.** The current
+  professional model has no explicit, safe equipment-cost base to map the
+  normative meaning of *utilaje* to, so it is not guessed. Resolving the
+  `equipment` category therefore returns `missing`, not an invented 1.2%.
+- **No contractor versions of the 2% / 0.75% rates are created.** Under clauses
+  3.4 and 3.5 a contractor normally uses its own individual rates and may use
+  these sector averages only by agreement. That belongs to a future, explicitly
+  opted-in `contract_agreed` flow, never an inferred default. A contractor
+  resolution context does not select these investor definitions.
+- **Mixed procurement-category allocation is not implemented.** The cost stack
+  applies one selected procurement/storage rule to the single material-cost base
+  supplied for the calculation. M8.3E does not split one estimate's material cost
+  across `construction_materials`, `equipment` and `metal_structures`, and adds
+  no AI classification or category inference. Each category is proven in a
+  separate homogeneous scenario.
+- **VAT-basis provenance and VAT-exempt-object handling are not implemented.**
+  CP L.01.01-2012 distinguishes VAT treatment for legally VAT-exempt objects.
+  Automatic real-estimate orchestration must not assume an unknown material
+  price is VAT-exclusive; this limitation must be resolved before CP L.01.07 is
+  automatically applied to arbitrary resource-price data. M8.3E adds no VAT
+  calculation, tax rates or VAT schema.
+
+### Source identity gate and provenance
+
+These percentages are production normative data, not calculation-engine
+defaults. They live as explicit, provenance-bearing data in the pack module and
+are never hardcoded inside the generic M8.3A/B/C engines.
+
+The installer requires an explicit `organizationId`, `sourceId` and
+`applicabilityDecisionId`. It loads the persisted source with the new
+organization-scoped `getSource(...)` (no "latest source wins" lookup) and
+refuses to attach rules unless the source is the same organization's
+`CP L.01.07-2012` / edition `2012`. It never creates or infers an applicability
+decision. Each created definition is official and flows through the M8.3D
+governance gate, which re-validates the supplied decision (exists, same
+organization and source, `applicable`, window covers the rule validity).
+
+### Idempotency
+
+Re-installing the same pack with the same organization, source and applicability
+decision reuses the existing exact definitions and creates no duplicates. A
+persisted definition occupying the same pack slot (source + applicability
+decision + procurement category) with a conflicting value or semantics fails
+explicitly with `conflicting_existing_definition`; an official definition is
+never mutated to a different rate. No new migration or `calculation_rules` row
+is introduced; idempotency is application-level over the persisted definitions.
+
+See `docs/architecture/normative-pack-cp-l-01-07-2012.md` for the full pack note.

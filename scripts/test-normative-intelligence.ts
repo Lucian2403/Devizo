@@ -65,7 +65,21 @@ assert.equal(
     resources: 0,
     resourcePrices: 0,
     calculationRules: 0,
+    professionalRuleDefinitions: 0,
   }),
+  "Sursa nu este încă folosită în calcule profesionale.",
+);
+
+const professionalRuleOnlyImpact = formatSourceImpact({
+  normVersions: 0,
+  resources: 0,
+  resourcePrices: 0,
+  calculationRules: 0,
+  professionalRuleDefinitions: 2,
+});
+assert.match(professionalRuleOnlyImpact, /2 definiții de reguli profesionale/);
+assert.notEqual(
+  professionalRuleOnlyImpact,
   "Sursa nu este încă folosită în calcule profesionale.",
 );
 
@@ -74,11 +88,13 @@ const impact = formatSourceImpact({
   resources: 4,
   resourcePrices: 3,
   calculationRules: 1,
+  professionalRuleDefinitions: 0,
 });
 assert.match(impact, /2 versiuni de norme/);
 assert.match(impact, /4 resurse/);
 assert.match(impact, /3 prețuri de resurse/);
 assert.match(impact, /1 regulă de calcul/);
+assert.doesNotMatch(impact, /definiții de reguli profesionale/);
 
 const source: NormativeSourceRecord = {
   id: "source-1",
@@ -119,6 +135,19 @@ class MemoryRepository implements NormativeIntelligenceRepository {
     ];
   }
 
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    if (
+      this.source.organizationId === organizationId &&
+      this.source.id === sourceId
+    ) {
+      return { ...this.source };
+    }
+    return null;
+  }
+
   async listUpdates(): Promise<NormativeUpdateRecord[]> {
     return [];
   }
@@ -140,6 +169,7 @@ class MemoryRepository implements NormativeIntelligenceRepository {
       resources: 0,
       resourcePrices: 0,
       calculationRules: 1,
+      professionalRuleDefinitions: 0,
     };
   }
 

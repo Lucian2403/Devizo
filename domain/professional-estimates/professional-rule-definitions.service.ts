@@ -351,6 +351,30 @@ export class ProfessionalRuleDefinitionService {
   }
 
   /**
+   * Revalidates the exact linked applicability decision for a persisted
+   * definition. Official definitions must pass the M8.3D governance gate even
+   * when reused by an installer; non-official origins require no such decision.
+   */
+  async validatePersistedDefinitionGovernance(
+    definition: ProfessionalRuleDefinitionRecord,
+  ): Promise<void> {
+    if (!OFFICIAL_ORIGINS.includes(definition.ruleOrigin as never)) return;
+    if (!nonEmpty(definition.applicabilityDecisionId)) {
+      fail(
+        "missing_applicability_decision",
+        `Official rule definition ${definition.id} is missing its applicability decision link.`,
+        "applicabilityDecisionId",
+      );
+    }
+    const decision = await this.repository.getApplicabilityDecisionForSource(
+      definition.organizationId,
+      definition.sourceId,
+      definition.applicabilityDecisionId as string,
+    );
+    validateApplicabilityProvenance(definition, decision);
+  }
+
+  /**
    * Loads curated definitions for a component and maps them to M8.3C
    * candidates. This layer never performs date/perspective/work-kind/currency/
    * category/origin matching; `resolveProfessionalRule` owns that.
@@ -373,23 +397,28 @@ export class ProfessionalRuleDefinitionService {
     );
     const candidates: ProfessionalRuleCandidate[] = [];
     for (const definition of definitions) {
-      if (OFFICIAL_ORIGINS.includes(definition.ruleOrigin as never)) {
-        if (!nonEmpty(definition.applicabilityDecisionId)) {
-          fail(
-            "missing_applicability_decision",
-            `Official rule definition ${definition.id} is missing its applicability decision link.`,
-            "applicabilityDecisionId",
-          );
-        }
-        const decision = await this.repository.getApplicabilityDecisionForSource(
-          organizationId,
-          definition.sourceId,
-          definition.applicabilityDecisionId as string,
-        );
-        validateApplicabilityProvenance(definition, decision);
-      }
+      await this.validatePersistedDefinitionGovernance(definition);
       candidates.push(mapRuleDefinitionToCandidate(definition));
     }
     return candidates;
+  }
+
+  /**
+   * Raw list of persisted rule-definition records for a component, WITHOUT the
+   * official load-time governance gate applied by `loadCandidatesForComponent`.
+   *
+   * This is for administrative/installer use (for example idempotency checks in
+   * an official rule pack), not for feeding the M8.3C resolver. Callers that
+   * resolve rules must use `loadCandidatesForComponent`, which re-gates official
+   * definitions.
+   */
+  async listDefinitionsForComponent(
+    organizationId: string,
+    component: ProfessionalCostStackComponent,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.repository.listRuleDefinitionsForComponent(
+      organizationId,
+      component,
+    );
   }
 }

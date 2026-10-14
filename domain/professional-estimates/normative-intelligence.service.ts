@@ -48,6 +48,11 @@ export function formatSourceImpact(usage: NormativeSourceUsage): string {
       `${usage.calculationRules} ${usage.calculationRules === 1 ? "regulă de calcul" : "reguli de calcul"}`,
     );
   }
+  if (usage.professionalRuleDefinitions > 0) {
+    parts.push(
+      `${usage.professionalRuleDefinitions} ${usage.professionalRuleDefinitions === 1 ? "definiție de regulă profesională" : "definiții de reguli profesionale"}`,
+    );
+  }
 
   return parts.length > 0
     ? `Sursa este folosită de: ${parts.join(" · ")}.`
@@ -92,6 +97,19 @@ export class NormativeIntelligenceService {
       organizationId,
       [...MOLDOVA_NORMATIVE_BASELINE],
     );
+  }
+
+  /**
+   * Loads a single persisted normative source by its exact id, scoped to the
+   * organization. The caller supplies the exact id; this never resolves a
+   * source by code or picks a "latest" source. Used by official rule-pack
+   * installers to gate rules to the correct source.
+   */
+  async getSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<NormativeSourceRecord | null> {
+    return this.repository.getSource(organizationId, sourceId);
   }
 
   async verifyOrganization(
