@@ -44,6 +44,7 @@ export type CpL0107PreviewResult =
     }
   | {
       status: "selected";
+      valuationDate: string;
       materialBase: string;
       category: CpL0107PreviewCategory;
       candidateId: string;
@@ -166,6 +167,7 @@ export async function calculateCpL0107Preview(
 
   return {
     status: "selected",
+    valuationDate: resolution.valuationDate,
     materialBase: normalizedMaterialBase,
     category: input.category,
     candidateId: candidate.candidateId,

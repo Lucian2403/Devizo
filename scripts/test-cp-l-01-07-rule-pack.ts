@@ -733,6 +733,12 @@ async function main(): Promise<void> {
     });
     assert.equal(construction.status, "selected");
     if (construction.status === "selected") {
+      assert.equal(construction.valuationDate, "2026-10-14");
+      assert.equal(construction.materialBase, "100000");
+      assert.equal(
+        construction.category,
+        CP_L_01_07_2012_CATEGORY_CONSTRUCTION_MATERIALS,
+      );
       assert.equal(construction.ratePercent, "2");
       assert.equal(construction.procurementStorage, "2000");
       assert.equal(construction.directCost, "102000");
@@ -742,12 +748,15 @@ async function main(): Promise<void> {
     const metal = await calculateCpL0107Preview(service, {
       organizationId: ORG,
       sourceId: SOURCE,
-      valuationDate: "2026-10-14",
+      valuationDate: "2026-10-15",
       category: CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES,
       materialBase: "100000",
     });
     assert.equal(metal.status, "selected");
     if (metal.status === "selected") {
+      assert.equal(metal.valuationDate, "2026-10-15");
+      assert.equal(metal.materialBase, "100000");
+      assert.equal(metal.category, CP_L_01_07_2012_CATEGORY_METAL_STRUCTURES);
       assert.equal(metal.ratePercent, "0.75");
       assert.equal(metal.procurementStorage, "750");
       assert.equal(metal.directCost, "100750");

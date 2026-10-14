@@ -163,6 +163,13 @@ allocate mixed categories or implement equipment, contractor-specific rates,
 VAT, overhead, salary, estimated profit or final forms. It creates no
 professional calculation snapshot and changes no commercial quote.
 
+Preview inputs stay in controlled client state after submission, including
+missing/ambiguous results and expected validation errors. They start empty and
+are not stored in the URL or database. A selected result preserves its submitted
+valuation date, category and material base independently of later form edits.
+Percentages use display-only string formatting (for example `0.750000` becomes
+`0,75`), without changing persisted values or Decimal calculations.
+
 ### Manual acceptance checklist
 
 1. `git pull`

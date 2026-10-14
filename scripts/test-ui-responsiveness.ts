@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "../components/ui/button";
+import { formatRomanianDecimal } from "../lib/ui/decimal-display";
 import { startsInAppNavigation } from "../lib/ui/navigation";
 import {
   isProgressActive,
@@ -14,6 +15,21 @@ import {
   canUsePreparedStatements,
   preferPreparedStatements,
 } from "../infrastructure/db/prepared-statements";
+
+{
+  for (const [input, expected] of [
+    ["2.000000", "2"],
+    ["0.750000", "0,75"],
+    ["14.500000", "14,5"],
+    ["0.123456", "0,123456"],
+    ["0.000000", "0"],
+    ["2", "2"],
+    ["0.123456789012345678901234567890", "0,12345678901234567890123456789"],
+    ["9007199254740993.010000", "9007199254740993,01"],
+  ] as const) {
+    assert.equal(formatRomanianDecimal(input), expected);
+  }
+}
 
 // --- progress store: overlapping work, idempotent finish, subscriptions ------
 {

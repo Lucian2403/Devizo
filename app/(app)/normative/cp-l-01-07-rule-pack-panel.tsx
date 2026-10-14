@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { ProfessionalRuleDefinitionRecord } from "@/domain/professional-estimates/professional-rule-definitions.repository";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import {
   installCpL010720112RulePack,
   verifyCpL010720112Calculation,
@@ -65,6 +66,9 @@ export function CpL010720112RulePackPanel({
     verifyCpL010720112Calculation,
     null,
   );
+  const [valuationDate, setValuationDate] = useState("");
+  const [category, setCategory] = useState("");
+  const [materialBase, setMaterialBase] = useState("");
   const previewResult =
     previewState && "result" in previewState ? previewState.result : null;
 
@@ -162,7 +166,9 @@ export function CpL010720112RulePackPanel({
                   <h5 className="font-medium text-heading">{categoryName(rule.procurementCategory)}</h5>
                   <p className="mt-0.5 text-xs text-muted-foreground">{rule.name}</p>
                   <p className="mt-1 text-secondary-foreground">
-                    {rule.valueType === "percent" ? `${rule.value}%` : rule.value}
+                    {rule.valueType === "percent"
+                      ? `${formatRomanianDecimal(rule.value)}%`
+                      : rule.value}
                     {" · Perspectivă: "}
                     {rule.estimatePerspective === "investor"
                       ? "Investitor"
@@ -233,6 +239,8 @@ export function CpL010720112RulePackPanel({
                 className="w-full rounded-md border bg-background px-3 py-2"
                 type="date"
                 name="valuationDate"
+                value={valuationDate}
+                onChange={(event) => setValuationDate(event.target.value)}
                 required
               />
             </label>
@@ -241,7 +249,8 @@ export function CpL010720112RulePackPanel({
               <select
                 className="w-full rounded-md border bg-background px-3 py-2"
                 name="category"
-                defaultValue=""
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
                 required
               >
                 <option value="" disabled>Alegeți categoria materialelor</option>
@@ -256,6 +265,8 @@ export function CpL010720112RulePackPanel({
                 type="text"
                 inputMode="decimal"
                 name="materialBase"
+                value={materialBase}
+                onChange={(event) => setMaterialBase(event.target.value)}
                 required
               />
             </label>
@@ -289,6 +300,12 @@ export function CpL010720112RulePackPanel({
               <h5 className="font-semibold text-heading">Rezultatul determinist</h5>
               <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                 <div>
+                  <dt className="text-muted-foreground">Data evaluării</dt>
+                  <dd className="font-medium tabular-nums">
+                    {formatDate(previewResult.valuationDate)}
+                  </dd>
+                </div>
+                <div>
                   <dt className="text-muted-foreground">Baza materiale (MDL)</dt>
                   <dd className="font-medium tabular-nums">{previewResult.materialBase}</dd>
                 </div>
@@ -302,7 +319,9 @@ export function CpL010720112RulePackPanel({
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Procent</dt>
-                  <dd className="font-medium tabular-nums">{previewResult.ratePercent}%</dd>
+                  <dd className="font-medium tabular-nums">
+                    {formatRomanianDecimal(previewResult.ratePercent)}%
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Cheltuieli achiziționare-depozitare</dt>
