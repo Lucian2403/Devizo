@@ -285,6 +285,34 @@ import {
     assert.ok(/after\(\s*\(\)\s*=>\s*syncCatalogEmbeddings/.test(source), `${file} must run the sync via after()`);
   }
 }
+// --- professional workspace: compact, grouped metadata and position entry ---
+{
+  const detail = readFileSync(
+    join(process.cwd(), "app/(app)/professional-estimates/[calculationContextId]/page.tsx"),
+    "utf8",
+  );
+  const itemForms = readFileSync(
+    join(process.cwd(), "app/(app)/professional-estimates/[calculationContextId]/item-forms.tsx"),
+    "utf8",
+  );
+  assert.match(
+    detail,
+    /<div className="min-w-0">\s*<dt[^>]*>.*<\/dt>\s*<dd[^>]*>.*<\/dd>\s*<\/div>/,
+    "each metadata label/value must share a grid cell",
+  );
+  assert.match(detail, /grid-cols-2[^"]*lg:grid-cols-4/);
+  assert.match(detail, /<ol className="mt-2 flex flex-wrap gap-2">/);
+  assert.match(detail, /workspace\.items\.length > 0/);
+  assert.match(detail, /complete \? "Complet: " : "În așteptare: "/);
+  assert.match(itemForms, /grid-cols-2[^"]*sm:grid-cols-6[^"]*lg:grid-cols-12/);
+  assert.match(
+    itemForms,
+    /<details[^>]*>\s*<summary[^>]*>\s*Note \(opțional\)\s*<\/summary>[\s\S]*?name="notes"/,
+    "optional notes stay available without taking a full row by default",
+  );
+  assert.match(itemForms, /name="quantity"\s*type="text"\s*inputMode="decimal"/);
+}
+
 // --- every submit button must give feedback ---------------------------------
 // Plain <Button type="submit"> and <button type="submit"> do nothing while the
 // action runs. SubmitButton shows a spinner, a pending label and the top bar.

@@ -49,7 +49,7 @@ export default async function ProfessionalEstimateDetailPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6">
       <div className="space-y-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/professional-estimates">← Înapoi la devize</Link>
@@ -60,76 +60,74 @@ export default async function ProfessionalEstimateDetailPage({
       </div>
 
       <Card>
-        <CardContent>
-          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DetailValue label="Obiect">
-            {workspace.constructionObject.name}
-          </DetailValue>
-          {workspace.constructionObject.code && (
-            <DetailValue label="Cod obiect">
-              {workspace.constructionObject.code}
+        <CardContent className="p-4 sm:p-5">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 lg:grid-cols-4">
+            <DetailValue label="Obiect">
+              {workspace.constructionObject.name}
             </DetailValue>
-          )}
-          <DetailValue label="Lista de cantități">
-            {workspace.workQuantityList.name} · Revizia{" "}
-            {workspace.workQuantityList.revision}
-          </DetailValue>
-          <DetailValue label="Data evaluării">
-            {workspace.context.valuationDate}
-          </DetailValue>
-          <DetailValue label="Moneda">{workspace.context.currency}</DetailValue>
-          <DetailValue label="Metodă">Metoda de resurse</DetailValue>
-          {workspace.constructionObject.address && (
-            <DetailValue label="Adresa obiectului">
-              {workspace.constructionObject.address}
+            <DetailValue label="Lista de cantități">
+              {workspace.workQuantityList.name}
+              <span className="ml-2 inline-block rounded bg-secondary px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                Revizia {workspace.workQuantityList.revision}
+              </span>
             </DetailValue>
-          )}
-          {workspace.workQuantityList.sourceReference && (
-            <DetailValue label="Sursa listei">
-              {workspace.workQuantityList.sourceReference}
+            <DetailValue label="Data evaluării">
+              {workspace.context.valuationDate}
             </DetailValue>
-          )}
-          {workspace.workQuantityList.sourceDate && (
-            <DetailValue label="Data sursei">
-              {workspace.workQuantityList.sourceDate}
-            </DetailValue>
-          )}
+            <DetailValue label="Moneda">{workspace.context.currency}</DetailValue>
+            <DetailValue label="Metodă">Metoda de resurse</DetailValue>
+            {workspace.constructionObject.code && (
+              <DetailValue label="Cod obiect">
+                {workspace.constructionObject.code}
+              </DetailValue>
+            )}
+            {workspace.constructionObject.address && (
+              <DetailValue label="Adresa obiectului">
+                {workspace.constructionObject.address}
+              </DetailValue>
+            )}
+            {workspace.workQuantityList.sourceReference && (
+              <DetailValue label="Sursa listei">
+                {workspace.workQuantityList.sourceReference}
+              </DetailValue>
+            )}
+            {workspace.workQuantityList.sourceDate && (
+              <DetailValue label="Data sursei">
+                {workspace.workQuantityList.sourceDate}
+              </DetailValue>
+            )}
           </dl>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Progresul devizului</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {progressSteps.map((step) => (
-              <li
-                key={step.title}
-                className="flex items-center gap-2 text-sm text-secondary-foreground"
-              >
-                <span
-                  aria-hidden="true"
-                  className={
-                    step.complete ||
-                    (step.title === "Poziții de lucrări" && workspace.items.length > 0)
-                      ? "text-emerald-700"
-                      : "text-muted-foreground"
-                  }
-                >
-                  {step.complete ||
-                  (step.title === "Poziții de lucrări" && workspace.items.length > 0)
-                    ? "✓"
-                    : "○"}
-                </span>
-                {step.title}
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Costul va putea fi calculat după alocarea unei norme și a resurselor.
-          </p>
+          <div className="mt-4 border-t pt-3">
+            <h2 className="text-xs font-semibold text-heading">
+              Progresul devizului
+            </h2>
+            <ol className="mt-2 flex flex-wrap gap-2">
+              {progressSteps.map((step) => {
+                const complete =
+                  step.complete ||
+                  (step.title === "Poziții de lucrări" && workspace.items.length > 0);
+                return (
+                  <li
+                    key={step.title}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${
+                      complete
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    <span aria-hidden="true">{complete ? "✓" : "○"}</span>
+                    <span className="sr-only">
+                      {complete ? "Complet: " : "În așteptare: "}
+                    </span>
+                    {step.title}
+                  </li>
+                );
+              })}
+            </ol>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Costul va putea fi calculat după alocarea unei norme și a resurselor.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -200,10 +198,10 @@ export default async function ProfessionalEstimateDetailPage({
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Adaugă poziție</CardTitle>
+        <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
+          <CardTitle className="text-base">Adaugă poziție</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="px-4 pb-4 sm:px-5">
           <AddWorkQuantityItemForm action={addItemAction} />
         </CardContent>
       </Card>
@@ -219,9 +217,9 @@ function DetailValue({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="min-w-0">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm text-heading">{children}</dd>
-    </>
+      <dd className="mt-1 break-words text-sm font-medium text-heading">{children}</dd>
+    </div>
   );
 }
