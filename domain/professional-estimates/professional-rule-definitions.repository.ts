@@ -78,6 +78,11 @@ export interface ProfessionalRuleDefinitionRepository {
     component: ProfessionalCostStackComponent,
   ): Promise<ProfessionalRuleDefinitionRecord[]>;
 
+  listRuleDefinitionsForSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]>;
+
   /**
    * Loads the applicability decision linked to an official rule definition,
    * scoped to the same organization and source. Returns null when no such

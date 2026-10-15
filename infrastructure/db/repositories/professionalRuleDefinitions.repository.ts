@@ -113,6 +113,22 @@ export class DrizzleProfessionalRuleDefinitionRepository
     return rows.map(toRecord);
   }
 
+  async listRuleDefinitionsForSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    const rows = await db
+      .select()
+      .from(professionalRuleDefinitions)
+      .where(
+        and(
+          eq(professionalRuleDefinitions.organizationId, organizationId),
+          eq(professionalRuleDefinitions.sourceId, sourceId),
+        ),
+      );
+    return rows.map(toRecord);
+  }
+
   async getApplicabilityDecisionForSource(
     organizationId: string,
     sourceId: string,

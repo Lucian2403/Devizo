@@ -82,6 +82,15 @@ class MemoryRuleDefinitionRepository
     );
   }
 
+  async listRuleDefinitionsForSource(
+    organizationId: string,
+    sourceId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.definitions.filter(
+      (d) => d.organizationId === organizationId && d.sourceId === sourceId,
+    );
+  }
+
   async getApplicabilityDecisionForSource(
     organizationId: string,
     sourceId: string,
@@ -187,6 +196,23 @@ async function expectError(code: string, run: () => Promise<unknown>): Promise<v
 }
 
 async function main(): Promise<void> {
+// Source reads are scoped by both organization and source in the repository API.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  repo.definitions.push(
+    definitionRecord({ id: "source-a-rule", sourceId: "source-a" }),
+    definitionRecord({ id: "source-b-rule", sourceId: "source-b" }),
+    definitionRecord({
+      id: "other-organization-rule",
+      organizationId: "org-2",
+      sourceId: "source-a",
+    }),
+  );
+  const service = new ProfessionalRuleDefinitionService(repo);
+  const result = await service.listRuleDefinitionsForSource(ORG, "source-a");
+  assert.deepEqual(result.map((definition) => definition.id), ["source-a-rule"]);
+}
+
 // 1, 2, 3, 15. Valid official rule maps to a candidate; candidateId == row id;
 // provenance preserved; no side-effect calculation_rules row exists.
 {
