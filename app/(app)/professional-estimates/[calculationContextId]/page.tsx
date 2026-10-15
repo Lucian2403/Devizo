@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
-import { formatDecimalRo } from "@/lib/i18n/decimal";
+import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalEstimateWorkspaceService } from "@/server/container";
 import {
@@ -177,7 +177,7 @@ export default async function ProfessionalEstimateDetailPage({
                     </td>
                     <td className="px-3 py-3">{item.unit}</td>
                     <td className="px-3 py-3 text-right tabular-nums">
-                      {formatDecimalRo(item.quantity)}
+                      {formatRomanianDecimal(item.quantity)}
                     </td>
                     <td className="px-3 py-3">Nealocată</td>
                     <td className="px-3 py-3 text-right">—</td>

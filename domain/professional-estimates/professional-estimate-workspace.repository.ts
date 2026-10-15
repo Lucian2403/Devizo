@@ -28,6 +28,13 @@ export class DuplicateWorkPositionError extends Error {
   }
 }
 
+export class DuplicateConstructionObjectCodeError extends Error {
+  constructor(readonly objectCode: string) {
+    super(`Codul obiectului «${objectCode}» este deja folosit în această companie.`);
+    this.name = "DuplicateConstructionObjectCodeError";
+  }
+}
+
 export interface WorkQuantityItemData {
   positionNumber: number;
   code?: string;

@@ -9,7 +9,10 @@ import type {
   WorkQuantityItemData,
   WorkQuantityItemUpdate,
 } from "@/domain/professional-estimates/professional-estimate-workspace.repository";
-import { DuplicateWorkPositionError } from "@/domain/professional-estimates/professional-estimate-workspace.repository";
+import {
+  DuplicateConstructionObjectCodeError,
+  DuplicateWorkPositionError,
+} from "@/domain/professional-estimates/professional-estimate-workspace.repository";
 import { db } from "@/infrastructure/db";
 import {
   calculationContexts,
@@ -34,13 +37,13 @@ function toWorkQuantityItem(
   };
 }
 
-function isPositionConflict(error: unknown): boolean {
+function isUniqueConstraintConflict(error: unknown, constraint: string): boolean {
   if (typeof error !== "object" || error === null) return false;
   const postgresError = error as { code?: unknown; constraint_name?: unknown; constraint?: unknown };
   return (
     postgresError.code === "23505" &&
-    (postgresError.constraint_name === "work_quantity_items_list_position_unique" ||
-      postgresError.constraint === "work_quantity_items_list_position_unique")
+    (postgresError.constraint_name === constraint ||
+      postgresError.constraint === constraint)
   );
 }
 
@@ -194,47 +197,57 @@ export class DrizzleProfessionalEstimateWorkspaceRepository
     organizationId: OrganizationId,
     data: ValidatedProfessionalEstimateData,
   ): Promise<string> {
-    return db.transaction(async (tx) => {
-      const [object] = await tx
-        .insert(constructionObjects)
-        .values({
-          organizationId,
-          code: data.objectCode ?? null,
-          name: data.objectName,
-          address: data.objectAddress ?? null,
-          description: data.objectDescription ?? null,
-        })
-        .returning();
-      if (!object) throw new Error("Failed to create professional construction object.");
+    try {
+      return await db.transaction(async (tx) => {
+        const [object] = await tx
+          .insert(constructionObjects)
+          .values({
+            organizationId,
+            code: data.objectCode ?? null,
+            name: data.objectName,
+            address: data.objectAddress ?? null,
+            description: data.objectDescription ?? null,
+          })
+          .returning();
+        if (!object) throw new Error("Failed to create professional construction object.");
 
-      const [list] = await tx
-        .insert(workQuantityLists)
-        .values({
-          organizationId,
-          constructionObjectId: object.id,
-          name: data.listName,
-          revision: 1,
-          sourceReference: data.sourceReference ?? null,
-          sourceDate: data.sourceDate ?? null,
-        })
-        .returning();
-      if (!list) throw new Error("Failed to create professional work quantity list.");
+        const [list] = await tx
+          .insert(workQuantityLists)
+          .values({
+            organizationId,
+            constructionObjectId: object.id,
+            name: data.listName,
+            revision: 1,
+            sourceReference: data.sourceReference ?? null,
+            sourceDate: data.sourceDate ?? null,
+          })
+          .returning();
+        if (!list) throw new Error("Failed to create professional work quantity list.");
 
-      const [context] = await tx
-        .insert(calculationContexts)
-        .values({
-          organizationId,
-          constructionObjectId: object.id,
-          workQuantityListId: list.id,
-          name: data.name,
-          valuationDate: data.valuationDate,
-          currency: data.currency,
-          method: "resource",
-        })
-        .returning({ id: calculationContexts.id });
-      if (!context) throw new Error("Failed to create professional calculation context.");
-      return context.id;
-    });
+        const [context] = await tx
+          .insert(calculationContexts)
+          .values({
+            organizationId,
+            constructionObjectId: object.id,
+            workQuantityListId: list.id,
+            name: data.name,
+            valuationDate: data.valuationDate,
+            currency: data.currency,
+            method: "resource",
+          })
+          .returning({ id: calculationContexts.id });
+        if (!context) throw new Error("Failed to create professional calculation context.");
+        return context.id;
+      });
+    } catch (error) {
+      if (
+        data.objectCode !== undefined &&
+        isUniqueConstraintConflict(error, "construction_objects_org_code_unique")
+      ) {
+        throw new DuplicateConstructionObjectCodeError(data.objectCode);
+      }
+      throw error;
+    }
   }
 
   async createWorkQuantityItem(
@@ -265,7 +278,7 @@ export class DrizzleProfessionalEstimateWorkspaceRepository
       if (!row) throw new Error("Failed to create professional work quantity item.");
       return toWorkQuantityItem(row);
     } catch (error) {
-      if (isPositionConflict(error)) {
+      if (isUniqueConstraintConflict(error, "work_quantity_items_list_position_unique")) {
         throw new DuplicateWorkPositionError(data.positionNumber);
       }
       throw error;
@@ -305,7 +318,7 @@ export class DrizzleProfessionalEstimateWorkspaceRepository
         .returning();
       return row ? toWorkQuantityItem(row) : null;
     } catch (error) {
-      if (isPositionConflict(error)) {
+      if (isUniqueConstraintConflict(error, "work_quantity_items_list_position_unique")) {
         // Position numbers are not editable in this milestone.
         throw new Error("Unexpected position conflict while updating an item.");
       }

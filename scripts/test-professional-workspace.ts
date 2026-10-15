@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { Module } from "node:module";
 import { join } from "node:path";
 import {
+  DuplicateConstructionObjectCodeError,
   DuplicateWorkPositionError,
   type ProfessionalEstimateData,
   type ProfessionalEstimateSummary,
@@ -17,6 +20,12 @@ import {
   ProfessionalEstimateValidationError,
   ProfessionalEstimateWorkspaceService,
 } from "../domain/professional-estimates/professional-estimate-workspace.service";
+import { formatRomanianDecimal } from "../lib/ui/decimal-display";
+import {
+  calculationContexts,
+  constructionObjects,
+  workQuantityLists,
+} from "../infrastructure/db/schema/professionalEstimates";
 
 class MemoryWorkspaceRepository
   implements ProfessionalEstimateWorkspaceRepository
@@ -43,6 +52,7 @@ class MemoryWorkspaceRepository
     items: WorkQuantityItem[];
   }> = [];
   failAtContextCreation = false;
+  readonly identifierCalls = { get: 0, createItem: 0, updateItem: 0 };
 
   async listProfessionalEstimates(
     organizationId: string,
@@ -81,6 +91,7 @@ class MemoryWorkspaceRepository
     organizationId: string,
     calculationContextId: string,
   ): Promise<ProfessionalEstimateWorkspace | null> {
+    this.identifierCalls.get++;
     const entry = this.created.find(
       (candidate) =>
         candidate.context.organizationId === organizationId &&
@@ -126,7 +137,7 @@ class MemoryWorkspaceRepository
   ): Promise<string> {
     const objectId = `object-${this.created.length + 1}`;
     const listId = `list-${this.created.length + 1}`;
-    const contextId = `context-${this.created.length + 1}`;
+    const contextId = randomUUID();
     const draft = {
       object: {
         id: objectId,
@@ -165,6 +176,7 @@ class MemoryWorkspaceRepository
     calculationContextId: string,
     data: WorkQuantityItemData,
   ): Promise<WorkQuantityItem | null> {
+    this.identifierCalls.createItem++;
     const entry = this.created.find(
       (candidate) =>
         candidate.context.organizationId === organizationId &&
@@ -175,7 +187,7 @@ class MemoryWorkspaceRepository
       throw new DuplicateWorkPositionError(data.positionNumber);
     }
     const item: WorkQuantityItem = {
-      id: `item-${entry.items.length + 1}`,
+      id: randomUUID(),
       organizationId,
       workQuantityListId: entry.list.id,
       ...data,
@@ -192,6 +204,7 @@ class MemoryWorkspaceRepository
     itemId: string,
     data: WorkQuantityItemUpdate,
   ): Promise<WorkQuantityItem | null> {
+    this.identifierCalls.updateItem++;
     const entry = this.created.find(
       (candidate) =>
         candidate.context.organizationId === organizationId &&
@@ -222,7 +235,7 @@ const estimateData: ProfessionalEstimateData = {
 
 const contextId = await service.createProfessionalEstimate("org-a", estimateData);
 const created = repository.created[0]!;
-assert.equal(contextId, "context-1");
+assert.equal(contextId, created.context.id);
 assert.equal(created.object.organizationId, "org-a");
 assert.equal(created.list.organizationId, "org-a");
 assert.equal(created.context.organizationId, "org-a");
@@ -244,6 +257,30 @@ const itemData: WorkQuantityItemData = {
   unit: "m²",
   quantity: "250.000000",
 };
+for (const invalidId of ["abc", "", "not-a-uuid", `${contextId} `]) {
+  const callsBefore = { ...repository.identifierCalls };
+  await assert.rejects(
+    service.getProfessionalEstimate("org-a", invalidId),
+    ProfessionalEstimateNotFoundError,
+  );
+  await assert.rejects(
+    service.createWorkQuantityItem("org-a", invalidId, itemData),
+    ProfessionalEstimateNotFoundError,
+  );
+  await assert.rejects(
+    service.updateWorkQuantityItem("org-a", invalidId, randomUUID(), itemData),
+    ProfessionalEstimateNotFoundError,
+  );
+  await assert.rejects(
+    service.updateWorkQuantityItem("org-a", contextId, invalidId, itemData),
+    ProfessionalEstimateNotFoundError,
+  );
+  assert.deepEqual(
+    repository.identifierCalls,
+    callsBefore,
+    "malformed context/item UUIDs must not reach any repository method",
+  );
+}
 const item = await service.createWorkQuantityItem("org-a", contextId, itemData);
 assert.equal(item.quantity, "250.000000");
 assert.equal(item.workQuantityListId, created.list.id);
@@ -345,7 +382,7 @@ const workspaceServiceSource = readFileSync(
   ),
   "utf8",
 );
-assert.match(workspaceRepositorySource, /return db\.transaction\(async \(tx\)/);
+assert.match(workspaceRepositorySource, /return await db\.transaction\(async \(tx\)/);
 for (const table of [
   "constructionObjects",
   "workQuantityLists",
@@ -363,7 +400,144 @@ assert.doesNotMatch(workspaceRepositorySource, /catalogItems|quoteItems|sellingP
 assert.doesNotMatch(workspaceRepositorySource, /normApplications|calculationRules|resourcePrices/);
 assert.match(workspaceServiceSource, /parseDecimal\(value\.trim\(\)/);
 
+const detailPageSource = readFileSync(
+  join(
+    process.cwd(),
+    "app/(app)/professional-estimates/[calculationContextId]/page.tsx",
+  ),
+  "utf8",
+);
+assert.match(detailPageSource, /ProfessionalEstimateNotFoundError\) notFound\(\)/);
+assert.match(detailPageSource, /import \{ formatRomanianDecimal \} from "@\/lib\/ui\/decimal-display"/);
+assert.match(detailPageSource, /formatRomanianDecimal\(item\.quantity\)/);
+assert.doesNotMatch(detailPageSource, /formatDecimalRo/);
+assert.equal(existsSync(join(process.cwd(), "lib/i18n/decimal.ts")), false);
+const actionSource = readFileSync(
+  join(process.cwd(), "app/(app)/professional-estimates/actions.ts"),
+  "utf8",
+);
+assert.match(actionSource, /error instanceof DuplicateConstructionObjectCodeError/);
+for (const [value, expected] of [
+  ["250.000000", "250"],
+  ["1250.500000", "1250,5"],
+  ["275.250000", "275,25"],
+  ["999999999999.999999", "999999999999,999999"],
+]) {
+  assert.equal(formatRomanianDecimal(value!), expected);
+}
+
+await testRepositoryTransaction();
 console.log("Professional estimate workspace tests passed.");
+}
+
+async function testRepositoryTransaction(): Promise<void> {
+  // Replace only the connection module so the real adapter runs its transaction
+  // and error translation without requiring credentials or a live database.
+  const connectionPath = require.resolve("../infrastructure/db");
+  const originalModule = require.cache[connectionPath];
+  const committed: Array<{ table: unknown; values: Record<string, unknown> }> = [];
+  let insertError: unknown;
+  let failAtTable: unknown;
+  let rollbacks = 0;
+  let attemptedTables: unknown[] = [];
+  const fakeDatabase = {
+    async transaction<T>(callback: (tx: {
+      insert: (table: unknown) => {
+        values: (values: Record<string, unknown>) => {
+          returning: () => Promise<Array<{ id: string }>>;
+        };
+      };
+    }) => Promise<T>): Promise<T> {
+      const pending: typeof committed = [];
+      attemptedTables = [];
+      try {
+        const result = await callback({
+          insert(table) {
+            return {
+              values(values) {
+                return {
+                  async returning() {
+                    attemptedTables.push(table);
+                    if (table === failAtTable) throw insertError;
+                    const id = randomUUID();
+                    pending.push({ table, values: { ...values, id } });
+                    return [{ id }];
+                  },
+                };
+              },
+            };
+          },
+        });
+        committed.push(...pending);
+        return result;
+      } catch (error) {
+        rollbacks++;
+        throw error;
+      }
+    },
+  };
+  const connectionModule = new Module(connectionPath);
+  connectionModule.exports = { db: fakeDatabase };
+  require.cache[connectionPath] = connectionModule;
+  try {
+    const { DrizzleProfessionalEstimateWorkspaceRepository } = await import(
+      "../infrastructure/db/repositories/professionalEstimateWorkspace.repository"
+    );
+    const adapter = new DrizzleProfessionalEstimateWorkspaceRepository();
+    const data: ValidatedProfessionalEstimateData = {
+      name: "Test",
+      objectName: "Obiect",
+      listName: "Listă",
+      valuationDate: "2026-10-15",
+      currency: "MDL",
+      objectCode: "OBJ-001",
+    };
+    await adapter.createProfessionalEstimate("org-a", data);
+    assert.deepEqual(
+      committed.map((row) => row.table),
+      [constructionObjects, workQuantityLists, calculationContexts],
+    );
+    const originalRows = [...committed];
+    for (const constraintField of ["constraint_name", "constraint"]) {
+      failAtTable = constructionObjects;
+      insertError = {
+        code: "23505",
+        [constraintField]: "construction_objects_org_code_unique",
+      };
+      await assert.rejects(
+        adapter.createProfessionalEstimate("org-a", data),
+        (error: unknown) =>
+          error instanceof DuplicateConstructionObjectCodeError &&
+          error.objectCode === "OBJ-001" &&
+          error.message === "Codul obiectului «OBJ-001» este deja folosit în această companie.",
+      );
+      assert.deepEqual(committed, originalRows, "duplicate code must leave all three tables unchanged");
+      assert.deepEqual(attemptedTables, [constructionObjects], "no list or context insert after conflict");
+    }
+    for (const unexpectedError of [
+      { code: "23505", constraint_name: "another_unique_constraint" },
+      { code: "23503", constraint_name: "construction_objects_org_code_unique" },
+      new Error("connection failure"),
+    ]) {
+      insertError = unexpectedError;
+      await assert.rejects(
+        adapter.createProfessionalEstimate("org-a", data),
+        (error: unknown) => error === unexpectedError,
+      );
+      assert.deepEqual(committed, originalRows);
+    }
+    failAtTable = calculationContexts;
+    insertError = new Error("context insert failed");
+    await assert.rejects(
+      adapter.createProfessionalEstimate("org-a", { ...data, objectCode: "OBJ-002" }),
+      (error: unknown) => error === insertError,
+    );
+    assert.deepEqual(committed, originalRows, "context failure rolls back object and list inserts");
+    assert.equal(rollbacks, 6);
+  } finally {
+    if (originalModule) require.cache[connectionPath] = originalModule;
+    else delete require.cache[connectionPath];
+  }
 }
 
 main().catch((error: unknown) => {

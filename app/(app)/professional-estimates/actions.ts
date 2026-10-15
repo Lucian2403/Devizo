@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  DuplicateConstructionObjectCodeError,
   DuplicateWorkPositionError,
 } from "@/domain/professional-estimates/professional-estimate-workspace.repository";
 import {
@@ -23,7 +24,10 @@ export type WorkQuantityItemFormState =
   | null;
 
 function errorState(error: unknown): ProfessionalEstimateFormState {
-  if (error instanceof ProfessionalEstimateValidationError) {
+  if (
+    error instanceof ProfessionalEstimateValidationError ||
+    error instanceof DuplicateConstructionObjectCodeError
+  ) {
     return { error: error.message };
   }
   throw error;

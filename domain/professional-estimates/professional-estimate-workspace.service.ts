@@ -3,6 +3,7 @@ import {
   type OrganizationId,
 } from "@/domain/shared/types";
 import { DecimalParseError, parseDecimal } from "./calculation/decimal";
+import { isWorkspaceUuid } from "./workspace-identifiers";
 import type {
   ProfessionalEstimateData,
   ProfessionalEstimateSummary,
@@ -138,6 +139,9 @@ export class ProfessionalEstimateWorkspaceService {
     organizationId: OrganizationId,
     calculationContextId: string,
   ): Promise<ProfessionalEstimateWorkspace> {
+    if (!isWorkspaceUuid(calculationContextId)) {
+      throw new ProfessionalEstimateNotFoundError();
+    }
     const workspace = await this.repository.getProfessionalEstimate(
       organizationId,
       calculationContextId,
@@ -184,6 +188,9 @@ export class ProfessionalEstimateWorkspaceService {
     calculationContextId: string,
     data: WorkQuantityItemData,
   ): Promise<WorkQuantityItem> {
+    if (!isWorkspaceUuid(calculationContextId)) {
+      throw new ProfessionalEstimateNotFoundError();
+    }
     const created = await this.repository.createWorkQuantityItem(
       organizationId,
       calculationContextId,
@@ -199,6 +206,9 @@ export class ProfessionalEstimateWorkspaceService {
     itemId: string,
     data: WorkQuantityItemUpdate,
   ): Promise<WorkQuantityItem> {
+    if (!isWorkspaceUuid(calculationContextId) || !isWorkspaceUuid(itemId)) {
+      throw new ProfessionalEstimateNotFoundError();
+    }
     const updated = await this.repository.updateWorkQuantityItem(
       organizationId,
       calculationContextId,
