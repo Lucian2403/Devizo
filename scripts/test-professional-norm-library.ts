@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
@@ -304,6 +306,31 @@ async function expectRejected(
 }
 
 async function main(): Promise<void> {
+  const actionSource = readFileSync(
+    join(
+      process.cwd(),
+      "app/(app)/professional-estimates/actions.ts",
+    ),
+    "utf8",
+  );
+  const normLibraryErrorMapper = actionSource.match(
+    /function normLibraryErrorState\(error: unknown\): NormLibraryFormState \{([\s\S]*?)\n\}/,
+  )?.[1];
+  assert.ok(normLibraryErrorMapper, "Norm library action error mapper exists.");
+  assert.match(
+    normLibraryErrorMapper,
+    /error instanceof InternalNormIdentityConflictError/,
+  );
+  assert.match(
+    normLibraryErrorMapper,
+    /return \{ error: error\.message \};/,
+  );
+  const identityConflict = new InternalNormIdentityConflictError();
+  assert.equal(
+    identityConflict.message,
+    "Codul normei există deja cu alte date de identificare. Folosiți denumirea și categoria existente.",
+  );
+
   const repository = new MemoryNormLibraryRepository();
   const service = new ProfessionalNormLibraryService(repository);
   const org = "org-a";

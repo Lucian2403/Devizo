@@ -16,6 +16,7 @@ import { getProfessionalEstimateWorkspaceService } from "@/server/container";
 import {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
+  InternalNormIdentityConflictError,
   InternalNormSourceConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
@@ -164,6 +165,7 @@ function normLibraryErrorState(error: unknown): NormLibraryFormState {
     error instanceof ProfessionalNormLibraryValidationError ||
     error instanceof DuplicateInternalNormError ||
     error instanceof DuplicateNormResourceError ||
+    error instanceof InternalNormIdentityConflictError ||
     error instanceof InternalNormSourceConflictError ||
     error instanceof NormAssignmentValidationError ||
     error instanceof NormLibraryRecordNotFoundError ||
