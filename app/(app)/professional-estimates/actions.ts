@@ -19,6 +19,7 @@ import {
   InternalNormSourceConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
+  NormVersionPublicationError,
   ProfessionalNormLibraryValidationError,
 } from "@/domain/professional-estimates/professional-norm-library.service";
 import { getProfessionalNormLibraryService } from "@/server/container";
@@ -165,7 +166,8 @@ function normLibraryErrorState(error: unknown): NormLibraryFormState {
     error instanceof DuplicateNormResourceError ||
     error instanceof InternalNormSourceConflictError ||
     error instanceof NormAssignmentValidationError ||
-    error instanceof NormLibraryRecordNotFoundError
+    error instanceof NormLibraryRecordNotFoundError ||
+    error instanceof NormVersionPublicationError
   ) {
     return { error: error.message };
   }
@@ -225,6 +227,26 @@ export async function addInternalNormResource(
   revalidatePath(`/professional-estimates/norms/${estimateNormVersionId}`);
   revalidatePath("/professional-estimates", "layout");
   return { success: "Resursa a fost adăugată la normă." };
+}
+
+export async function publishInternalNormVersion(
+  estimateNormVersionId: string,
+  _previous: NormLibraryFormState,
+): Promise<NormLibraryFormState> {
+  void _previous;
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalNormLibraryService().publishInternalNormVersion(
+      org.id,
+      estimateNormVersionId,
+    );
+  } catch (error) {
+    return normLibraryErrorState(error);
+  }
+  revalidatePath(`/professional-estimates/norms/${estimateNormVersionId}`);
+  revalidatePath("/professional-estimates/norms");
+  revalidatePath("/professional-estimates");
+  return { success: "Norma internă a fost publicată pentru utilizare." };
 }
 
 export async function assignNormToWorkItem(

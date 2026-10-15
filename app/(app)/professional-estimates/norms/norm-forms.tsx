@@ -170,6 +170,30 @@ export function AddNormResourceForm({
   );
 }
 
+export function PublishInternalNormForm({
+  action,
+}: {
+  action: (state: NormLibraryFormState) => Promise<NormLibraryFormState>;
+}) {
+  const [state, formAction] = useActionState<NormLibraryFormState, FormData>(
+    action,
+    null,
+  );
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Publicarea schimbă versiunea în starea internă „Publicată pentru
+        utilizare”. Nu reprezintă aprobare sau validare externă.
+      </p>
+      <FormMessage state={state} />
+      <SubmitButton pendingLabel="Se publică...">
+        Publică pentru utilizare internă
+      </SubmitButton>
+    </form>
+  );
+}
+
 export function AssignNormForm({
   action,
   eligibleNorms,

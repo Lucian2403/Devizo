@@ -79,7 +79,13 @@ export default async function ProfessionalNormLibraryPage() {
                         {norm.validFrom ?? "—"} – {norm.validTo ?? "—"}
                       </dd>
                       <dt className="text-muted-foreground">Publicare</dt>
-                      <dd>{norm.publicationStatus}</dd>
+                      <dd>
+                        {norm.publicationStatus === "draft"
+                          ? "Draft intern"
+                          : norm.publicationStatus === "published"
+                            ? "Publicată pentru utilizare internă"
+                            : norm.publicationStatus}
+                      </dd>
                       <dt className="text-muted-foreground">Resurse</dt>
                       <dd>{norm.resourceCount}</dd>
                     </dl>

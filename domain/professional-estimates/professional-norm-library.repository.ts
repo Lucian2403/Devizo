@@ -81,8 +81,24 @@ export interface NormWorkspace {
 
 export class DuplicateInternalNormError extends Error {
   constructor() {
-    super("Codul și versiunea normei există deja în biblioteca companiei.");
+    super("Această versiune a normei există deja în biblioteca companiei.");
     this.name = "DuplicateInternalNormError";
+  }
+}
+
+export class InternalNormIdentityConflictError extends Error {
+  constructor() {
+    super(
+      "Codul normei există deja cu alte date de identificare. Folosiți denumirea și categoria existente.",
+    );
+    this.name = "InternalNormIdentityConflictError";
+  }
+}
+
+export class NormVersionPublicationError extends Error {
+  constructor(message = "Versiunea nu poate fi publicată în starea curentă.") {
+    super(message);
+    this.name = "NormVersionPublicationError";
   }
 }
 
@@ -130,6 +146,10 @@ export interface ProfessionalNormLibraryRepository {
     organizationId: OrganizationId,
     estimateNormVersionId: string,
     data: InternalNormResourceData,
+  ): Promise<void>;
+  publishInternalNormVersion(
+    organizationId: OrganizationId,
+    estimateNormVersionId: string,
   ): Promise<void>;
   getNormWorkspace(
     organizationId: OrganizationId,

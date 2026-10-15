@@ -8,8 +8,14 @@ import {
 import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalNormLibraryService } from "@/server/container";
-import { addInternalNormResource } from "../../actions";
-import { AddNormResourceForm } from "../norm-forms";
+import {
+  addInternalNormResource,
+  publishInternalNormVersion,
+} from "../../actions";
+import {
+  AddNormResourceForm,
+  PublishInternalNormForm,
+} from "../norm-forms";
 
 const resourceTypeLabels: Record<string, string> = {
   labor: "Manoperă",
@@ -42,6 +48,10 @@ export default async function ProfessionalNormDetailPage({
     null,
     estimateNormVersionId,
   );
+  const publishAction = publishInternalNormVersion.bind(
+    null,
+    estimateNormVersionId,
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6">
@@ -56,7 +66,9 @@ export default async function ProfessionalNormDetailPage({
             <CardTitle>{norm.code} · {norm.name}</CardTitle>
             {norm.sourceType === "company_custom" && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
-                Normă internă
+                {norm.publicationStatus === "published"
+                  ? "Normă internă · Publicată pentru utilizare"
+                  : "Normă internă"}
               </span>
             )}
           </div>
@@ -72,7 +84,13 @@ export default async function ProfessionalNormDetailPage({
             </DetailValue>
             <DetailValue label="Tip sursă">{norm.sourceType}</DetailValue>
             <DetailValue label="Statut sursă">{norm.officialStatus}</DetailValue>
-            <DetailValue label="Publicare">{norm.publicationStatus}</DetailValue>
+            <DetailValue label="Publicare">
+              {norm.publicationStatus === "draft"
+                ? "Draft intern"
+                : norm.publicationStatus === "published"
+                  ? "Publicată pentru utilizare internă"
+                  : norm.publicationStatus}
+            </DetailValue>
             <DetailValue label="Valabilă de la">{norm.validFrom ?? "—"}</DetailValue>
             <DetailValue label="Valabilă până la">{norm.validTo ?? "—"}</DetailValue>
             {norm.description && (
@@ -87,6 +105,11 @@ export default async function ProfessionalNormDetailPage({
           <CardTitle className="text-base">Componența normei</CardTitle>
         </CardHeader>
         <CardContent>
+          {norm.publicationStatus === "published" && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              Componența este doar în citire după publicarea internă a versiunii.
+            </p>
+          )}
           {resources.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Norma nu are încă resurse.
@@ -128,17 +151,32 @@ export default async function ProfessionalNormDetailPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Adaugă resursă</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AddNormResourceForm
-            action={resourceAction}
-            basisLabel={`${formatRomanianDecimal(norm.basisQuantity)} ${norm.basisUnit}`}
-          />
-        </CardContent>
-      </Card>
+      {norm.publicationStatus === "draft" ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Adaugă resursă</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AddNormResourceForm
+                action={resourceAction}
+                basisLabel={`${formatRomanianDecimal(norm.basisQuantity)} ${norm.basisUnit}`}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Publicare internă</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 rounded-md bg-secondary px-3 py-2 text-sm">
+                Draft intern
+              </p>
+              <PublishInternalNormForm action={publishAction} />
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

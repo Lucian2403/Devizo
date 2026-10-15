@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
+  InternalNormIdentityConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
+  NormVersionPublicationError,
   ProfessionalNormLibraryService,
   ProfessionalNormLibraryValidationError,
 } from "../domain/professional-estimates/professional-norm-library.service";
@@ -41,6 +43,7 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
     organizationId: string;
     detail: NormVersionDetail;
   }>();
+  readonly normIds = new Map<string, string>();
   readonly estimates: EstimateFixture[] = [];
   resourcePriceInsertCount = 0;
 
@@ -62,13 +65,28 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
     organizationId: string,
     data: CreateInternalNormData,
   ): Promise<string> {
-    const duplicate = [...this.norms.values()].some(
+    const identityKey = `${organizationId}:company_custom:${data.code}`;
+    const normId = this.normIds.get(identityKey) ?? randomUUID();
+    const existingVersion = [...this.norms.values()].some(
       ({ organizationId: owner, detail }) =>
         owner === organizationId &&
-        detail.norm.code === data.code &&
+        detail.norm.estimateNormId === normId &&
         detail.norm.versionLabel === data.versionLabel,
     );
-    if (duplicate) throw new DuplicateInternalNormError();
+    if (existingVersion) throw new DuplicateInternalNormError();
+    const existingNorm = [...this.norms.values()].find(
+      ({ organizationId: owner, detail }) =>
+        owner === organizationId && detail.norm.estimateNormId === normId,
+    )?.detail.norm;
+    if (
+      existingNorm &&
+      (existingNorm.name !== data.name ||
+        existingNorm.category !== (data.category ?? null) ||
+        existingNorm.description !== (data.description ?? null))
+    ) {
+      throw new InternalNormIdentityConflictError();
+    }
+    this.normIds.set(identityKey, normId);
 
     const sourceKey = `${organizationId}:DEVIZO-COMPANY-NORMS:1`;
     if (!this.sources.has(sourceKey)) {
@@ -86,7 +104,7 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
     const id = randomUUID();
     const norm: NormVersionSummary = {
       id,
-      estimateNormId: randomUUID(),
+      estimateNormId: normId,
       code: data.code,
       name: data.name,
       category: data.category ?? null,
@@ -101,7 +119,7 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
       officialStatus: "unknown",
       validFrom: data.validFrom ?? null,
       validTo: data.validTo ?? null,
-      publicationStatus: "published",
+      publicationStatus: "draft",
       resourceCount: 0,
     };
     this.norms.set(id, {
@@ -119,6 +137,9 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
     const entry = this.norms.get(estimateNormVersionId);
     if (!entry || entry.organizationId !== organizationId) {
       throw new NormLibraryRecordNotFoundError();
+    }
+    if (entry.detail.norm.publicationStatus !== "draft") {
+      throw new NormVersionPublicationError();
     }
     const sameCode = data.code
       ? [...this.norms.values()]
@@ -147,6 +168,22 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
     };
     entry.detail.resources.push(consumption);
     entry.detail.norm.resourceCount = entry.detail.resources.length;
+  }
+
+  async publishInternalNormVersion(
+    organizationId: string,
+    estimateNormVersionId: string,
+  ): Promise<void> {
+    const entry = this.norms.get(estimateNormVersionId);
+    if (!entry || entry.organizationId !== organizationId) {
+      throw new NormLibraryRecordNotFoundError();
+    }
+    if (entry.detail.norm.publicationStatus !== "draft") {
+      throw new NormVersionPublicationError();
+    }
+    entry.detail.norm.publicationStatus = "in_review";
+    entry.detail.norm.publicationStatus = "approved";
+    entry.detail.norm.publicationStatus = "published";
   }
 
   async getNormWorkspace(
@@ -307,7 +344,7 @@ async function main(): Promise<void> {
   const normId = await service.createInternalNorm(org, normForm);
   const norm = await service.getNormVersion(org, normId);
   assert.equal(norm.norm.basisQuantity, "100");
-  assert.equal(norm.norm.publicationStatus, "published");
+  assert.equal(norm.norm.publicationStatus, "draft");
   assert.equal(norm.norm.method, "resource");
   assert.equal(norm.norm.sourceType, "company_custom");
   assert.equal(norm.norm.sourceCode, "DEVIZO-COMPANY-NORMS");
@@ -322,6 +359,24 @@ async function main(): Promise<void> {
   await expectRejected(
     () => service.createInternalNorm(org, normForm),
     DuplicateInternalNormError,
+  );
+  const secondVersionId = await service.createInternalNorm(org, {
+    ...normForm,
+    versionLabel: "2",
+  });
+  const secondVersion = await service.getNormVersion(org, secondVersionId);
+  assert.equal(secondVersion.norm.code, norm.norm.code);
+  assert.equal(secondVersion.norm.versionLabel, "2");
+  assert.equal(secondVersion.norm.estimateNormId, norm.norm.estimateNormId);
+  assert.equal(secondVersion.norm.publicationStatus, "draft");
+  await expectRejected(
+    () =>
+      service.createInternalNorm(org, {
+        ...normForm,
+        versionLabel: "3",
+        name: "Altă identitate pentru același cod",
+      }),
+    InternalNormIdentityConflictError,
   );
   await service.createInternalNorm(org, {
     ...normForm,
@@ -380,6 +435,53 @@ async function main(): Promise<void> {
     DuplicateNormResourceError,
   );
   assert.equal((await service.getNormVersion(org, normId)).resources.length, 4);
+  const draftEstimate = repository.addEstimate(org, "2026-06-15", ["m²"]);
+  const draftOptions = await service.getNormWorkspacePresentation(
+    org,
+    draftEstimate.id,
+  );
+  assert.deepEqual(draftOptions.eligibleByWorkItemId[draftEstimate.itemIds[0]!], []);
+  await expectRejected(
+    () =>
+      service.assignNorm(
+        org,
+        draftEstimate.id,
+        draftEstimate.itemIds[0]!,
+        normId,
+      ),
+    NormAssignmentValidationError,
+  );
+  await service.publishInternalNormVersion(org, normId);
+  assert.equal(
+    (await service.getNormVersion(org, normId)).norm.publicationStatus,
+    "published",
+  );
+  const publishedOptions = await service.getNormWorkspacePresentation(
+    org,
+    draftEstimate.id,
+  );
+  assert.equal(
+    publishedOptions.eligibleByWorkItemId[draftEstimate.itemIds[0]!]?.length,
+    1,
+  );
+  assert.equal(
+    publishedOptions.eligibleByWorkItemId[draftEstimate.itemIds[0]!]?.[0]?.id,
+    normId,
+  );
+  await expectRejected(
+    () => service.publishInternalNormVersion(org, normId),
+    NormVersionPublicationError,
+  );
+  await expectRejected(
+    () =>
+      service.addInternalNormResource(org, normId, {
+        name: "Resursă după publicare",
+        resourceType: "other",
+        unit: "buc.",
+        quantityPerNormBasis: "1",
+      }      ),
+      NormVersionPublicationError,
+  );
 
   const estimate = repository.addEstimate(org, "2026-06-15", ["m²", "kg"]);
   await expectRejected(

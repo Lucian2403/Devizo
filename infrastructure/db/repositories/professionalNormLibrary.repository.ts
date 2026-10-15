@@ -3,9 +3,11 @@ import type { OrganizationId } from "@/domain/shared/types";
 import {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
+  InternalNormIdentityConflictError,
   InternalNormSourceConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
+  NormVersionPublicationError,
   type AppliedNorm,
   type CreateInternalNormData,
   type InternalNormResourceData,
@@ -46,6 +48,11 @@ function isUniqueConstraintConflict(error: unknown, constraints: string[]): bool
       String(postgresError.constraint_name ?? postgresError.constraint ?? ""),
     )
   );
+}
+
+function hasPostgresErrorCode(error: unknown, code: string): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  return (error as { code?: unknown }).code === code;
 }
 
 function assertCompanySource(source: typeof normativeSources.$inferSelect): void {
@@ -241,18 +248,66 @@ export class DrizzleProfessionalNormLibraryRepository
         if (!source) throw new Error("Nu s-a putut pregăti sursa normelor interne.");
         assertCompanySource(source);
 
-        const [norm] = await tx
-          .insert(estimateNorms)
-          .values({
-            organizationId,
-            namespace: "company_custom",
-            code: data.code,
-            name: data.name,
-            category: data.category ?? null,
-            description: data.description ?? null,
-          })
-          .returning({ id: estimateNorms.id });
-        if (!norm) throw new Error("Nu s-a putut crea norma internă.");
+        let [norm] = await tx
+          .select()
+          .from(estimateNorms)
+          .where(
+            and(
+              eq(estimateNorms.organizationId, organizationId),
+              eq(estimateNorms.namespace, "company_custom"),
+              eq(estimateNorms.code, data.code),
+            ),
+          )
+          .limit(1);
+        if (
+          norm &&
+          (norm.name !== data.name ||
+            norm.category !== (data.category ?? null) ||
+            norm.description !== (data.description ?? null))
+        ) {
+          throw new InternalNormIdentityConflictError();
+        }
+        if (!norm) {
+          [norm] = await tx
+            .insert(estimateNorms)
+            .values({
+              organizationId,
+              namespace: "company_custom",
+              code: data.code,
+              name: data.name,
+              category: data.category ?? null,
+              description: data.description ?? null,
+            })
+            .onConflictDoNothing({
+              target: [
+                estimateNorms.organizationId,
+                estimateNorms.namespace,
+                estimateNorms.code,
+              ],
+            })
+            .returning();
+        }
+        if (!norm) {
+          [norm] = await tx
+            .select()
+            .from(estimateNorms)
+            .where(
+              and(
+                eq(estimateNorms.organizationId, organizationId),
+                eq(estimateNorms.namespace, "company_custom"),
+                eq(estimateNorms.code, data.code),
+              ),
+            )
+            .limit(1);
+        }
+        if (!norm) throw new Error("Nu s-a putut pregăti norma internă.");
+        if (
+          norm.name !== data.name ||
+          norm.category !== (data.category ?? null) ||
+          norm.description !== (data.description ?? null)
+        ) {
+          throw new InternalNormIdentityConflictError();
+        }
 
         const [version] = await tx
           .insert(estimateNormVersions)
@@ -267,7 +322,7 @@ export class DrizzleProfessionalNormLibraryRepository
             description: data.description ?? null,
             validFrom: data.validFrom ?? null,
             validTo: data.validTo ?? null,
-            publicationStatus: "published",
+            publicationStatus: "draft",
           })
           .returning({ id: estimateNormVersions.id });
         if (!version) throw new Error("Nu s-a putut crea versiunea normei.");
@@ -275,10 +330,7 @@ export class DrizzleProfessionalNormLibraryRepository
       });
     } catch (error) {
       if (
-        isUniqueConstraintConflict(error, [
-          "estimate_norms_org_namespace_code_unique",
-          "estimate_norm_versions_norm_version_unique",
-        ])
+        isUniqueConstraintConflict(error, ["estimate_norm_versions_norm_version_unique"])
       ) {
         throw new DuplicateInternalNormError();
       }
@@ -315,6 +367,11 @@ export class DrizzleProfessionalNormLibraryRepository
           .limit(1);
         if (!normRow) throw new NormLibraryRecordNotFoundError();
         assertCompanySource(normRow.source);
+        if (normRow.version.publicationStatus !== "draft") {
+          throw new NormVersionPublicationError(
+            "Componența poate fi modificată doar cât versiunea este Draft intern.",
+          );
+        }
 
         let resource: typeof professionalResources.$inferSelect | undefined;
         if (data.code) {
@@ -390,8 +447,77 @@ export class DrizzleProfessionalNormLibraryRepository
           "Resursa nu a putut fi adăugată din cauza unei modificări simultane. Reîncercați.",
         );
       }
+      if (hasPostgresErrorCode(error, "55000")) {
+        throw new NormVersionPublicationError(
+          "Componența poate fi modificată doar cât versiunea este Draft intern.",
+        );
+      }
       throw error;
     }
+  }
+
+  async publishInternalNormVersion(
+    organizationId: OrganizationId,
+    estimateNormVersionId: string,
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({
+          version: estimateNormVersions,
+          source: normativeSources,
+        })
+        .from(estimateNormVersions)
+        .innerJoin(
+          normativeSources,
+          and(
+            eq(normativeSources.id, estimateNormVersions.sourceId),
+            eq(normativeSources.organizationId, estimateNormVersions.organizationId),
+          ),
+        )
+        .where(
+          and(
+            eq(estimateNormVersions.organizationId, organizationId),
+            eq(estimateNormVersions.id, estimateNormVersionId),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (!row) throw new NormLibraryRecordNotFoundError();
+      assertCompanySource(row.source);
+      if (row.version.publicationStatus !== "draft") {
+        throw new NormVersionPublicationError(
+          "Doar o versiune aflată în Draft intern poate fi publicată pentru utilizare.",
+        );
+      }
+
+      await tx
+        .update(estimateNormVersions)
+        .set({ publicationStatus: "in_review", updatedAt: new Date() })
+        .where(
+          and(
+            eq(estimateNormVersions.organizationId, organizationId),
+            eq(estimateNormVersions.id, estimateNormVersionId),
+          ),
+        );
+      await tx
+        .update(estimateNormVersions)
+        .set({ publicationStatus: "approved", updatedAt: new Date() })
+        .where(
+          and(
+            eq(estimateNormVersions.organizationId, organizationId),
+            eq(estimateNormVersions.id, estimateNormVersionId),
+          ),
+        );
+      await tx
+        .update(estimateNormVersions)
+        .set({ publicationStatus: "published", updatedAt: new Date() })
+        .where(
+          and(
+            eq(estimateNormVersions.organizationId, organizationId),
+            eq(estimateNormVersions.id, estimateNormVersionId),
+          ),
+        );
+    });
   }
 
   async getNormWorkspace(

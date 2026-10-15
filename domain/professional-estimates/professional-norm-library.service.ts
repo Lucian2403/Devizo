@@ -7,9 +7,11 @@ import { DecimalParseError, parseDecimal } from "./calculation/decimal";
 import {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
+  InternalNormIdentityConflictError,
   InternalNormSourceConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
+  NormVersionPublicationError,
   type AppliedNorm,
   type CreateInternalNormData,
   type InternalNormResourceData,
@@ -24,9 +26,11 @@ import { isWorkspaceUuid } from "./workspace-identifiers";
 export {
   DuplicateInternalNormError,
   DuplicateNormResourceError,
+  InternalNormIdentityConflictError,
   InternalNormSourceConflictError,
   NormAssignmentValidationError,
   NormLibraryRecordNotFoundError,
+  NormVersionPublicationError,
 };
 
 export interface InternalNormFormData {
@@ -253,6 +257,19 @@ export class ProfessionalNormLibraryService {
       organizationId,
       estimateNormVersionId,
       validateResourceData(data),
+    );
+  }
+
+  publishInternalNormVersion(
+    organizationId: OrganizationId,
+    estimateNormVersionId: string,
+  ): Promise<void> {
+    if (!isWorkspaceUuid(estimateNormVersionId)) {
+      throw new NormLibraryRecordNotFoundError();
+    }
+    return this.repository.publishInternalNormVersion(
+      organizationId,
+      estimateNormVersionId,
     );
   }
 
