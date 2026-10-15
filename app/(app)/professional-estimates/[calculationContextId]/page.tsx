@@ -6,7 +6,10 @@ import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimat
 import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalEstimateWorkspaceService } from "@/server/container";
+import { getProfessionalNormLibraryService } from "@/server/container";
+import type { AppliedNormBreakdown } from "@/domain/professional-estimates/professional-norm-library.service";
 import {
+  assignNormToWorkItem,
   createWorkQuantityItem,
   updateWorkQuantityItem,
 } from "../actions";
@@ -14,15 +17,16 @@ import {
   AddWorkQuantityItemForm,
   EditWorkQuantityItemForm,
 } from "./item-forms";
+import { AssignNormForm } from "../norms/norm-forms";
 
-const progressSteps = [
-  { title: "Obiect și listă create", complete: true },
-  { title: "Poziții de lucrări", complete: false },
-  { title: "Norme alocate", complete: false },
-  { title: "Resurse și prețuri", complete: false },
-  { title: "Calcul profesional", complete: false },
-  { title: "Formulare finale", complete: false },
-];
+const resourceTypeLabels: Record<string, string> = {
+  labor: "Manoperă",
+  material: "Material",
+  machinery: "Utilaj",
+  transport: "Transport",
+  energy: "Energie",
+  other: "Altele",
+};
 
 export default async function ProfessionalEstimateDetailPage({
   params,
@@ -42,6 +46,27 @@ export default async function ProfessionalEstimateDetailPage({
     if (error instanceof ProfessionalEstimateNotFoundError) notFound();
     throw error;
   }
+  const normPresentation =
+    await getProfessionalNormLibraryService().getNormWorkspacePresentation(
+      org.id,
+      calculationContextId,
+    );
+  const progressSteps = [
+    { title: "Obiect și listă create", complete: true },
+    {
+      title: "Poziții de lucrări",
+      complete: workspace.items.length > 0,
+    },
+    {
+      title: `Norme alocate: ${normPresentation.assignedCount} / ${normPresentation.itemCount}`,
+      complete:
+        normPresentation.itemCount > 0 &&
+        normPresentation.assignedCount === normPresentation.itemCount,
+    },
+    { title: "Resurse și prețuri", complete: false },
+    { title: "Calcul profesional", complete: false },
+    { title: "Formulare finale", complete: false },
+  ];
 
   const addItemAction = createWorkQuantityItem.bind(
     null,
@@ -103,9 +128,7 @@ export default async function ProfessionalEstimateDetailPage({
             </h2>
             <ol className="mt-2 flex flex-wrap gap-2">
               {progressSteps.map((step) => {
-                const complete =
-                  step.complete ||
-                  (step.title === "Poziții de lucrări" && workspace.items.length > 0);
+                const complete = step.complete;
                 return (
                   <li
                     key={step.title}
@@ -125,7 +148,8 @@ export default async function ProfessionalEstimateDetailPage({
               })}
             </ol>
             <p className="mt-2 text-xs text-muted-foreground">
-              Costul va putea fi calculat după alocarea unei norme și a resurselor.
+              Cantitățile de resurse sunt calculate determinist din normele
+              alocate. Prețurile resurselor nu sunt încă alocate.
             </p>
           </div>
         </CardContent>
@@ -177,7 +201,27 @@ export default async function ProfessionalEstimateDetailPage({
                     <td className="px-3 py-3 text-right tabular-nums">
                       {formatRomanianDecimal(item.quantity)}
                     </td>
-                    <td className="px-3 py-3">Nealocată</td>
+                    <td className="px-3 py-3">
+                      {normPresentation.assignedByWorkItemId[item.id] ? (
+                        <AssignedNormSummary
+                          application={
+                            normPresentation.assignedByWorkItemId[item.id]!
+                          }
+                        />
+                      ) : (
+                        <AssignNormForm
+                          workItemId={item.id}
+                          action={assignNormToWorkItem.bind(
+                            null,
+                            calculationContextId,
+                            item.id,
+                          )}
+                          eligibleNorms={
+                            normPresentation.eligibleByWorkItemId[item.id] ?? []
+                          }
+                        />
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-right">—</td>
                   </tr>
                 ))}
@@ -194,6 +238,9 @@ export default async function ProfessionalEstimateDetailPage({
               </tbody>
             </table>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Prețurile resurselor nu sunt încă alocate.
+          </p>
         </CardContent>
       </Card>
 
@@ -205,6 +252,63 @@ export default async function ProfessionalEstimateDetailPage({
           <AddWorkQuantityItemForm action={addItemAction} />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AssignedNormSummary({
+  application,
+}: {
+  application: AppliedNormBreakdown;
+}) {
+  const { norm } = application.norm;
+  return (
+    <div className="min-w-48 space-y-2">
+      <div className="font-medium text-heading">
+        {norm.code}
+        <p className="text-xs font-normal text-muted-foreground">{norm.name}</p>
+        <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+          {norm.sourceType === "company_custom" ? "Normă internă" : norm.sourceType}
+          {" · versiunea "}
+          {norm.versionLabel}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Bază: {formatRomanianDecimal(norm.basisQuantity)} {norm.basisUnit} ·
+        coeficient: {formatRomanianDecimal(application.applicationCoefficient)}
+      </p>
+      <details className="text-xs">
+        <summary className="cursor-pointer font-medium text-primary">
+          Vezi resursele
+        </summary>
+        {application.calculatedResources.length === 0 ? (
+          <p className="mt-2 text-muted-foreground">
+            Norma nu are încă resurse.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {application.calculatedResources.map((resource) => (
+              <li key={resource.id} className="border-l-2 border-border pl-2">
+                <span className="font-medium">
+                  {resourceTypeLabels[resource.resourceType] ?? resource.resourceType}
+                </span>
+                <br />
+                {resource.code ? `${resource.code} · ` : ""}
+                {resource.name}
+                <br />
+                {formatRomanianDecimal(resource.quantityPerNormBasis)}{" "}
+                {resource.unit} / {formatRomanianDecimal(norm.basisQuantity)}{" "}
+                {norm.basisUnit}
+                <br />
+                <span className="font-medium">
+                  Necesar: {formatRomanianDecimal(resource.resourceQuantity)}{" "}
+                  {resource.unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
     </div>
   );
 }

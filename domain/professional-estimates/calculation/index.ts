@@ -15,6 +15,7 @@ export {
   type ResourcePriceCandidate,
 } from "./price-eligibility";
 export {
+  calculateResourceQuantity,
   calculateResourceLine,
   calculateResources,
   ResourceCalculationError,
@@ -22,6 +23,8 @@ export {
   type ResourceCalculationInput,
   type ResourceCalculationLine,
   type ResourceCalculationResult,
+  type ResourceQuantityInput,
+  type ResourceQuantityLine,
   type ResourceTypeTotals,
 } from "./resource-calculation";
 export {

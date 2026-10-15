@@ -31,6 +31,8 @@ import { DrizzleProfessionalRuleDefinitionRepository } from "@/infrastructure/db
 import { HttpNormativeSourceMonitor } from "@/infrastructure/normative/http-source-monitor";
 import { ProfessionalEstimateWorkspaceService } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { DrizzleProfessionalEstimateWorkspaceRepository } from "@/infrastructure/db/repositories/professionalEstimateWorkspace.repository";
+import { ProfessionalNormLibraryService } from "@/domain/professional-estimates/professional-norm-library.service";
+import { DrizzleProfessionalNormLibraryRepository } from "@/infrastructure/db/repositories/professionalNormLibrary.repository";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -91,6 +93,12 @@ export function getProfessionalRuleDefinitionService(): ProfessionalRuleDefiniti
 export function getProfessionalEstimateWorkspaceService(): ProfessionalEstimateWorkspaceService {
   return new ProfessionalEstimateWorkspaceService(
     new DrizzleProfessionalEstimateWorkspaceRepository(),
+  );
+}
+
+export function getProfessionalNormLibraryService(): ProfessionalNormLibraryService {
+  return new ProfessionalNormLibraryService(
+    new DrizzleProfessionalNormLibraryRepository(),
   );
 }
 

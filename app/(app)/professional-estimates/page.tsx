@@ -23,9 +23,14 @@ export default async function ProfessionalEstimatesPage() {
             comerciale.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/professional-estimates/new">Deviz profesional nou</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href="/professional-estimates/new">Deviz profesional nou</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/professional-estimates/norms">Biblioteca de norme</Link>
+          </Button>
+        </div>
       </div>
 
       {estimates.length === 0 ? (
