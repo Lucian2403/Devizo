@@ -12,6 +12,7 @@ const links = [
   { href: "/projects", label: "Proiecte" },
   { href: "/catalog", label: "Catalog" },
   { href: "/customers", label: "Clienți" },
+  { href: "/professional-estimates", label: "Devize" },
   { href: "/normative", label: "Normative" },
   { href: "/settings", label: "Setări" },
 ];
