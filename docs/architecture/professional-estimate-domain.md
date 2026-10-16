@@ -544,3 +544,37 @@ never mutated to a different rate. No new migration or `calculation_rules` row
 is introduced; idempotency is application-level over the persisted definitions.
 
 See `docs/architecture/normative-pack-cp-l-01-07-2012.md` for the full pack note.
+
+## M8.4C professional resource price register and direct resource cost
+
+M8.4C adds a focused resource-price repository/service and the
+`/professional-estimates/resources` register, using the existing
+`resource_prices` table. It does not expand
+`ProfessionalNormLibraryRepository`, add commercial catalog dependencies, or
+require a schema/RLS migration. Price reads and writes are scoped to the
+authenticated organization and exact professional resource.
+
+During an estimate read, price candidates are restricted to the organization's
+exact resource IDs and calculation-context currency before the existing
+`selectEligibleResourcePrice(...)` applies the valuation-date window. There is
+no currency conversion or source priority. Exactly one eligible price is
+selected; none is missing; multiple are ambiguous. The existing M8.3A
+`calculateResourceLine(...)` / `calculateResources(...)` kernels calculate
+resource quantities, price-basis normalization, direct costs and resource-type
+subtotals with decimal arithmetic. Derived totals are not persisted, so editing
+the work quantity recalculates from the current norm application and persisted
+price records.
+
+A resource whose calculated quantity is exactly zero contributes zero and does
+not require a price record or enter the pricing kernel. A position displays a
+direct resource cost only when every non-zero resource requirement has one
+eligible price; otherwise known resource lines remain visible but the position
+total stays unavailable.
+
+This is explicitly **direct resource cost**, not a final professional estimate.
+M8.4C applies no procurement/storage, transport adjustment, labor
+contributions, overhead, estimated profit, VAT, CP L.01.07 rate, or final
+estimate form. A manually entered resource price is not represented as
+VAT-exclusive, transport-exclusive, or official unless separate persisted
+evidence says so. Price records retain their exact ID, source type/reference,
+location, validity, currency and basis quantity for future snapshots.
