@@ -322,7 +322,26 @@ async function main(): Promise<void> {
   assert.equal(costs?.requiredPriceCount, 0);
   assert.equal(costs?.complete, true);
   assert.equal(costs?.directResourceTotal, "0");
+  assert.equal(result.completePositionCount, 1);
   assert.deepEqual(repository.requestedResourceIds, [resourceIds.zero]);
+}
+
+// An empty norm composition is incomplete, unlike a present zero-quantity line.
+{
+  repository.candidates = [];
+  const result = await service.calculateDirectResourceCosts(
+    organizationId,
+    "MDL",
+    "2026-06-15",
+    [{ ...position, resources: [] }],
+  );
+  const costs = result.positionsByWorkItemId["work-1"];
+  assert.equal(costs?.complete, false);
+  assert.equal(costs?.directResourceTotal, null);
+  assert.equal(costs?.totalsByResourceType, null);
+  assert.equal(result.completePositionCount, 0);
+  assert.equal(result.requiredPriceCount, 0);
+  assert.equal(result.pricedResourceCount, 0);
 }
 
 // Date eligibility keeps inclusive boundaries and refuses out-of-window prices.

@@ -451,7 +451,10 @@ export class ProfessionalResourcePricesService {
           calculationIndex += 1;
         }
       }
-      const complete = positionRequiredCount === positionPricedCount;
+      const hasResourceComposition = position.resources.length > 0;
+      const complete =
+        hasResourceComposition &&
+        positionRequiredCount === positionPricedCount;
       if (complete) completePositionCount += 1;
       requiredPriceCount += positionRequiredCount;
       pricedResourceCount += positionPricedCount;

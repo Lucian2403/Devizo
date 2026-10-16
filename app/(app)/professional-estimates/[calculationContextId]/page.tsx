@@ -90,7 +90,7 @@ export default async function ProfessionalEstimateDetailPage({
   const pricesComplete =
     normPresentation.itemCount > 0 &&
     normPresentation.assignedCount === normPresentation.itemCount &&
-    resourcePricing.pricedResourceCount === resourcePricing.requiredPriceCount;
+    resourcePricing.completePositionCount === normPresentation.assignedCount;
   const progressSteps = [
     { title: "Obiect și listă create", complete: true },
     {
@@ -290,11 +290,15 @@ export default async function ProfessionalEstimateDetailPage({
                         ) : (
                           <>
                             <span>—</span>
-                            {positionPricing && (
+                            {application?.calculatedResources.length === 0 ? (
+                              <span className="block whitespace-nowrap text-xs text-amber-700">
+                                Componența normei nu conține resurse
+                              </span>
+                            ) : positionPricing ? (
                               <span className="block whitespace-nowrap text-xs text-amber-700">
                                 Prețuri incomplete
                               </span>
-                            )}
+                            ) : null}
                           </>
                         )}
                       </td>
@@ -364,7 +368,7 @@ function AssignedNormSummary({
         </summary>
         {application.calculatedResources.length === 0 ? (
           <p className="mt-2 text-muted-foreground">
-            Norma nu are încă resurse.
+            Componența normei nu conține resurse.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
