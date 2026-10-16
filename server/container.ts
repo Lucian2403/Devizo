@@ -33,6 +33,8 @@ import { ProfessionalEstimateWorkspaceService } from "@/domain/professional-esti
 import { DrizzleProfessionalEstimateWorkspaceRepository } from "@/infrastructure/db/repositories/professionalEstimateWorkspace.repository";
 import { ProfessionalNormLibraryService } from "@/domain/professional-estimates/professional-norm-library.service";
 import { DrizzleProfessionalNormLibraryRepository } from "@/infrastructure/db/repositories/professionalNormLibrary.repository";
+import { ProfessionalResourcePricesService } from "@/domain/professional-estimates/professional-resource-prices.service";
+import { DrizzleProfessionalResourcePricesRepository } from "@/infrastructure/db/repositories/professionalResourcePrices.repository";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -99,6 +101,12 @@ export function getProfessionalEstimateWorkspaceService(): ProfessionalEstimateW
 export function getProfessionalNormLibraryService(): ProfessionalNormLibraryService {
   return new ProfessionalNormLibraryService(
     new DrizzleProfessionalNormLibraryRepository(),
+  );
+}
+
+export function getProfessionalResourcePricesService(): ProfessionalResourcePricesService {
+  return new ProfessionalResourcePricesService(
+    new DrizzleProfessionalResourcePricesRepository(),
   );
 }
 
