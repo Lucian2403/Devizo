@@ -80,6 +80,22 @@ export interface ResourceCalculationInput {
   priceBasisQuantity: string;
 }
 
+export interface ResourceQuantityInput {
+  estimateNormVersionId: string;
+  resourceConsumptionId: string;
+  resourceId: string;
+  normApplicationId: string | null;
+  resourceType: ProfessionalResourceType;
+  workQuantity: string;
+  normBasisQuantity: string;
+  normativeConsumption: string;
+  applicationCoefficient: string;
+}
+
+export interface ResourceQuantityLine extends ResourceQuantityInput {
+  resourceQuantity: string;
+}
+
 /**
  * One calculated resource line. Inputs are echoed alongside the derived values
  * so the result can be explained later without re-deriving it. All numbers are
@@ -135,19 +151,13 @@ function parse(value: string, field: string): DecimalValue {
 }
 
 /**
- * Calculates a single resource line deterministically.
- *
- * Validation (no silent correction):
- *   normBasisQuantity       must be > 0
- *   priceBasisQuantity      must be > 0
- *   applicationCoefficient  must be > 0
- *   workQuantity            must be >= 0
- *   normativeConsumption    must be >= 0
- *   resourcePrice           must be >= 0
+ * Calculates the normative quantity independently of resource prices.
+ * Provenance identifiers are retained so later snapshots can identify the
+ * exact norm, consumption, resource and application used.
  */
-export function calculateResourceLine(
-  input: ResourceCalculationInput,
-): ResourceCalculationLine {
+export function calculateResourceQuantity(
+  input: ResourceQuantityInput,
+): ResourceQuantityLine {
   if (!PROFESSIONAL_RESOURCE_TYPES.includes(input.resourceType)) {
     throw new ResourceCalculationError(
       "invalid_resource_type",
@@ -166,24 +176,12 @@ export function calculateResourceLine(
     input.applicationCoefficient,
     "applicationCoefficient",
   );
-  const resourcePrice = parse(input.resourcePrice, "resourcePrice");
-  const priceBasisQuantity = parse(
-    input.priceBasisQuantity,
-    "priceBasisQuantity",
-  );
 
   if (normBasisQuantity.lessThanOrEqualTo(0)) {
     throw new ResourceCalculationError(
       "norm_basis_not_positive",
       "normBasisQuantity must be greater than 0.",
       "normBasisQuantity",
-    );
-  }
-  if (priceBasisQuantity.lessThanOrEqualTo(0)) {
-    throw new ResourceCalculationError(
-      "price_basis_not_positive",
-      "priceBasisQuantity must be greater than 0.",
-      "priceBasisQuantity",
     );
   }
   if (applicationCoefficient.lessThanOrEqualTo(0)) {
@@ -207,6 +205,50 @@ export function calculateResourceLine(
       "normativeConsumption",
     );
   }
+
+  const resourceQuantity = workQuantity
+    .dividedBy(normBasisQuantity)
+    .times(normativeConsumption)
+    .times(applicationCoefficient);
+
+  return {
+    ...input,
+    workQuantity: toDecimalString(workQuantity),
+    normBasisQuantity: toDecimalString(normBasisQuantity),
+    normativeConsumption: toDecimalString(normativeConsumption),
+    applicationCoefficient: toDecimalString(applicationCoefficient),
+    resourceQuantity: toDecimalString(resourceQuantity),
+  };
+}
+
+/**
+ * Calculates a single resource line deterministically.
+ *
+ * Validation (no silent correction):
+ *   normBasisQuantity       must be > 0
+ *   priceBasisQuantity      must be > 0
+ *   applicationCoefficient  must be > 0
+ *   workQuantity            must be >= 0
+ *   normativeConsumption    must be >= 0
+ *   resourcePrice           must be >= 0
+ */
+export function calculateResourceLine(
+  input: ResourceCalculationInput,
+): ResourceCalculationLine {
+  const quantity = calculateResourceQuantity(input);
+  const resourcePrice = parse(input.resourcePrice, "resourcePrice");
+  const priceBasisQuantity = parse(
+    input.priceBasisQuantity,
+    "priceBasisQuantity",
+  );
+
+  if (priceBasisQuantity.lessThanOrEqualTo(0)) {
+    throw new ResourceCalculationError(
+      "price_basis_not_positive",
+      "priceBasisQuantity must be greater than 0.",
+      "priceBasisQuantity",
+    );
+  }
   if (resourcePrice.lessThan(0)) {
     throw new ResourceCalculationError(
       "resource_price_negative",
@@ -215,12 +257,10 @@ export function calculateResourceLine(
     );
   }
 
-  const resourceQuantity = workQuantity
-    .dividedBy(normBasisQuantity)
-    .times(normativeConsumption)
-    .times(applicationCoefficient);
   const effectiveUnitPrice = resourcePrice.dividedBy(priceBasisQuantity);
-  const resourceCost = resourceQuantity.times(effectiveUnitPrice);
+  const resourceCost = new Decimal(quantity.resourceQuantity).times(
+    effectiveUnitPrice,
+  );
 
   return {
     estimateNormVersionId: input.estimateNormVersionId,
@@ -230,13 +270,13 @@ export function calculateResourceLine(
     normApplicationId: input.normApplicationId,
     resourceType: input.resourceType,
     currency: input.currency,
-    workQuantity: toDecimalString(workQuantity),
-    normBasisQuantity: toDecimalString(normBasisQuantity),
-    normativeConsumption: toDecimalString(normativeConsumption),
-    applicationCoefficient: toDecimalString(applicationCoefficient),
+    workQuantity: quantity.workQuantity,
+    normBasisQuantity: quantity.normBasisQuantity,
+    normativeConsumption: quantity.normativeConsumption,
+    applicationCoefficient: quantity.applicationCoefficient,
     resourcePrice: toDecimalString(resourcePrice),
     priceBasisQuantity: toDecimalString(priceBasisQuantity),
-    resourceQuantity: toDecimalString(resourceQuantity),
+    resourceQuantity: quantity.resourceQuantity,
     effectiveUnitPrice: toDecimalString(effectiveUnitPrice),
     resourceCost: toDecimalString(resourceCost),
   };

@@ -22,7 +22,8 @@ Run this checklist after pulling the feature branch:
    - Lucrare: `Tencuieli interioare`
    - UM: `m²`
    - Cantitate: `250`
-10. Confirm the row appears with **Normă = Nealocată** and **Cost = —**.
+10. Confirm the row offers **Alocă normă**, displays **Cost = —**, and says
+    resource prices have not been assigned.
 11. Add position 2:
     - Poz: `2`
     - Cod: `TEST-002`
@@ -39,3 +40,7 @@ Run this checklist after pulling the feature branch:
     two positions, the correct date, and the correct currency.
 
 No manual cost calculation is expected in this milestone.
+
+For internal norm creation, resource composition, norm assignment, and
+resource-quantity checks, follow
+[professional-norm-assignment.md](./professional-norm-assignment.md).
