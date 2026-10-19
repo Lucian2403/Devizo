@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ProfessionalCostStackComponent } from "@/domain/professional-estimates/calculation";
 import type { PersistedCostComponent } from "@/domain/professional-estimates/professional-cost-component-decisions.repository";
 import { formatDate } from "@/lib/ui/date-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalRuleDefinitionService } from "@/server/container";
 import { createCompanyProfessionalRule } from "../actions";
-import {
-  companyRuleComponentLabel,
-  CreateCompanyRuleForm,
-} from "./rule-forms";
+import { CreateCompanyRuleForm } from "./rule-forms";
+
+const componentLabels: Record<ProfessionalCostStackComponent, string> = {
+  labor_contributions: "Contribuții aferente manoperei",
+  material_transport: "Transport materiale",
+  procurement_storage: "Aprovizionare-depozitare",
+  overhead: "Cheltuieli de regie",
+  estimated_profit: "Beneficiu estimat",
+};
 
 const components: PersistedCostComponent[] = [
   "labor_contributions",
@@ -55,7 +61,7 @@ export default async function ProfessionalCalculationRulesPage() {
           {components.map((component) => (
             <details key={component} className="rounded-lg border p-4">
               <summary className="cursor-pointer font-medium text-heading">
-                {companyRuleComponentLabel(component)}
+                {componentLabels[component]}
               </summary>
               <div className="pt-4">
                 <CreateCompanyRuleForm
@@ -86,9 +92,7 @@ export default async function ProfessionalCalculationRulesPage() {
                   <div>
                     <h3 className="font-semibold text-heading">{rule.name}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {companyRuleComponentLabel(
-                        rule.component,
-                      )}
+                      {componentLabels[rule.component]}
                     </p>
                   </div>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 break-all text-sm">

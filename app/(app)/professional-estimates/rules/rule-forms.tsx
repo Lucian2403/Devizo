@@ -6,18 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { PersistedCostComponent } from "@/domain/professional-estimates/professional-cost-component-decisions.repository";
-import type { ProfessionalCostStackComponent } from "@/domain/professional-estimates/calculation";
 import type { ProfessionalRuleFormState } from "../actions";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
-const componentLabels: Record<ProfessionalCostStackComponent, string> = {
-  labor_contributions: "Contribuții aferente manoperei",
-  material_transport: "Transport materiale",
-  procurement_storage: "Aprovizionare-depozitare",
-  overhead: "Cheltuieli de regie",
-  estimated_profit: "Beneficiu estimat",
-};
 
 export function CreateCompanyRuleForm({
   action,
@@ -178,10 +170,4 @@ export function CreateCompanyRuleForm({
       </div>
     </form>
   );
-}
-
-export function companyRuleComponentLabel(
-  component: ProfessionalCostStackComponent,
-): string {
-  return componentLabels[component];
 }
