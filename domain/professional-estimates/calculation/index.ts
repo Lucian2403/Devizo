@@ -40,6 +40,7 @@ export {
   type LaborContributionsDecision,
   type MaterialTransportDecision,
   type NotApplicableDecision,
+  type ZeroBasisDecision,
   type OverheadDecision,
   type ProcurementStorageDecision,
   type ProfessionalCostStackComponent,

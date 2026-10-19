@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   normativeApplicabilityDecisions,
+  normativeSources,
   professionalRuleDefinitions,
 } from "@/infrastructure/db/schema";
 import type {
@@ -14,10 +15,12 @@ import type {
 } from "@/domain/professional-estimates/calculation";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
 } from "@/domain/professional-estimates/professional-rule-definitions.repository";
+import { COMPANY_CALCULATION_RULE_SOURCE_IDENTITY } from "@/domain/professional-estimates/professional-rule-definitions.repository";
 
 function toRecord(
   row: typeof professionalRuleDefinitions.$inferSelect,
@@ -49,6 +52,68 @@ function toRecord(
 export class DrizzleProfessionalRuleDefinitionRepository
   implements ProfessionalRuleDefinitionRepository
 {
+  async getCompanyCalculationRuleSource(
+    organizationId: string,
+  ): Promise<CompanyCalculationRuleSourceRecord | null> {
+    const [row] = await db
+      .select({
+        id: normativeSources.id,
+        organizationId: normativeSources.organizationId,
+        code: normativeSources.code,
+        edition: normativeSources.edition,
+        title: normativeSources.title,
+        sourceType: normativeSources.sourceType,
+        jurisdiction: normativeSources.jurisdiction,
+        status: normativeSources.status,
+        officialStatus: normativeSources.officialStatus,
+        monitoringEnabled: normativeSources.monitoringEnabled,
+      })
+      .from(normativeSources)
+      .where(
+        and(
+          eq(normativeSources.organizationId, organizationId),
+          eq(normativeSources.code, COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.code),
+          eq(
+            normativeSources.edition,
+            COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.edition,
+          ),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(
+    organizationId: string,
+  ): Promise<CompanyCalculationRuleSourceRecord | null> {
+    const [row] = await db
+      .insert(normativeSources)
+      .values({
+        organizationId,
+        ...COMPANY_CALCULATION_RULE_SOURCE_IDENTITY,
+      })
+      .onConflictDoNothing({
+        target: [
+          normativeSources.organizationId,
+          normativeSources.code,
+          normativeSources.edition,
+        ],
+      })
+      .returning({
+        id: normativeSources.id,
+        organizationId: normativeSources.organizationId,
+        code: normativeSources.code,
+        edition: normativeSources.edition,
+        title: normativeSources.title,
+        sourceType: normativeSources.sourceType,
+        jurisdiction: normativeSources.jurisdiction,
+        status: normativeSources.status,
+        officialStatus: normativeSources.officialStatus,
+        monitoringEnabled: normativeSources.monitoringEnabled,
+      });
+    return row ?? null;
+  }
+
   async createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
   ): Promise<ProfessionalRuleDefinitionRecord> {
@@ -110,6 +175,16 @@ export class DrizzleProfessionalRuleDefinitionRepository
           eq(professionalRuleDefinitions.component, component),
         ),
       );
+    return rows.map(toRecord);
+  }
+
+  async listRuleDefinitions(
+    organizationId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    const rows = await db
+      .select()
+      .from(professionalRuleDefinitions)
+      .where(eq(professionalRuleDefinitions.organizationId, organizationId));
     return rows.map(toRecord);
   }
 

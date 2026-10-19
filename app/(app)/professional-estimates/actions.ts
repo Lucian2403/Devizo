@@ -31,6 +31,18 @@ import {
 } from "@/domain/professional-estimates/professional-resource-prices.service";
 import { getProfessionalResourcePricesService } from "@/server/container";
 import { VAT_TREATMENTS, TRANSPORT_TREATMENTS } from "@/domain/professional-estimates/procurement-semantics";
+import {
+  CompanyCalculationRuleSourceConflictError,
+  ProfessionalRuleDefinitionValidationError,
+} from "@/domain/professional-estimates/professional-rule-definitions.error";
+import {
+  ProfessionalCostComponentDecisionError,
+  type SaveCostComponentDecisionInput,
+} from "@/domain/professional-estimates/professional-cost-component-decisions.service";
+import {
+  getProfessionalCostComponentDecisionService,
+  getProfessionalRuleDefinitionService,
+} from "@/server/container";
 
 export type ProfessionalEstimateFormState =
   | { error: string }
@@ -47,6 +59,11 @@ export type NormLibraryFormState =
   | null;
 
 export type ResourcePriceFormState =
+  | { error: string }
+  | { success: string }
+  | null;
+
+export type ProfessionalRuleFormState =
   | { error: string }
   | { success: string }
   | null;
@@ -419,4 +436,121 @@ export async function closeResourcePriceValidity(
   revalidatePath("/professional-estimates/resources");
   revalidatePath("/professional-estimates", "layout");
   return { success: "Data de încheiere a valabilității a fost salvată." };
+}
+
+export async function createCompanyProfessionalRule(
+  _previous: ProfessionalRuleFormState,
+  formData: FormData,
+): Promise<ProfessionalRuleFormState> {
+  const { org } = await requireCurrentOrg();
+  const component = String(formData.get("component") ?? "");
+  const semantic = String(formData.get("semantic") ?? "");
+  let valueType: "percent" | "fixed_amount";
+  let calculationBasis: "labor_cost" | "material_cost" | "fixed_amount" | "direct_cost" | "estimate_cost_before_profit";
+
+  if (component === "labor_contributions" && semantic === "labor_percent") {
+    valueType = "percent";
+    calculationBasis = "labor_cost";
+  } else if (component === "material_transport" && semantic === "material_percent") {
+    valueType = "percent";
+    calculationBasis = "material_cost";
+  } else if (component === "material_transport" && semantic === "fixed_amount") {
+    valueType = "fixed_amount";
+    calculationBasis = "fixed_amount";
+  } else if (component === "overhead" && semantic === "overhead_direct") {
+    valueType = "percent";
+    calculationBasis = "direct_cost";
+  } else if (component === "overhead" && semantic === "overhead_labor") {
+    valueType = "percent";
+    calculationBasis = "labor_cost";
+  } else if (component === "estimated_profit" && semantic === "profit_percent") {
+    valueType = "percent";
+    calculationBasis = "estimate_cost_before_profit";
+  } else {
+    return { error: "Selectați o combinație validă pentru componenta aleasă." };
+  }
+
+  try {
+    await getProfessionalRuleDefinitionService().createCompanyRuleDefinition(
+      org.id,
+      {
+        name: String(formData.get("name") ?? ""),
+        component: component as SaveCostComponentDecisionInput["component"],
+        valueType,
+        value: String(formData.get("value") ?? ""),
+        currency:
+          valueType === "fixed_amount"
+            ? String(formData.get("currency") ?? "")
+            : null,
+        calculationBasis,
+        validFrom: String(formData.get("validFrom") ?? ""),
+        validTo: String(formData.get("validTo") ?? "") || null,
+        estimatePerspective: String(formData.get("estimatePerspective") ?? "") as
+          | "investor"
+          | "contractor"
+          | "any",
+        workKind: String(formData.get("workKind") ?? "") as
+          | "construction"
+          | "installation"
+          | "commissioning"
+          | "any",
+        sourceReference: String(formData.get("sourceReference") ?? "") || null,
+        notes: String(formData.get("notes") ?? "") || null,
+      },
+    );
+  } catch (error) {
+    if (error instanceof CompanyCalculationRuleSourceConflictError) {
+      return { error: error.message };
+    }
+    if (error instanceof ProfessionalRuleDefinitionValidationError) {
+      return { error: "Verificați denumirea, valoarea, valabilitatea și semantica regulii." };
+    }
+    throw error;
+  }
+  revalidatePath("/professional-estimates/rules");
+  return { success: "Regula internă a companiei a fost salvată." };
+}
+
+export async function saveProfessionalCostComponentDecision(
+  calculationContextId: string,
+  _previous: WorkQuantityItemFormState,
+  formData: FormData,
+): Promise<WorkQuantityItemFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    const workspace =
+      await getProfessionalEstimateWorkspaceService().getProfessionalEstimate(
+        org.id,
+        calculationContextId,
+      );
+    await getProfessionalCostComponentDecisionService().saveDecision(
+      org.id,
+      calculationContextId,
+      {
+        valuationDate: workspace.context.valuationDate,
+        currency: workspace.context.currency,
+        estimatePerspective: workspace.context.estimatePerspective,
+        workKind: workspace.context.workKind,
+      },
+      {
+        component: String(formData.get("component") ?? "") as
+          SaveCostComponentDecisionInput["component"],
+        decision: String(formData.get("decision") ?? "") as
+          SaveCostComponentDecisionInput["decision"],
+        professionalRuleDefinitionId:
+          String(formData.get("professionalRuleDefinitionId") ?? "") || null,
+        reason: String(formData.get("reason") ?? ""),
+      },
+    );
+  } catch (error) {
+    if (
+      error instanceof ProfessionalCostComponentDecisionError ||
+      error instanceof ProfessionalEstimateNotFoundError
+    ) {
+      return { error: error.message };
+    }
+    return errorState(error);
+  }
+  revalidatePath(`/professional-estimates/${calculationContextId}`);
+  return { success: "Decizia componentei a fost salvată." };
 }

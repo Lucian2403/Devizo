@@ -22,6 +22,24 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const rulesDirectory = join(
+    process.cwd(), "app", "(app)", "professional-estimates", "rules",
+  );
+  const page = readFileSync(join(rulesDirectory, "page.tsx"), "utf8");
+  const forms = readFileSync(join(rulesDirectory, "rule-forms.tsx"), "utf8");
+  assert.ok(forms.startsWith('"use client";'));
+  assert.ok(page.includes('import { CreateCompanyRuleForm } from "./rule-forms";'));
+  assert.ok(!page.includes("companyRuleComponentLabel"));
+  assert.ok(!forms.includes("companyRuleComponentLabel"));
+  assert.ok(page.includes("{componentLabels[component]}"));
+  assert.ok(page.includes("{componentLabels[rule.component]}"));
+  for (const label of [
+    "Contribuții aferente manoperei", "Transport materiale",
+    "Aprovizionare-depozitare", "Cheltuieli de regie", "Beneficiu estimat",
+  ]) assert.ok(page.includes(label), label);
+}
+
+{
   const forms = readFileSync(join(process.cwd(),
     "app", "(app)", "professional-estimates", "semantics-forms.tsx"), "utf8");
   const closure = forms.slice(forms.indexOf("export function CloseResourcePriceValidityForm"),
@@ -111,6 +129,7 @@ import {
         sourceId: "source-test", applicabilityDecisionId: "decision-test",
         sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
         ruleOrigin: "normative_sector_average", ratePercent: "2",
+        ruleValidFrom: "2012-08-17", ruleValidTo: null,
         procurementCategory: "construction_materials", materialBase: "99",
         amount: "1.98", valuationDate: context.valuationDate,
         estimatePerspective: "investor", workKind: "construction", currency: "MDL",

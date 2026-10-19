@@ -551,11 +551,31 @@ async function main(): Promise<void> {
     createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
   }));
   const rulesRepository: ProfessionalRuleDefinitionRepository = {
+    async getCompanyCalculationRuleSource() {
+      return null;
+    },
+    async insertCompanyCalculationRuleSourceIfAbsent(org) {
+      return {
+        id: "company-source",
+        organizationId: org,
+        code: "DEVIZO-COMPANY-CALC-RULES",
+        edition: "1",
+        title: "Reguli interne de calcul ale companiei",
+        sourceType: "company_custom",
+        jurisdiction: "MD",
+        status: "active",
+        officialStatus: "unknown",
+        monitoringEnabled: false,
+      };
+    },
     async createRuleDefinition() { throw new Error("No rules are created by estimate calculation."); },
     async getRuleDefinition(org, id) { return definitions.find((row) => row.organizationId === org && row.id === id) ?? null; },
     async listRuleDefinitionsForComponent(org, component) {
       assert.equal(org, organizationId);
       return definitions.filter((row) => row.organizationId === org && row.component === component);
+    },
+    async listRuleDefinitions(org) {
+      return definitions.filter((row) => row.organizationId === org);
     },
     async listRuleDefinitionsForSource() { return []; },
     async getApplicabilityDecisionForSource(org, sourceId, id) {
@@ -600,6 +620,10 @@ async function main(): Promise<void> {
   assert.equal(application?.materials[0]?.resourcePriceId, repository.priceId);
   assert.equal(application?.materials.length, 1, "Non-material types never enter the material base.");
   assert.equal(application?.valuationDate, context.valuationDate);
+  assert.equal(application?.ruleValidFrom, "2012-08-17");
+  assert.equal(application?.ruleValidTo, null);
+  assert.equal(application?.estimatePerspective, context.estimatePerspective);
+  assert.equal(application?.workKind, context.workKind);
 
   for (const semantics of [
     { vatTreatment: "inclusive", transportTreatment: "excluded" },

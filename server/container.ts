@@ -35,6 +35,8 @@ import { ProfessionalNormLibraryService } from "@/domain/professional-estimates/
 import { DrizzleProfessionalNormLibraryRepository } from "@/infrastructure/db/repositories/professionalNormLibrary.repository";
 import { ProfessionalResourcePricesService } from "@/domain/professional-estimates/professional-resource-prices.service";
 import { DrizzleProfessionalResourcePricesRepository } from "@/infrastructure/db/repositories/professionalResourcePrices.repository";
+import { ProfessionalCostComponentDecisionService } from "@/domain/professional-estimates/professional-cost-component-decisions.service";
+import { DrizzleProfessionalCostComponentDecisionRepository } from "@/infrastructure/db/repositories/professionalCostComponentDecisions.repository";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -89,6 +91,13 @@ export function getNormativeGovernanceService(): NormativeGovernanceService {
 export function getProfessionalRuleDefinitionService(): ProfessionalRuleDefinitionService {
   return new ProfessionalRuleDefinitionService(
     new DrizzleProfessionalRuleDefinitionRepository(),
+  );
+}
+
+export function getProfessionalCostComponentDecisionService(): ProfessionalCostComponentDecisionService {
+  return new ProfessionalCostComponentDecisionService(
+    new DrizzleProfessionalCostComponentDecisionRepository(),
+    getProfessionalRuleDefinitionService(),
   );
 }
 

@@ -11,6 +11,7 @@ import {
 } from "../domain/professional-estimates/calculation";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
@@ -30,6 +31,28 @@ class MemoryRuleDefinitionRepository
   definitions: ProfessionalRuleDefinitionRecord[] = [];
   decisions: SeededDecision[] = [];
   createCalls = 0;
+  companySource: CompanyCalculationRuleSourceRecord | null = null;
+
+  async getCompanyCalculationRuleSource() {
+    return this.companySource;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(organizationId: string) {
+    if (this.companySource) return null;
+    this.companySource = {
+      id: "10000000-0000-4000-8000-000000000001",
+      organizationId,
+      code: "DEVIZO-COMPANY-CALC-RULES",
+      edition: "1",
+      title: "Reguli interne de calcul ale companiei",
+      sourceType: "company_custom",
+      jurisdiction: "MD",
+      status: "active",
+      officialStatus: "unknown",
+      monitoringEnabled: false,
+    };
+    return this.companySource;
+  }
 
   async createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
@@ -82,6 +105,14 @@ class MemoryRuleDefinitionRepository
     );
   }
 
+  async listRuleDefinitions(
+    organizationId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.definitions.filter(
+      (definition) => definition.organizationId === organizationId,
+    );
+  }
+
   async listRuleDefinitionsForSource(
     organizationId: string,
     sourceId: string,
@@ -115,6 +146,7 @@ class MemoryRuleDefinitionRepository
 
 const ORG = "org-1";
 const SOURCE = "source-1";
+const UUID_ORG = "10000000-0000-4000-8000-000000000010";
 
 function baseInput(
   overrides: Partial<CreateProfessionalRuleDefinitionInput> = {},
@@ -196,6 +228,153 @@ async function expectError(code: string, run: () => Promise<unknown>): Promise<v
 }
 
 async function main(): Promise<void> {
+// Company rule source and definitions are organization-scoped and reusable.
+{
+  const repo = new MemoryRuleDefinitionRepository();
+  const service = new ProfessionalRuleDefinitionService(repo);
+  const source = await service.ensureCompanyCalculationRuleSource(UUID_ORG);
+  assert.equal(source.code, "DEVIZO-COMPANY-CALC-RULES");
+  assert.equal(source.edition, "1");
+  assert.equal(source.sourceType, "company_custom");
+  await service.ensureCompanyCalculationRuleSource(UUID_ORG);
+  assert.equal(repo.companySource?.id, source.id);
+
+  const created = await service.createCompanyRuleDefinition(UUID_ORG, {
+    name: "Company labor fixture",
+    component: "labor_contributions",
+    valueType: "percent",
+    value: "5",
+    calculationBasis: "labor_cost",
+    validFrom: "2026-01-01",
+    estimatePerspective: "investor",
+    workKind: "construction",
+  });
+  assert.equal(created.sourceId, source.id);
+  assert.equal(created.ruleOrigin, "company_individual");
+  assert.equal(created.applicabilityDecisionId, null);
+  assert.equal(repo.decisions.length, 0);
+  assert.equal(
+    (await service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Material percentage fixture",
+      component: "material_transport",
+      valueType: "percent",
+      value: "10",
+      calculationBasis: "material_cost",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    })).calculationBasis,
+    "material_cost",
+  );
+  assert.equal(
+    (await service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Fixed material transport fixture",
+      component: "material_transport",
+      valueType: "fixed_amount",
+      value: "12.5",
+      currency: "EUR",
+      calculationBasis: "fixed_amount",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    })).currency,
+    "EUR",
+  );
+  for (const basis of ["direct_cost", "labor_cost"] as const) {
+    assert.equal(
+      (await service.createCompanyRuleDefinition(UUID_ORG, {
+        name: `Overhead ${basis} fixture`,
+        component: "overhead",
+        valueType: "percent",
+        value: "10",
+        calculationBasis: basis,
+        validFrom: "2026-01-01",
+        estimatePerspective: "investor",
+        workKind: "construction",
+      })).calculationBasis,
+      basis,
+    );
+  }
+  assert.equal(
+    (await service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Estimated profit fixture",
+      component: "estimated_profit",
+      valueType: "percent",
+      value: "5",
+      calculationBasis: "estimate_cost_before_profit",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    })).calculationBasis,
+    "estimate_cost_before_profit",
+  );
+
+  await expectError("incompatible_rule_semantics", () =>
+    service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Invalid labor fixture",
+      component: "labor_contributions",
+      valueType: "percent",
+      value: "5",
+      calculationBasis: "direct_cost",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    }),
+  );
+  await expectError("invalid_currency", () =>
+    service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Fixed transport without currency",
+      component: "material_transport",
+      valueType: "fixed_amount",
+      value: "5",
+      calculationBasis: "fixed_amount",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    }),
+  );
+  await expectError("incompatible_rule_semantics", () =>
+    service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Invalid overhead basis",
+      component: "overhead",
+      valueType: "percent",
+      value: "10",
+      calculationBasis: "material_cost",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    }),
+  );
+  await expectError("incompatible_rule_semantics", () =>
+    service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "Invalid profit basis",
+      component: "estimated_profit",
+      valueType: "percent",
+      value: "5",
+      calculationBasis: "direct_cost",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    }),
+  );
+  await expectError("invalid_component", () =>
+    service.createCompanyRuleDefinition(UUID_ORG, {
+      name: "No procurement rule",
+      component: "procurement_storage",
+      valueType: "percent",
+      value: "2",
+      calculationBasis: "material_cost",
+      validFrom: "2026-01-01",
+      estimatePerspective: "investor",
+      workKind: "construction",
+    }),
+  );
+  assert.equal(
+    repo.definitions.some((definition) => definition.component === "procurement_storage"),
+    false,
+  );
+}
+
 // Source reads are scoped by both organization and source in the repository API.
 {
   const repo = new MemoryRuleDefinitionRepository();

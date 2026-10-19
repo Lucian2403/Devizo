@@ -71,7 +71,9 @@ async function main() {
     await client.unsafe(readFileSync("scripts/test-normative-database.sql", "utf8"));
     await client.unsafe(readFileSync("scripts/test-professional-norm-lifecycle.sql", "utf8"));
     await client.unsafe(readFileSync("scripts/test-professional-procurement-database.sql", "utf8"));
+    await client.unsafe(readFileSync("scripts/test-professional-cost-component-decisions-database.sql", "utf8"));
     console.log("M8.4D legacy migration defaults, semantic CHECK constraints and organization RLS checks passed.");
+    console.log("M8.4E component decision constraints, organization relationships, uniqueness and RLS checks passed.");
     console.log("Database guards, membership lifecycle, provenance, draft-only consumptions, rule-definition constraints, M8.4B norm publication lifecycle and RLS checks passed.");
     console.log("Test mutations rolled back; legacy migration fixtures remain in the disposable database.");
   } finally {

@@ -1001,6 +1001,9 @@ export const professionalRuleDefinitions = pgTable(
       table.id,
       table.organizationId,
     ),
+    orgIdComponentUnique: unique(
+      "professional_rule_definitions_id_org_component_unique",
+    ).on(table.id, table.organizationId, table.component),
     orgComponentIdx: index(
       "professional_rule_definitions_org_component_idx",
     ).on(table.organizationId, table.component),
@@ -1068,6 +1071,76 @@ export const professionalRuleDefinitions = pgTable(
       "professional_rule_definitions_name_check",
       sql`length(trim(${table.name})) > 0`,
     ),
+  }),
+);
+
+export const professionalCostComponentDecisions = pgTable(
+  "professional_cost_component_decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    calculationContextId: uuid("calculation_context_id").notNull(),
+    component: text("component").notNull(),
+    decision: text("decision").notNull(),
+    professionalRuleDefinitionId: uuid("professional_rule_definition_id"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    contextOrgFk: foreignKey({
+      columns: [table.calculationContextId, table.organizationId],
+      foreignColumns: [calculationContexts.id, calculationContexts.organizationId],
+      name: "professional_cost_component_decisions_context_org_fkey",
+    }).onDelete("cascade"),
+    ruleOrgFk: foreignKey({
+      columns: [
+        table.professionalRuleDefinitionId,
+        table.organizationId,
+        table.component,
+      ],
+      foreignColumns: [
+        professionalRuleDefinitions.id,
+        professionalRuleDefinitions.organizationId,
+        professionalRuleDefinitions.component,
+      ],
+      name: "professional_cost_component_decisions_rule_org_component_fkey",
+    }).onDelete("restrict"),
+    contextComponentUnique: unique(
+      "professional_cost_component_decisions_context_component_unique",
+    ).on(
+      table.organizationId,
+      table.calculationContextId,
+      table.component,
+    ),
+    orgIdUnique: unique(
+      "professional_cost_component_decisions_id_org_unique",
+    ).on(table.id, table.organizationId),
+    componentCheck: check(
+      "professional_cost_component_decisions_component_check",
+      sql`${table.component} in ('labor_contributions', 'material_transport', 'overhead', 'estimated_profit')`,
+    ),
+    decisionCheck: check(
+      "professional_cost_component_decisions_decision_check",
+      sql`${table.decision} in ('applied', 'not_applicable')`,
+    ),
+    decisionShapeCheck: check(
+      "professional_cost_component_decisions_shape_check",
+      sql`(
+        (${table.decision} = 'applied' and ${table.professionalRuleDefinitionId} is not null and ${table.reason} is null)
+        or
+        (${table.decision} = 'not_applicable' and ${table.professionalRuleDefinitionId} is null and ${table.reason} is not null and length(trim(${table.reason})) > 0)
+      )`,
+    ),
+    orgContextComponentIdx: index(
+      "professional_cost_component_decisions_org_context_component_idx",
+    ).on(table.organizationId, table.calculationContextId, table.component),
   }),
 );
 
