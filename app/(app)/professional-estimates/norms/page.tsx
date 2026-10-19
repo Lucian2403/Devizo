@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
@@ -76,7 +77,7 @@ export default async function ProfessionalNormLibraryPage() {
                       <dd>{norm.sourceTitle} · {norm.sourceCode}</dd>
                       <dt className="text-muted-foreground">Valabilitate</dt>
                       <dd>
-                        {norm.validFrom ?? "—"} – {norm.validTo ?? "—"}
+                        {formatDate(norm.validFrom)} – {formatDate(norm.validTo)}
                       </dd>
                       <dt className="text-muted-foreground">Publicare</dt>
                       <dd>

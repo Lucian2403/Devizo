@@ -2,6 +2,7 @@ import type {
   OrganizationId,
   SupportedCurrency,
 } from "@/domain/shared/types";
+import type { NormativeCalculationContext } from "./procurement-semantics";
 
 export interface ProfessionalEstimateData {
   name: string;
@@ -50,7 +51,7 @@ export type WorkQuantityItemUpdate = Omit<
 >;
 
 export interface ProfessionalEstimateWorkspace {
-  context: {
+  context: NormativeCalculationContext & {
     id: string;
     organizationId: OrganizationId;
     name: string;
@@ -96,6 +97,11 @@ export interface ProfessionalEstimateSummary {
 }
 
 export interface ProfessionalEstimateWorkspaceRepository {
+  updateCalculationContext(
+    organizationId: OrganizationId,
+    calculationContextId: string,
+    data: NormativeCalculationContext,
+  ): Promise<boolean>;
   listProfessionalEstimates(
     organizationId: OrganizationId,
   ): Promise<ProfessionalEstimateSummary[]>;

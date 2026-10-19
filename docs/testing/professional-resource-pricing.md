@@ -20,6 +20,11 @@ seeded automatically.
    | MAT-001 | 1200 | 100 kg | MDL |
    | MCH-001 | 250 | 1 h | MDL |
 
+   Since M8.4D, explicitly select **TVA în preț** and **Transport în preț**
+   when creating each price; unknown is a valid declaration. These fields do
+   not change the direct-cost arithmetic. For the normative material base and
+   required migration, follow the [procurement/storage checklist](professional-procurement-storage.md).
+
 5. Open the existing professional estimate with `Tencuieli interioare`,
    quantity `275 m²`, and norm `TEST-TENC-001` (basis `100 m²`).
 6. Expand **Vezi resursele** and verify the resource lines show:
@@ -47,6 +52,31 @@ seeded automatically.
 12. If a norm has a resource whose required quantity is exactly zero, confirm
     it displays that no price is required and contributes zero without a
     fabricated price record.
+
+## Closing an old price's validity
+
+Price records are never deleted and their value/provenance is not rewritten.
+On resource detail, **Închide valabilitatea** accepts only **Valabil până la**.
+For a closed record, **Modifică data de încheiere** corrects that same date.
+The required calendar date cannot precede the saved start date. This action
+updates only `resource_prices.valid_to`, separately from VAT/transport
+classification, and revalidates the resource register and estimate layout.
+No new migration or RLS change is needed.
+
+Application date displays and date-entry fields use `DD-Mmm-YYYY`, for example
+`19-Oct-2026`, with fixed English month abbreviations. Text fields validate real
+calendar dates and submit ISO `YYYY-MM-DD` values to the existing server
+validators; storage, calculations and inclusive boundaries are unchanged.
+Customer PDFs retain their frozen template's date formatting.
+
+With two MDL prices starting `2026-10-01` and `2026-10-19`, both open-ended,
+an estimate dated `2026-10-19` is ambiguous. Close the first at `2026-10-18`:
+the second alone must be selected on `2026-10-19`, while the first remains
+eligible on the inclusive closing date `2026-10-18`. Verify both records remain
+visible and their amounts, bases, currency, provenance and VAT/transport
+classifications are unchanged. Correct the closing date and verify it persists.
+An earlier-than-start or invalid date must produce a Romanian error without
+changing the record.
 
 ## Automated verification
 

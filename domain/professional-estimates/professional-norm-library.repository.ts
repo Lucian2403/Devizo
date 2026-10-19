@@ -1,5 +1,6 @@
 import type { OrganizationId } from "@/domain/shared/types";
 import type { ProfessionalResourceType } from "./types";
+import type { ProcurementCategory } from "./procurement-semantics";
 
 export interface CreateInternalNormData {
   code: string;
@@ -49,6 +50,7 @@ export interface NormResourceConsumption {
   code: string | null;
   name: string;
   resourceType: ProfessionalResourceType;
+  procurementCategory: ProcurementCategory | null;
   unit: string;
   quantityPerNormBasis: string;
 }

@@ -4,6 +4,7 @@ import {
 } from "@/domain/shared/types";
 import { DecimalParseError, parseDecimal } from "./calculation/decimal";
 import { isWorkspaceUuid } from "./workspace-identifiers";
+import { ESTIMATE_PERSPECTIVES, PROFESSIONAL_WORK_KINDS } from "./calculation";
 import type {
   ProfessionalEstimateData,
   ProfessionalEstimateSummary,
@@ -128,6 +129,31 @@ export class ProfessionalEstimateWorkspaceService {
   constructor(
     private readonly repository: ProfessionalEstimateWorkspaceRepository,
   ) {}
+
+  async updateCalculationContext(
+    organizationId: OrganizationId,
+    calculationContextId: string,
+    data: { estimatePerspective: string; workKind: string },
+  ): Promise<void> {
+    if (!isWorkspaceUuid(calculationContextId)) {
+      throw new ProfessionalEstimateNotFoundError();
+    }
+    const estimatePerspective = ESTIMATE_PERSPECTIVES.find(
+      (value) => value === data.estimatePerspective,
+    );
+    const workKind = PROFESSIONAL_WORK_KINDS.find(
+      (value) => value === data.workKind,
+    );
+    if (!estimatePerspective || !workKind) {
+      throw new ProfessionalEstimateValidationError(
+        "Selectați perspectiva devizului și tipul lucrărilor.",
+      );
+    }
+    const updated = await this.repository.updateCalculationContext(
+      organizationId, calculationContextId, { estimatePerspective, workKind },
+    );
+    if (!updated) throw new ProfessionalEstimateNotFoundError();
+  }
 
   listProfessionalEstimates(
     organizationId: OrganizationId,

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import type { OrganizationId, SupportedCurrency } from "@/domain/shared/types";
 import type {
   CreateResourcePriceData,
@@ -9,6 +9,7 @@ import type {
   ResourcePriceRecord,
 } from "@/domain/professional-estimates/professional-resource-prices.repository";
 import { db } from "@/infrastructure/db";
+import type { PriceSemantics, ProcurementCategory } from "@/domain/professional-estimates/procurement-semantics";
 import {
   normativeSources,
   professionalResources,
@@ -31,6 +32,8 @@ function toPriceRecord(
     sourceType: row.sourceType as ResourcePriceRecord["sourceType"],
     sourceReference: row.sourceReference,
     location: row.location,
+    vatTreatment: row.vatTreatment as PriceSemantics["vatTreatment"],
+    transportTreatment: row.transportTreatment as PriceSemantics["transportTreatment"],
     createdAt: row.createdAt,
   };
 }
@@ -38,6 +41,68 @@ function toPriceRecord(
 export class DrizzleProfessionalResourcePricesRepository
   implements ProfessionalResourcePricesRepository
 {
+  async getResourcePrice(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+  ): Promise<ResourcePriceRecord | null> {
+    const [row] = await db.select({ price: resourcePrices })
+      .from(resourcePrices)
+      .innerJoin(professionalResources, and(
+        eq(professionalResources.id, resourcePrices.resourceId),
+        eq(professionalResources.organizationId, resourcePrices.organizationId),
+      ))
+      .where(and(
+        eq(resourcePrices.organizationId, organizationId),
+        eq(resourcePrices.resourceId, resourceId),
+        eq(resourcePrices.id, priceId),
+      )).limit(1);
+    return row ? toPriceRecord(row.price) : null;
+  }
+
+  async closeResourcePriceValidity(
+    organizationId: OrganizationId, resourceId: string, priceId: string, validTo: string,
+  ): Promise<boolean> {
+    const rows = await db.update(resourcePrices).set({ validTo }).where(and(
+      eq(resourcePrices.organizationId, organizationId),
+      eq(resourcePrices.resourceId, resourceId),
+      eq(resourcePrices.id, priceId),
+      lte(resourcePrices.validFrom, validTo),
+      inArray(resourcePrices.resourceId, db.select({ id: professionalResources.id })
+        .from(professionalResources).where(and(
+          eq(professionalResources.id, resourceId),
+          eq(professionalResources.organizationId, organizationId),
+        ))),
+    )).returning({ id: resourcePrices.id });
+    return rows.length === 1;
+  }
+
+  async updatePriceSemantics(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+    semantics: PriceSemantics,
+  ): Promise<boolean> {
+    const rows = await db.update(resourcePrices).set({
+      vatTreatment: semantics.vatTreatment,
+      transportTreatment: semantics.transportTreatment,
+    }).where(and(
+      eq(resourcePrices.organizationId, organizationId),
+      eq(resourcePrices.resourceId, resourceId),
+      eq(resourcePrices.id, priceId),
+    )).returning({ id: resourcePrices.id });
+    return rows.length === 1;
+  }
+
+  async updateProcurementCategory(
+    organizationId: OrganizationId, resourceId: string,
+    category: ProcurementCategory | null,
+  ): Promise<boolean> {
+    const rows = await db.update(professionalResources).set({
+      procurementCategory: category, updatedAt: new Date(),
+    }).where(and(
+      eq(professionalResources.organizationId, organizationId),
+      eq(professionalResources.id, resourceId),
+      eq(professionalResources.resourceType, "material"),
+    )).returning({ id: professionalResources.id });
+    return rows.length === 1;
+  }
   private async loadResources(
     organizationId: OrganizationId,
     resourceId?: string,
@@ -89,6 +154,7 @@ export class DrizzleProfessionalResourcePricesRepository
           resource.resourceType as ProfessionalResource["resourceType"],
         unit: resource.unit,
         description: resource.description,
+        procurementCategory: resource.procurementCategory as ProcurementCategory | null,
         source: {
           type: source.sourceType,
           title: source.title,
@@ -148,6 +214,8 @@ export class DrizzleProfessionalResourcePricesRepository
         sourceType: data.sourceType,
         sourceReference: data.sourceReference ?? null,
         location: data.location ?? null,
+        vatTreatment: data.vatTreatment,
+        transportTreatment: data.transportTreatment,
       })
       .returning();
     if (!created) throw new Error("Nu s-a putut salva prețul resursei.");

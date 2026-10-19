@@ -1,4 +1,6 @@
 import { requireCurrentOrg } from "@/lib/auth/current-org";
+import { formatDate } from "@/lib/ui/date-display";
+import { DateInput } from "@/components/ui/date-input";
 import {
   getNormativeGovernanceService,
   getNormativeIntelligenceService,
@@ -90,16 +92,6 @@ function verificationClass(status: string): string {
   if (status === "success") return "text-status-ok-fg";
   if (status === "error") return "text-status-error-fg";
   return "text-muted-foreground";
-}
-
-function formatDate(value: string | Date | null): string {
-  if (!value) return "—";
-  const date = value instanceof Date ? value : new Date(value + "T00:00:00");
-  return new Intl.DateTimeFormat("ro-MD", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
 }
 
 function usageTotal(usage: {
@@ -525,9 +517,8 @@ export default async function NormativePage() {
                                         <span className="mb-1 block font-medium">
                                           Aplicabilă de la (necesar pentru „Aplicabilă”)
                                         </span>
-                                        <input
+                                        <DateInput
                                           className="w-full rounded-md border bg-background px-2 py-1.5"
-                                          type="date"
                                           name="applicableFrom"
                                         />
                                       </label>
@@ -535,9 +526,8 @@ export default async function NormativePage() {
                                         <span className="mb-1 block font-medium">
                                           Aplicabilă până la
                                         </span>
-                                        <input
+                                        <DateInput
                                           className="w-full rounded-md border bg-background px-2 py-1.5"
-                                          type="date"
                                           name="applicableUntil"
                                         />
                                       </label>
@@ -969,9 +959,8 @@ export default async function NormativePage() {
               </label>
               <label className="text-sm font-medium">
                 Dată relevantă (dacă este cunoscută)
-                <input
+                <DateInput
                   className="mt-1 w-full rounded-md border bg-background px-2 py-2"
-                  type="date"
                   name="effectiveDate"
                 />
               </label>

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/domain/professional-estimates/professional-resource-prices.service";
 import type { SupportedCurrency } from "@/domain/shared/types";
 import type { ResourcePriceFormState } from "../actions";
+import { PriceSemanticsFields } from "../semantics-forms";
 
 const sourceTypeLabels: Record<ResourcePriceSourceType, string> = {
   manual: "Manual",
@@ -78,20 +80,18 @@ export function CreateResourcePriceForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="resource-price-valid-from">Valabil de la</Label>
-        <Input
+        <DateInput
           id="resource-price-valid-from"
           name="validFrom"
-          type="date"
           defaultValue={defaultDate}
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="resource-price-valid-to">Valabil până la (opțional)</Label>
-        <Input
+        <DateInput
           id="resource-price-valid-to"
           name="validTo"
-          type="date"
         />
       </div>
       <div className="space-y-2">
@@ -126,6 +126,7 @@ export function CreateResourcePriceForm({
         </Label>
         <Input id="resource-price-location" name="location" maxLength={300} />
       </div>
+      <PriceSemanticsFields id="new-price" />
       <div className="space-y-3 sm:col-span-2">
         {state && "error" in state && (
           <p role="alert" className="text-sm text-destructive">

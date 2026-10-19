@@ -578,3 +578,69 @@ estimate form. A manually entered resource price is not represented as
 VAT-exclusive, transport-exclusive, or official unless separate persisted
 evidence says so. Price records retain their exact ID, source type/reference,
 location, validity, currency and basis quantity for future snapshots.
+
+## M8.4D real procurement/storage bridge
+
+The price register also supports a focused validity closure/correction action.
+It changes only `resource_prices.valid_to`, scoped to the authenticated
+organization and exact resource/price, after validating the date against the
+persisted start date. Price amounts, basis, currency, start date and provenance
+remain immutable through this action; semantic classification stays separate.
+History is retained without delete, schema or RLS changes. Inclusive end-date
+eligibility and the existing no-ranking ambiguity rules remain unchanged.
+
+Migration `0019_puzzling_vampiro` adds nullable `estimate_perspective` and
+`work_kind` to calculation contexts, nullable `procurement_category` to
+professional resources, and price `vat_treatment` / `transport_treatment`.
+Database CHECK constraints restrict these explicit classifications. Existing
+contexts and resources remain unclassified; old prices become
+`unknown` / `unknown`, never automatically VAT- or transport-exclusive.
+Organization RLS and its no-delete policy are unchanged.
+
+Context setup, material classification, and price classification are separate,
+organization-scoped actions. Price classification updates only its two semantic
+columns: it cannot change price, basis, currency, validity or provenance. New
+prices require explicit semantic choices (including an honest `unknown`).
+Category is not inferred from codes, descriptions, AI, or the assigned norm.
+
+Direct material prices do **not** automatically qualify as a CP L.01.07 base.
+Only non-zero material resource requirements with a selected, same-currency
+price, an explicit category, confirmed `exclusive` VAT and `excluded` transport
+enter an eligible base. No VAT stripping, transport estimation, or semantic
+fallback is performed. Unsafe/unclassified/unpriced resources are visibly
+blocked. Zero-quantity lines do not need prices; an empty norm composition is
+still incomplete.
+
+The estimate loads candidate definitions using the existing
+`ProfessionalRuleDefinitionService.loadCandidatesForComponent`, retaining its
+official applicability governance gate and `mapRuleDefinitionToCandidate`
+mapping. M8.3C `resolveProfessionalRule` remains the only eligibility authority.
+It uses the saved valuation date, perspective, work kind, currency and exact
+procurement category. Investor sector-average rules are not reused for
+contractors. `missing != not_applicable`, and `ambiguous != selected`; no rule
+ranking, default rate, or equipment fallback is introduced.
+
+The pure `calculation/procurement-storage.ts` helper groups eligible material
+costs by exact category and calculates each selected percentage separately with
+the professional Decimal helpers. It preserves rule/source/decision IDs, source
+reference, origin, rate, context, material resource/consumption/price IDs, bases
+and amounts. Values are calculated on each read, not persisted or rounded to
+two decimals.
+
+A blocked non-zero material retains its known procurement category. Any such
+block prevents an application for that category, even if other materials
+provide a known eligible partial base and the resolver selects a rule.
+Independent categories retain their own resolution and application diagnostics.
+While the overall procurement result is incomplete, the UI shows only diagnostic
+bases/rules and block messages, never applied category amounts or normative
+totals.
+
+M8.4D produces an **intermediate normative component**, not a final estimate.
+The optional direct-plus-procurement amount is withheld whenever direct costs,
+context, classifications, prices or any represented category are unresolved;
+it is also withheld when work positions lack assigned norms. No overhead,
+profit, labor contribution, material transport adjustment, VAT, final form,
+snapshot, or full M8.3B cost-stack integration is included. No artificial
+`not_applicable` decisions are created.
+
+See [manual acceptance](../testing/professional-procurement-storage.md).

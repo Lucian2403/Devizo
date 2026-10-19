@@ -21,6 +21,7 @@ import {
   ProfessionalEstimateWorkspaceService,
 } from "../domain/professional-estimates/professional-estimate-workspace.service";
 import { formatRomanianDecimal } from "../lib/ui/decimal-display";
+import type { NormativeCalculationContext } from "../domain/professional-estimates/procurement-semantics";
 import {
   calculationContexts,
   constructionObjects,
@@ -48,11 +49,25 @@ class MemoryWorkspaceRepository
       valuationDate: string;
       currency: "MDL" | "EUR" | "RON" | "USD" | "GBP";
       method: "resource";
+      estimatePerspective: NormativeCalculationContext["estimatePerspective"];
+      workKind: NormativeCalculationContext["workKind"];
     };
     items: WorkQuantityItem[];
   }> = [];
   failAtContextCreation = false;
   readonly identifierCalls = { get: 0, createItem: 0, updateItem: 0 };
+
+  async updateCalculationContext(
+    organizationId: string, calculationContextId: string, data: NormativeCalculationContext,
+  ): Promise<boolean> {
+    const entry = this.created.find((row) =>
+      row.context.organizationId === organizationId && row.context.id === calculationContextId,
+    );
+    if (!entry) return false;
+    entry.context.estimatePerspective = data.estimatePerspective;
+    entry.context.workKind = data.workKind;
+    return true;
+  }
 
   async listProfessionalEstimates(
     organizationId: string,
@@ -67,6 +82,8 @@ class MemoryWorkspaceRepository
           valuationDate: entry.context.valuationDate,
           currency: entry.context.currency,
           method: entry.context.method,
+          estimatePerspective: entry.context.estimatePerspective,
+          workKind: entry.context.workKind,
         },
         constructionObject: {
           id: entry.object.id,
@@ -111,6 +128,8 @@ class MemoryWorkspaceRepository
         valuationDate: entry.context.valuationDate,
         currency: entry.context.currency,
         method: entry.context.method,
+        estimatePerspective: entry.context.estimatePerspective,
+        workKind: entry.context.workKind,
       },
       constructionObject: {
         id: entry.object.id,
@@ -160,6 +179,8 @@ class MemoryWorkspaceRepository
         valuationDate: data.valuationDate,
         currency: data.currency,
         method: "resource" as const,
+        estimatePerspective: null,
+        workKind: null,
       },
       items: [],
     };
@@ -245,6 +266,29 @@ assert.equal(created.context.workQuantityListId, created.list.id);
 assert.equal(created.list.revision, 1);
 assert.equal(created.context.method, "resource");
 assert.equal((await service.getProfessionalEstimate("org-a", contextId)).items.length, 0);
+assert.equal(created.context.estimatePerspective, null);
+assert.equal(created.context.workKind, null);
+for (const estimatePerspective of ["investor", "contractor"]) {
+  for (const workKind of ["construction", "installation", "commissioning"]) {
+    await service.updateCalculationContext("org-a", contextId, { estimatePerspective, workKind });
+    const saved = await service.getProfessionalEstimate("org-a", contextId);
+    assert.equal(saved.context.estimatePerspective, estimatePerspective);
+    assert.equal(saved.context.workKind, workKind);
+  }
+}
+for (const invalid of [
+  { estimatePerspective: "any", workKind: "construction" },
+  { estimatePerspective: "investor", workKind: "other" },
+  { estimatePerspective: "", workKind: "" },
+]) {
+  await assert.rejects(service.updateCalculationContext("org-a", contextId, invalid), ProfessionalEstimateValidationError);
+}
+await assert.rejects(service.updateCalculationContext("org-b", contextId, {
+  estimatePerspective: "investor", workKind: "construction",
+}), ProfessionalEstimateNotFoundError);
+await assert.rejects(service.updateCalculationContext("org-a", "bad-id", {
+  estimatePerspective: "investor", workKind: "construction",
+}), ProfessionalEstimateNotFoundError);
 await assert.rejects(
   service.getProfessionalEstimate("org-b", contextId),
   ProfessionalEstimateNotFoundError,

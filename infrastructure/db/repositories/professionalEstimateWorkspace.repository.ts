@@ -14,6 +14,7 @@ import {
   DuplicateWorkPositionError,
 } from "@/domain/professional-estimates/professional-estimate-workspace.repository";
 import { db } from "@/infrastructure/db";
+import type { NormativeCalculationContext } from "@/domain/professional-estimates/procurement-semantics";
 import {
   calculationContexts,
   constructionObjects,
@@ -50,6 +51,21 @@ function isUniqueConstraintConflict(error: unknown, constraint: string): boolean
 export class DrizzleProfessionalEstimateWorkspaceRepository
   implements ProfessionalEstimateWorkspaceRepository
 {
+  async updateCalculationContext(
+    organizationId: OrganizationId,
+    calculationContextId: string,
+    data: NormativeCalculationContext,
+  ): Promise<boolean> {
+    const rows = await db.update(calculationContexts).set({
+      estimatePerspective: data.estimatePerspective,
+      workKind: data.workKind,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(calculationContexts.organizationId, organizationId),
+      eq(calculationContexts.id, calculationContextId),
+    )).returning({ id: calculationContexts.id });
+    return rows.length === 1;
+  }
   async listProfessionalEstimates(
     organizationId: OrganizationId,
   ): Promise<ProfessionalEstimateSummary[]> {
@@ -97,6 +113,8 @@ export class DrizzleProfessionalEstimateWorkspaceRepository
         organizationId: context.organizationId,
         name: context.name,
         valuationDate: context.valuationDate,
+        estimatePerspective: context.estimatePerspective as NormativeCalculationContext["estimatePerspective"],
+        workKind: context.workKind as NormativeCalculationContext["workKind"],
         currency: context.currency as ProfessionalEstimateSummary["context"]["currency"],
         method: "resource",
       },
@@ -171,6 +189,8 @@ export class DrizzleProfessionalEstimateWorkspaceRepository
         organizationId: row.context.organizationId,
         name: row.context.name,
         valuationDate: row.context.valuationDate,
+        estimatePerspective: row.context.estimatePerspective as NormativeCalculationContext["estimatePerspective"],
+        workKind: row.context.workKind as NormativeCalculationContext["workKind"],
         currency: row.context.currency as ProfessionalEstimateWorkspace["context"]["currency"],
         method: "resource",
       },

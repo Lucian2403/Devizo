@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import type { ProfessionalRuleDefinitionRecord } from "@/domain/professional-estimates/professional-rule-definitions.repository";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
+import { formatDate } from "@/lib/ui/date-display";
+import { DateInput } from "@/components/ui/date-input";
 import {
   installCpL010720112RulePack,
   verifyCpL010720112Calculation,
@@ -29,16 +31,6 @@ interface PersistedRule {
   ruleOrigin: ProfessionalRuleDefinitionRecord["ruleOrigin"];
   sourceReference: string | null;
   applicabilityDecisionId: string | null;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("ro-MD", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00Z`));
 }
 
 function categoryName(category: string | null): string {
@@ -235,12 +227,11 @@ export function CpL010720112RulePackPanel({
             <input type="hidden" name="sourceId" value={sourceId} />
             <label className="block text-sm">
               <span className="mb-1 block font-medium">Data evaluării</span>
-              <input
+              <DateInput
                 className="w-full rounded-md border bg-background px-3 py-2"
-                type="date"
                 name="valuationDate"
                 value={valuationDate}
-                onChange={(event) => setValuationDate(event.target.value)}
+                onValueChange={setValuationDate}
                 required
               />
             </label>

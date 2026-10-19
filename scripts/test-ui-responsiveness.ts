@@ -5,6 +5,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "../components/ui/button";
 import { formatRomanianDecimal } from "../lib/ui/decimal-display";
+import { DateInput } from "../components/ui/date-input";
+import { dateInputError, formatDate, parseDateInput } from "../lib/ui/date-display";
+import { NormativeCosts } from "../app/(app)/professional-estimates/[calculationContextId]/normative-costs";
+import type { ProcurementStorageResult } from "../domain/professional-estimates/calculation/procurement-storage";
+import type { ProfessionalEstimateWorkspace } from "../domain/professional-estimates/professional-estimate-workspace.repository";
 import { startsInAppNavigation } from "../lib/ui/navigation";
 import {
   isProgressActive,
@@ -15,6 +20,182 @@ import {
   canUsePreparedStatements,
   preferPreparedStatements,
 } from "../infrastructure/db/prepared-statements";
+
+{
+  const forms = readFileSync(join(process.cwd(),
+    "app", "(app)", "professional-estimates", "semantics-forms.tsx"), "utf8");
+  const closure = forms.slice(forms.indexOf("export function CloseResourcePriceValidityForm"),
+    forms.indexOf("export function PriceSemanticsFields"));
+  assert.ok(closure.includes('validTo ? "Modifică data de încheiere" : "Închide valabilitatea"'));
+  assert.ok(closure.includes("Valabil până la"));
+  assert.match(closure, /<DateInput[^>]*name="validTo"\s+required min=\{validFrom\} defaultValue=\{validTo \?\? ""\}/);
+  assert.ok(closure.includes("<Message state={state} />"));
+  for (const field of [
+    "price", "basisQuantity", "currency", "validFrom", "sourceType", "sourceReference",
+    "location", "vatTreatment", "transportTreatment", "organizationId",
+  ]) assert.ok(!closure.includes(`name="${field}"`), field);
+  const actions = readFileSync(join(process.cwd(),
+    "app", "(app)", "professional-estimates", "actions.ts"), "utf8");
+  const action = actions.slice(actions.indexOf("export async function closeResourcePriceValidity"));
+  assert.ok(action.includes("await requireCurrentOrg()"));
+  assert.ok(action.includes('formData.get("validTo")'));
+  assert.ok(action.includes('revalidatePath(`/professional-estimates/resources/${resourceId}`)'));
+  assert.ok(action.includes('revalidatePath("/professional-estimates", "layout")'));
+  const detail = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "resources", "[resourceId]", "page.tsx"), "utf8");
+  assert.ok(detail.includes("Prețurile nu se șterg și valoarea lor nu se rescrie retroactiv."));
+  assert.ok(detail.includes("closeResourcePriceValidity.bind(null, resource.id, price.id)"));
+}
+
+{
+  assert.equal(formatDate("2026-10-19"), "19-Oct-2026");
+  assert.equal(formatDate(new Date("2026-10-19T00:00:00Z")), "19-Oct-2026");
+  assert.equal(formatDate("2026-10-19T00:30:00+03:00"), "18-Oct-2026");
+  assert.equal(formatDate(null), "—");
+  assert.equal(formatDate(undefined), "—");
+  assert.equal(formatDate(""), "—");
+  assert.throws(() => formatDate("2026-02-30"));
+  assert.throws(() => formatDate("invalid"));
+  assert.throws(() => formatDate(new Date("invalid")));
+  assert.equal(parseDateInput("19-Oct-2026"), "2026-10-19");
+  assert.equal(parseDateInput(" 19-oct-2026 "), "2026-10-19");
+  assert.equal(parseDateInput("29-Feb-2024"), "2024-02-29");
+  for (const invalid of ["29-Feb-2026", "31-Apr-2026", "19-xxx-2026", "2026-10-19", "10/19/2026", ""]) {
+    assert.equal(parseDateInput(invalid), null, invalid);
+  }
+  for (let month = 1; month <= 12; month++) {
+    const iso = `2026-${String(month).padStart(2, "0")}-19`;
+    assert.equal(parseDateInput(formatDate(iso)), iso);
+  }
+  assert.equal(dateInputError("19-Oct-2026", "2026-10-19", "2026-10-19"), "");
+  assert.ok(dateInputError("18-Oct-2026", "2026-10-19").includes("19-Oct-2026"));
+  assert.ok(dateInputError("20-Oct-2026", undefined, "2026-10-19").includes("19-Oct-2026"));
+  assert.ok(dateInputError("31-Feb-2026").includes("19-Oct-2026"));
+  assert.ok(dateInputError("   ").includes("19-Oct-2026"));
+  assert.equal(dateInputError(""), "");
+  const rendered = renderToStaticMarkup(createElement(DateInput, {
+    id: "test-date", name: "validTo", defaultValue: "2026-10-19", required: true,
+  }));
+  assert.ok(rendered.includes('type="text"'));
+  assert.ok(rendered.includes('value="19-Oct-2026"'));
+  assert.ok(rendered.includes('type="hidden" name="validTo" value="2026-10-19"'));
+}
+
+{
+  const context: ProfessionalEstimateWorkspace["context"] = {
+    id: "context-1", organizationId: "org-1", name: "Test",
+    valuationDate: "2026-06-15", currency: "MDL", method: "resource",
+    estimatePerspective: "investor", workKind: "construction",
+  };
+  const result: ProcurementStorageResult = {
+    contextComplete: true, complete: true, blocks: [],
+    directResourceTotal: "4224", procurementStorageTotal: "1.98",
+    directPlusProcurement: "4225.98",
+    categories: [{
+      category: "construction_materials", materialBase: "99",
+      resolution: {
+        component: "procurement_storage", valuationDate: context.valuationDate,
+        status: "selected", eligibleCandidates: [],
+        candidate: {
+          candidateId: "definition-test", component: "procurement_storage",
+          valueType: "percent", value: "2", currency: null,
+          calculationBasis: "material_cost", validFrom: "2012-08-17", validTo: null,
+          estimatePerspective: "investor", workKind: "any",
+          procurementCategory: "construction_materials",
+          ruleOrigin: "normative_sector_average", sourceId: "source-test",
+          sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
+        },
+      },
+      application: {
+        professionalRuleDefinitionId: "definition-test",
+        sourceId: "source-test", applicabilityDecisionId: "decision-test",
+        sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
+        ruleOrigin: "normative_sector_average", ratePercent: "2",
+        procurementCategory: "construction_materials", materialBase: "99",
+        amount: "1.98", valuationDate: context.valuationDate,
+        estimatePerspective: "investor", workKind: "construction", currency: "MDL",
+        materials: [{
+          workQuantityItemId: "position-test", resourceConsumptionId: "consumption-test",
+          resourceId: "resource-test", resourcePriceId: "price-test", resourceCost: "99",
+        }],
+      },
+    }],
+  };
+  const markup = renderToStaticMarkup(createElement(NormativeCosts, {
+    result, context, allPositionsAssigned: true,
+  }));
+  for (const expected of [
+    "Costuri normative", "1,98 MDL", "4 225,98 MDL", "Investitor", "Construcții",
+    "definition-test", "source-test", "decision-test", "resource-test", "price-test",
+  ]) assert.ok(markup.includes(expected), expected);
+  const unassigned = renderToStaticMarkup(createElement(NormativeCosts, {
+    result, context, allPositionsAssigned: false,
+  }));
+  assert.ok(unassigned.includes("Nu toate pozițiile au norme alocate"));
+  assert.ok(!unassigned.includes("Cost direct + aprovizionare-depozitare:"));
+  const blocked = renderToStaticMarkup(createElement(NormativeCosts, {
+    context: { ...context, estimatePerspective: null },
+    allPositionsAssigned: false,
+    result: {
+      ...result, contextComplete: false, complete: false,
+      procurementStorageTotal: null, directPlusProcurement: null, categories: [],
+      blocks: [{
+        workQuantityItemId: "position-test", resourceId: "resource-test",
+        resourceName: "Material", reason: "price_semantics",
+        procurementCategory: "construction_materials",
+      }],
+    },
+  }));
+  assert.ok(blocked.includes("Selectați perspectiva devizului"));
+  assert.ok(blocked.includes("Prețul nu este confirmat"));
+  assert.ok(!blocked.includes("1,98 MDL"));
+  assert.ok(!blocked.includes("4 225,98 MDL"));
+  const incomplete = renderToStaticMarkup(createElement(NormativeCosts, {
+    context, allPositionsAssigned: true,
+    result: { ...result, complete: false },
+  }));
+  assert.ok(incomplete.includes("Calcul incomplet"));
+  assert.ok(incomplete.includes("Regulă eligibilă (neaplicată)"));
+  assert.ok(incomplete.includes("99 MDL"));
+  assert.ok(!incomplete.includes("1,98 MDL"));
+  assert.ok(!incomplete.includes("4 225,98 MDL"));
+  assert.ok(!incomplete.includes("Aprovizionare-depozitare:"));
+  assert.ok(!unassigned.includes("1,98 MDL"));
+  const partialCategory = renderToStaticMarkup(createElement(NormativeCosts, {
+    context, allPositionsAssigned: true,
+    result: {
+      ...result, complete: false, procurementStorageTotal: null, directPlusProcurement: null,
+      categories: result.categories.map((entry) => ({ ...entry, application: null })),
+      blocks: [{
+        workQuantityItemId: "position-test", resourceId: "material-B",
+        resourceName: "Material B", reason: "price_semantics",
+        procurementCategory: "construction_materials",
+      }],
+    },
+  }));
+  assert.ok(partialCategory.includes("Material B"));
+  assert.ok(partialCategory.includes("Prețul nu este confirmat"));
+  assert.ok(partialCategory.includes("Bază eligibilă cunoscută (diagnostic)"));
+  assert.ok(partialCategory.includes("Regulă eligibilă (neaplicată)"));
+  assert.ok(partialCategory.includes("2%"));
+  assert.ok(!partialCategory.includes("Aprovizionare-depozitare:"));
+  assert.ok(!partialCategory.includes("1,98 MDL"));
+  for (const status of ["missing", "ambiguous"] as const) {
+    const unresolved = renderToStaticMarkup(createElement(NormativeCosts, {
+      context, allPositionsAssigned: true,
+      result: {
+        ...result, complete: false, procurementStorageTotal: null, directPlusProcurement: null,
+        categories: result.categories.map((entry) => ({
+          ...entry, application: null, resolution: { ...entry.resolution, status },
+        })),
+      },
+    }));
+    assert.ok(unresolved.includes(status === "missing"
+      ? "Nu există o regulă eligibilă" : "Devizo nu a ales automat una"));
+    assert.ok(!unresolved.includes("1,98 MDL"));
+    assert.ok(!unresolved.includes("4 225,98 MDL"));
+  }
+}
 
 {
   for (const [input, expected] of [

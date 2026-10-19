@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { SupportedCurrency } from "@/domain/shared/types";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { ProfessionalEstimateFormState } from "./actions";
@@ -42,7 +43,7 @@ export function ProfessionalEstimateCreateForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="valuationDate">Data evaluării</Label>
-              <Input id="valuationDate" name="valuationDate" type="date" required />
+              <DateInput id="valuationDate" name="valuationDate" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="currency">Moneda</Label>
@@ -89,7 +90,7 @@ export function ProfessionalEstimateCreateForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sourceDate">Data sursei</Label>
-                <Input id="sourceDate" name="sourceDate" type="date" />
+                <DateInput id="sourceDate" name="sourceDate" />
               </div>
             </div>
           </div>
