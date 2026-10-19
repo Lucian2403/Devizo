@@ -33,7 +33,16 @@ import {
       category: "construction_materials", materialBase: "99",
       resolution: {
         component: "procurement_storage", valuationDate: context.valuationDate,
-        status: "selected", candidate: null, eligibleCandidates: [],
+        status: "selected", eligibleCandidates: [],
+        candidate: {
+          candidateId: "definition-test", component: "procurement_storage",
+          valueType: "percent", value: "2", currency: null,
+          calculationBasis: "material_cost", validFrom: "2012-08-17", validTo: null,
+          estimatePerspective: "investor", workKind: "any",
+          procurementCategory: "construction_materials",
+          ruleOrigin: "normative_sector_average", sourceId: "source-test",
+          sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
+        },
       },
       application: {
         professionalRuleDefinitionId: "definition-test",
@@ -71,6 +80,7 @@ import {
       blocks: [{
         workQuantityItemId: "position-test", resourceId: "resource-test",
         resourceName: "Material", reason: "price_semantics",
+        procurementCategory: "construction_materials",
       }],
     },
   }));
@@ -78,6 +88,36 @@ import {
   assert.ok(blocked.includes("Prețul nu este confirmat"));
   assert.ok(!blocked.includes("1,98 MDL"));
   assert.ok(!blocked.includes("4 225,98 MDL"));
+  const incomplete = renderToStaticMarkup(createElement(NormativeCosts, {
+    context, allPositionsAssigned: true,
+    result: { ...result, complete: false },
+  }));
+  assert.ok(incomplete.includes("Calcul incomplet"));
+  assert.ok(incomplete.includes("Regulă eligibilă (neaplicată)"));
+  assert.ok(incomplete.includes("99 MDL"));
+  assert.ok(!incomplete.includes("1,98 MDL"));
+  assert.ok(!incomplete.includes("4 225,98 MDL"));
+  assert.ok(!incomplete.includes("Aprovizionare-depozitare:"));
+  assert.ok(!unassigned.includes("1,98 MDL"));
+  const partialCategory = renderToStaticMarkup(createElement(NormativeCosts, {
+    context, allPositionsAssigned: true,
+    result: {
+      ...result, complete: false, procurementStorageTotal: null, directPlusProcurement: null,
+      categories: result.categories.map((entry) => ({ ...entry, application: null })),
+      blocks: [{
+        workQuantityItemId: "position-test", resourceId: "material-B",
+        resourceName: "Material B", reason: "price_semantics",
+        procurementCategory: "construction_materials",
+      }],
+    },
+  }));
+  assert.ok(partialCategory.includes("Material B"));
+  assert.ok(partialCategory.includes("Prețul nu este confirmat"));
+  assert.ok(partialCategory.includes("Bază eligibilă cunoscută (diagnostic)"));
+  assert.ok(partialCategory.includes("Regulă eligibilă (neaplicată)"));
+  assert.ok(partialCategory.includes("2%"));
+  assert.ok(!partialCategory.includes("Aprovizionare-depozitare:"));
+  assert.ok(!partialCategory.includes("1,98 MDL"));
   for (const status of ["missing", "ambiguous"] as const) {
     const unresolved = renderToStaticMarkup(createElement(NormativeCosts, {
       context, allPositionsAssigned: true,

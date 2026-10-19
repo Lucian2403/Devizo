@@ -66,6 +66,16 @@ production rule definitions for this checklist.
 22. Verify missing/ambiguous resource prices still block their material base.
     Do not create fake production rules to test ambiguity; automated fixtures
     cover overlapping rules and separate construction/metal bases.
+23. In one category, use two technical materials costing `100` and `200`.
+    Confirm the first as exclusive/excluded and leave the second VAT-unknown.
+    The known eligible base may show `100` and a selected `2%` rule, but the
+    category is not applied: no `2 MDL` procurement amount or combined total.
+    Confirm the second price as exclusive/excluded: the base becomes `300`
+    and procurement/storage becomes `6 MDL`. Repeat with a missing and an
+    ambiguous direct price for the second material; both must suppress the
+    category application. An independently resolved metal category may retain
+    diagnostics internally, but the incomplete estimate must show no applied
+    procurement amounts for any category.
 
 No overhead, profit, labor contributions, material transport calculation, VAT,
 final estimate totals/forms, or immutable calculation snapshot is expected.

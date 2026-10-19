@@ -625,15 +625,90 @@ async function main(): Promise<void> {
     })),
   }), context, candidates);
   assert.equal(partiallyClassified.blocks[0]?.reason, "category");
+  assert.equal(partiallyClassified.blocks[0]?.procurementCategory, null);
   assert.equal(partiallyClassified.complete, false);
   assert.equal(partiallyClassified.procurementStorageTotal, null);
   assert.equal(partiallyClassified.directPlusProcurement, null);
+
+  const sameCategoryPosition: ResourcePricingPositionInput = {
+    ...multiPosition,
+    resources: multiPosition.resources.map((entry) => ({
+      ...entry, procurementCategory: "construction_materials",
+    })),
+  };
+  const safePrices = [...repository.candidates];
+  for (const blockedState of ["price_semantics", "missing", "ambiguous"] as const) {
+    const materialB = safePrices[1]!;
+    repository.candidates = blockedState === "price_semantics"
+      ? [safePrices[0]!, { ...materialB, vatTreatment: "unknown" }]
+      : blockedState === "missing"
+        ? [safePrices[0]!]
+        : [...safePrices, { ...materialB, id: "duplicate-B", resourcePriceId: "duplicate-B" }];
+    const partial = calculateProcurementStorage(
+      await calculate(sameCategoryPosition), context, candidates,
+    );
+    assert.equal(partial.blocks.length, 1);
+    assert.equal(partial.blocks[0]?.resourceId, resourceIds.unpriced);
+    assert.equal(partial.blocks[0]?.procurementCategory, "construction_materials");
+    assert.equal(partial.blocks[0]?.reason,
+      blockedState === "price_semantics" ? "price_semantics" : "direct_price");
+    assert.equal(partial.categories[0]?.materialBase, "100");
+    assert.equal(partial.categories[0]?.resolution.status, "selected");
+    assert.equal(partial.categories[0]?.application, null);
+    assert.equal(partial.complete, false);
+    assert.equal(partial.procurementStorageTotal, null);
+    assert.equal(partial.directPlusProcurement, null);
+
+    repository.candidates = [...safePrices];
+    const restored = calculateProcurementStorage(
+      await calculate(sameCategoryPosition), context, candidates,
+    );
+    assert.equal(restored.complete, true);
+    assert.deepEqual(restored.blocks, []);
+    assert.equal(restored.categories[0]?.materialBase, "300");
+    assert.equal(restored.categories[0]?.application?.amount, "6");
+    assert.equal(restored.procurementStorageTotal, "6");
+    assert.equal(restored.directPlusProcurement, "306");
+  }
+  repository.candidates = [
+    safePrices[0]!, { ...safePrices[1]!, vatTreatment: "unknown" },
+    price(resourceIds.zero, { price: "400", vatTreatment: "exclusive", transportTreatment: "excluded" }),
+  ];
+  const separateCategory = calculateProcurementStorage(await calculate({
+    ...sameCategoryPosition,
+    resources: [
+      ...sameCategoryPosition.resources,
+      { ...line("METAL", resourceIds.zero, "material", "1", "kg"), procurementCategory: "metal_structures" },
+    ],
+  }), context, candidates);
+  assert.equal(separateCategory.categories.find((entry) =>
+    entry.category === "construction_materials")?.application, null);
+  const independentMetal = separateCategory.categories.find((entry) =>
+    entry.category === "metal_structures");
+  assert.equal(independentMetal?.resolution.status, "selected");
+  assert.equal(independentMetal?.materialBase, "400");
+  assert.equal(independentMetal?.application?.amount, "3");
+  assert.equal(separateCategory.complete, false);
+  assert.equal(separateCategory.procurementStorageTotal, null);
+  assert.equal(separateCategory.directPlusProcurement, null);
+
+  repository.candidates = [];
+  const unclassifiedUnpriced = calculateProcurementStorage(await calculate({
+    ...sameCategoryPosition,
+    resources: [line("UNCLASSIFIED", resourceIds.material, "material", "1", "kg")],
+  }), context, candidates);
+  assert.equal(unclassifiedUnpriced.blocks[0]?.reason, "category");
+  assert.equal(unclassifiedUnpriced.blocks[0]?.procurementCategory, null);
+  assert.equal(unclassifiedUnpriced.complete, false);
+  assert.equal(unclassifiedUnpriced.procurementStorageTotal, null);
+  assert.equal(unclassifiedUnpriced.directPlusProcurement, null);
 
   const empty = calculateProcurementStorage(
     await calculate({ ...classifiedPosition, resources: [] }), context, candidates,
   );
   assert.equal(empty.complete, false);
   assert.equal(empty.blocks[0]?.reason, "empty_composition");
+  assert.equal(empty.blocks[0]?.procurementCategory, null);
   assert.equal(empty.directResourceTotal, null);
   assert.equal(empty.procurementStorageTotal, null);
   assert.equal(empty.directPlusProcurement, null);

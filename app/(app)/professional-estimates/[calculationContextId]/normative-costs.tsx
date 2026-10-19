@@ -25,6 +25,7 @@ export function NormativeCosts({
   allPositionsAssigned: boolean;
 }) {
   const money = (value: string) => formatProfessionalResourceMoney(value, context.currency);
+  const canApply = result.complete && allPositionsAssigned;
   return (
     <Card>
       <CardHeader><CardTitle>Costuri normative</CardTitle></CardHeader>
@@ -39,6 +40,8 @@ export function NormativeCosts({
           <p className="text-sm text-amber-700">Selectați perspectiva devizului și tipul lucrărilor.</p>}
         {!allPositionsAssigned &&
           <p className="text-sm text-amber-700">Nu toate pozițiile au norme alocate.</p>}
+        {!canApply &&
+          <p className="text-sm text-amber-700">Calcul incomplet. Aprovizionarea-depozitarea nu este aplicată.</p>}
         {result.blocks.map((block, index) => (
           <div key={`${block.workQuantityItemId}-${block.resourceId}-${index}`}
             className="rounded border border-amber-200 p-3 text-sm text-amber-800">
@@ -53,16 +56,23 @@ export function NormativeCosts({
         {result.categories.map(({ category, materialBase, resolution, application }) => (
           <div key={category} className="space-y-2 rounded border p-3 text-sm">
             <h4 className="font-medium">{procurementCategoryLabels[category]}</h4>
-            <p>Bază eligibilă: {money(materialBase)}</p>
+            <p>{canApply ? "Bază eligibilă" : "Bază eligibilă cunoscută (diagnostic)"}: {money(materialBase)}</p>
             {resolution.status === "missing" &&
               <p className="text-amber-700">Nu există o regulă eligibilă pentru categorie și context.</p>}
             {resolution.status === "ambiguous" &&
               <p className="text-amber-700">Există {resolution.eligibleCandidates.length} reguli eligibile. Devizo nu a ales automat una.</p>}
+            {!application && resolution.candidate && (
+              <>
+                <p>Regulă eligibilă (neaplicată): {formatRomanianDecimal(resolution.candidate.value)}%</p>
+                <p>Sursă: {resolution.candidate.sourceReference ?? resolution.candidate.sourceId}</p>
+              </>
+            )}
             {application && (
               <>
-                <p>Regulă: {formatRomanianDecimal(application.ratePercent)}%</p>
+                <p>{canApply ? "Regulă" : "Regulă eligibilă (neaplicată)"}: {formatRomanianDecimal(application.ratePercent)}%</p>
                 <p>Sursă: {application.sourceReference ?? application.sourceId}</p>
-                <p className="font-medium">Aprovizionare-depozitare: {money(application.amount)}</p>
+                {canApply &&
+                  <p className="font-medium">Aprovizionare-depozitare: {money(application.amount)}</p>}
                 <details className="break-words text-xs text-muted-foreground">
                   <summary className="cursor-pointer text-primary">Proveniența calculului</summary>
                   <dl className="mt-2 space-y-1">
@@ -89,9 +99,9 @@ export function NormativeCosts({
         ))}
         {allPositionsAssigned && result.directResourceTotal !== null &&
           <p>Cost direct resurse: {money(result.directResourceTotal)}</p>}
-        {allPositionsAssigned && result.procurementStorageTotal !== null &&
+        {canApply && result.procurementStorageTotal !== null &&
           <p>Aprovizionare-depozitare: {money(result.procurementStorageTotal)}</p>}
-        {allPositionsAssigned && result.directPlusProcurement !== null &&
+        {canApply && result.directPlusProcurement !== null &&
           <p className="font-semibold">Cost direct + aprovizionare-depozitare: {money(result.directPlusProcurement)}</p>}
         <p className="text-xs text-muted-foreground">
           Componentă normativă intermediară, nu valoarea finală a devizului.

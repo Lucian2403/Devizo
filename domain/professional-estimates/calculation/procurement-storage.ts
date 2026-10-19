@@ -44,6 +44,7 @@ export interface ProcurementBlock {
   workQuantityItemId: string;
   resourceId: string | null;
   resourceName: string;
+  procurementCategory: ProcurementCategory | null;
   reason: "empty_composition" | "direct_price" | "category" | "price_semantics";
 }
 
@@ -74,10 +75,10 @@ export function calculateProcurementStorageAmount(
 }
 
 function materialBlock(resource: PricedResourceLine): ProcurementBlock["reason"] | null {
+  if (!resource.procurementCategory) return "category";
   if (resource.priceStatus !== "selected" || !resource.calculation || !resource.selectedPrice) {
     return "direct_price";
   }
-  if (!resource.procurementCategory) return "category";
   if (
     resource.selectedPrice.vatTreatment !== "exclusive" ||
     resource.selectedPrice.transportTreatment !== "excluded"
@@ -112,6 +113,7 @@ export function calculateProcurementStorage(
       blocks.push({
         workQuantityItemId: position.workQuantityItemId,
         resourceId: null, resourceName: "",
+        procurementCategory: null,
         reason: "empty_composition",
       });
     }
@@ -124,6 +126,7 @@ export function calculateProcurementStorage(
         blocks.push({
           workQuantityItemId: position.workQuantityItemId,
           resourceId: resource.resourceId, resourceName: resource.name, reason,
+          procurementCategory: resource.procurementCategory,
         });
         continue;
       }
@@ -135,6 +138,7 @@ export function calculateProcurementStorage(
         blocks.push({
           workQuantityItemId: position.workQuantityItemId,
           resourceId: resource.resourceId, resourceName: resource.name,
+          procurementCategory,
           reason: "direct_price",
         });
         continue;
@@ -165,7 +169,8 @@ export function calculateProcurementStorage(
       const resolution = resolveProfessionalRule("procurement_storage", candidates, resolutionContext);
       const selected = resolution.candidate;
       const materialBase = toDecimalString(group.base);
-      const application: ProcurementApplication | null = selected ? {
+      const categoryBlocked = blocks.some((block) => block.procurementCategory === category);
+      const application: ProcurementApplication | null = selected && !categoryBlocked ? {
         professionalRuleDefinitionId: selected.candidateId,
         sourceId: selected.sourceId ?? null,
         applicabilityDecisionId: selected.applicabilityDecisionId ?? null,

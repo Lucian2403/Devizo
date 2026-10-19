@@ -619,6 +619,14 @@ reference, origin, rate, context, material resource/consumption/price IDs, bases
 and amounts. Values are calculated on each read, not persisted or rounded to
 two decimals.
 
+A blocked non-zero material retains its known procurement category. Any such
+block prevents an application for that category, even if other materials
+provide a known eligible partial base and the resolver selects a rule.
+Independent categories retain their own resolution and application diagnostics.
+While the overall procurement result is incomplete, the UI shows only diagnostic
+bases/rules and block messages, never applied category amounts or normative
+totals.
+
 M8.4D produces an **intermediate normative component**, not a final estimate.
 The optional direct-plus-procurement amount is withheld whenever direct costs,
 context, classifications, prices or any represented category are unresolved;
