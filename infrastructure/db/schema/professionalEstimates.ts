@@ -1001,6 +1001,9 @@ export const professionalRuleDefinitions = pgTable(
       table.id,
       table.organizationId,
     ),
+    orgIdComponentUnique: unique(
+      "professional_rule_definitions_id_org_component_unique",
+    ).on(table.id, table.organizationId, table.component),
     orgComponentIdx: index(
       "professional_rule_definitions_org_component_idx",
     ).on(table.organizationId, table.component),
@@ -1097,12 +1100,17 @@ export const professionalCostComponentDecisions = pgTable(
       name: "professional_cost_component_decisions_context_org_fkey",
     }).onDelete("cascade"),
     ruleOrgFk: foreignKey({
-      columns: [table.professionalRuleDefinitionId, table.organizationId],
+      columns: [
+        table.professionalRuleDefinitionId,
+        table.organizationId,
+        table.component,
+      ],
       foreignColumns: [
         professionalRuleDefinitions.id,
         professionalRuleDefinitions.organizationId,
+        professionalRuleDefinitions.component,
       ],
-      name: "professional_cost_component_decisions_rule_org_fkey",
+      name: "professional_cost_component_decisions_rule_org_component_fkey",
     }).onDelete("restrict"),
     contextComponentUnique: unique(
       "professional_cost_component_decisions_context_component_unique",

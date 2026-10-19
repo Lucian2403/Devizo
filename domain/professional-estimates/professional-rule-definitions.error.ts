@@ -8,3 +8,12 @@ export class ProfessionalRuleDefinitionValidationError extends Error {
     this.name = "ProfessionalRuleDefinitionValidationError";
   }
 }
+
+export class CompanyCalculationRuleSourceConflictError extends Error {
+  constructor() {
+    super(
+      "Sursa rezervată pentru regulile interne de calcul are date incompatibile. Contactați administratorul companiei.",
+    );
+    this.name = "CompanyCalculationRuleSourceConflictError";
+  }
+}

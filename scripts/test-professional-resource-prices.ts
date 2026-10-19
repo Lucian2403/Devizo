@@ -551,12 +551,21 @@ async function main(): Promise<void> {
     createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
   }));
   const rulesRepository: ProfessionalRuleDefinitionRepository = {
-    async ensureCompanyCalculationRuleSource() {
+    async getCompanyCalculationRuleSource() {
+      return null;
+    },
+    async insertCompanyCalculationRuleSourceIfAbsent(org) {
       return {
         id: "company-source",
+        organizationId: org,
         code: "DEVIZO-COMPANY-CALC-RULES",
         edition: "1",
+        title: "Reguli interne de calcul ale companiei",
         sourceType: "company_custom",
+        jurisdiction: "MD",
+        status: "active",
+        officialStatus: "unknown",
+        monitoringEnabled: false,
       };
     },
     async createRuleDefinition() { throw new Error("No rules are created by estimate calculation."); },

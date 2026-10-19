@@ -2,6 +2,14 @@
 
 ## Manual acceptance
 
+Before manual acceptance, apply the database migrations and organization
+policies to the target environment:
+
+```sh
+pnpm db:migrate
+pnpm db:policies
+```
+
 1. Open **Devize → Reguli de calcul**.
 2. Create the technical test rules below. These are acceptance fixtures only,
    not recommended or official rates:

@@ -7,13 +7,18 @@ import {
   type ProfessionalCostStackComponent,
   type ProfessionalRuleCandidate,
 } from "./calculation";
-import { ProfessionalRuleDefinitionValidationError } from "./professional-rule-definitions.error";
+import {
+  CompanyCalculationRuleSourceConflictError,
+  ProfessionalRuleDefinitionValidationError,
+} from "./professional-rule-definitions.error";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
 } from "./professional-rule-definitions.repository";
+import { COMPANY_CALCULATION_RULE_SOURCE_IDENTITY } from "./professional-rule-definitions.repository";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SUPPORTED_CURRENCIES = ["MDL", "EUR", "RON", "USD", "GBP"] as const;
@@ -32,6 +37,24 @@ const COMPANY_RULE_COMPONENTS: readonly ProfessionalCostStackComponent[] = [
   "estimated_profit",
 ];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function assertCompanyCalculationRuleSource(
+  source: CompanyCalculationRuleSourceRecord,
+  organizationId: string,
+): void {
+  if (
+    source.organizationId !== organizationId ||
+    source.code !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.code ||
+    source.edition !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.edition ||
+    source.title !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.title ||
+    source.sourceType !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.sourceType ||
+    source.jurisdiction !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.jurisdiction ||
+    source.status !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.status ||
+    source.officialStatus !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.officialStatus ||
+    source.monitoringEnabled !== COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.monitoringEnabled
+  ) {
+    throw new CompanyCalculationRuleSourceConflictError();
+  }
+}
 
 function fail(
   code: string,
@@ -351,11 +374,27 @@ export class ProfessionalRuleDefinitionService {
 
   async ensureCompanyCalculationRuleSource(
     organizationId: string,
-  ): Promise<{ id: string; code: string; edition: string; sourceType: string }> {
+  ): Promise<CompanyCalculationRuleSourceRecord> {
     if (!UUID.test(organizationId)) {
       fail("invalid_organization", "Compania selectată nu este validă.");
     }
-    return this.repository.ensureCompanyCalculationRuleSource(organizationId);
+    let source =
+      await this.repository.getCompanyCalculationRuleSource(organizationId);
+    if (!source) {
+      source =
+        await this.repository.insertCompanyCalculationRuleSourceIfAbsent(
+          organizationId,
+        );
+    }
+    if (!source) {
+      source =
+        await this.repository.getCompanyCalculationRuleSource(organizationId);
+    }
+    if (!source) {
+      throw new Error("Nu s-a putut pregăti sursa regulilor interne de calcul.");
+    }
+    assertCompanyCalculationRuleSource(source, organizationId);
+    return source;
   }
 
   async createCompanyRuleDefinition(

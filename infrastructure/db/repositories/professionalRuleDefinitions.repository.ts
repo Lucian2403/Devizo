@@ -15,10 +15,12 @@ import type {
 } from "@/domain/professional-estimates/calculation";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
 } from "@/domain/professional-estimates/professional-rule-definitions.repository";
+import { COMPANY_CALCULATION_RULE_SOURCE_IDENTITY } from "@/domain/professional-estimates/professional-rule-definitions.repository";
 
 function toRecord(
   row: typeof professionalRuleDefinitions.$inferSelect,
@@ -50,46 +52,66 @@ function toRecord(
 export class DrizzleProfessionalRuleDefinitionRepository
   implements ProfessionalRuleDefinitionRepository
 {
-  async ensureCompanyCalculationRuleSource(
+  async getCompanyCalculationRuleSource(
     organizationId: string,
-  ): Promise<{ id: string; code: string; edition: string; sourceType: string }> {
+  ): Promise<CompanyCalculationRuleSourceRecord | null> {
+    const [row] = await db
+      .select({
+        id: normativeSources.id,
+        organizationId: normativeSources.organizationId,
+        code: normativeSources.code,
+        edition: normativeSources.edition,
+        title: normativeSources.title,
+        sourceType: normativeSources.sourceType,
+        jurisdiction: normativeSources.jurisdiction,
+        status: normativeSources.status,
+        officialStatus: normativeSources.officialStatus,
+        monitoringEnabled: normativeSources.monitoringEnabled,
+      })
+      .from(normativeSources)
+      .where(
+        and(
+          eq(normativeSources.organizationId, organizationId),
+          eq(normativeSources.code, COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.code),
+          eq(
+            normativeSources.edition,
+            COMPANY_CALCULATION_RULE_SOURCE_IDENTITY.edition,
+          ),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(
+    organizationId: string,
+  ): Promise<CompanyCalculationRuleSourceRecord | null> {
     const [row] = await db
       .insert(normativeSources)
       .values({
         organizationId,
-        code: "DEVIZO-COMPANY-CALC-RULES",
-        edition: "1",
-        title: "Reguli interne de calcul ale companiei",
-        sourceType: "company_custom",
-        jurisdiction: "MD",
-        status: "active",
-        officialStatus: "unknown",
-        monitoringEnabled: false,
+        ...COMPANY_CALCULATION_RULE_SOURCE_IDENTITY,
       })
-      .onConflictDoUpdate({
+      .onConflictDoNothing({
         target: [
           normativeSources.organizationId,
           normativeSources.code,
           normativeSources.edition,
         ],
-        set: {
-          title: "Reguli interne de calcul ale companiei",
-          sourceType: "company_custom",
-          jurisdiction: "MD",
-          status: "active",
-          officialStatus: "unknown",
-          monitoringEnabled: false,
-          updatedAt: new Date(),
-        },
       })
       .returning({
         id: normativeSources.id,
+        organizationId: normativeSources.organizationId,
         code: normativeSources.code,
         edition: normativeSources.edition,
+        title: normativeSources.title,
         sourceType: normativeSources.sourceType,
+        jurisdiction: normativeSources.jurisdiction,
+        status: normativeSources.status,
+        officialStatus: normativeSources.officialStatus,
+        monitoringEnabled: normativeSources.monitoringEnabled,
       });
-    if (!row) throw new Error("Failed to ensure company calculation rule source.");
-    return row;
+    return row ?? null;
   }
 
   async createRuleDefinition(

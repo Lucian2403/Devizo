@@ -28,6 +28,7 @@ DECLARE
   source_b uuid := gen_random_uuid();
   rule_a uuid := gen_random_uuid();
   rule_b uuid := gen_random_uuid();
+  rule_overhead uuid := gen_random_uuid();
   decision_id uuid := gen_random_uuid();
   reused_source_id uuid;
   sql text;
@@ -43,8 +44,8 @@ BEGIN
       'Reguli interne de calcul ale companiei', '1', 'company_custom',
       'MD', 'active', 'unknown', false),
     (source_b, fixture_b.org_id, 'DEVIZO-COMPANY-CALC-RULES',
-      'Reguli interne de calcul ale companiei', '1', 'company_custom',
-      'MD', 'active', 'unknown', false);
+      'Conflicting normative source', '1', 'official_law',
+      'RO', 'inactive', 'official', true);
   INSERT INTO public.normative_sources
     (organization_id, code, title, edition, source_type, jurisdiction, status,
      official_status, monitoring_enabled)
@@ -53,11 +54,33 @@ BEGIN
       'Reguli interne de calcul ale companiei', '1', 'company_custom',
       'MD', 'active', 'unknown', false)
   ON CONFLICT (organization_id, code, edition)
-  DO UPDATE SET title = EXCLUDED.title
+  DO NOTHING
   RETURNING id INTO reused_source_id;
+  IF reused_source_id IS NOT NULL THEN
+    RAISE EXCEPTION 'An existing company calculation source must not be replaced';
+  END IF;
+  SELECT id INTO reused_source_id
+  FROM public.normative_sources
+  WHERE organization_id = fixture_a.org_id
+    AND code = 'DEVIZO-COMPANY-CALC-RULES' AND edition = '1';
   IF reused_source_id <> source_a THEN
     RAISE EXCEPTION 'Company calculation source identity was not idempotently reused';
   END IF;
+  INSERT INTO public.normative_sources
+    (organization_id, code, title, edition, source_type, jurisdiction, status,
+     official_status, monitoring_enabled)
+  VALUES
+    (fixture_b.org_id, 'DEVIZO-COMPANY-CALC-RULES',
+      'Reguli interne de calcul ale companiei', '1', 'company_custom',
+      'MD', 'active', 'unknown', false)
+  ON CONFLICT (organization_id, code, edition) DO NOTHING;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.normative_sources
+    WHERE id = source_b AND source_type = 'official_law'
+      AND title = 'Conflicting normative source'
+      AND jurisdiction = 'RO' AND status = 'inactive'
+      AND official_status = 'official' AND monitoring_enabled = true
+  ) THEN RAISE EXCEPTION 'A conflicting reserved source was mutated'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.normative_sources
     WHERE id = source_a AND source_type = 'company_custom'
@@ -75,6 +98,9 @@ BEGIN
       'investor', 'construction', 'company_individual'),
     (rule_b, fixture_b.org_id, source_b, 'Foreign labor fixture',
       'labor_contributions', 'percent', 5, 'labor_cost', '2012-08-17',
+      'investor', 'construction', 'company_individual'),
+    (rule_overhead, fixture_a.org_id, source_a, 'Internal overhead fixture',
+      'overhead', 'percent', 5, 'direct_cost', '2012-08-17',
       'investor', 'construction', 'company_individual');
 
   sql := format(
@@ -107,6 +133,22 @@ BEGIN
   PERFORM pg_temp.expect_component_decision_failure(
     replace(sql, rule_a::text, rule_b::text),
     '23503');
+  PERFORM pg_temp.expect_component_decision_failure(
+    format(
+      'INSERT INTO public.professional_cost_component_decisions
+       (organization_id, calculation_context_id, component, decision,
+        professional_rule_definition_id)
+       VALUES (%L,%L,''overhead'',''applied'',%L)',
+      fixture_a.org_id, fixture_a.context_id, rule_a),
+    '23503');
+  PERFORM pg_temp.expect_component_decision_failure(
+    format(
+      'INSERT INTO public.professional_cost_component_decisions
+       (organization_id, calculation_context_id, component, decision,
+        professional_rule_definition_id)
+       VALUES (%L,%L,''labor_contributions'',''applied'',%L)',
+      fixture_a.org_id, fixture_a.context_id, rule_overhead),
+    '23503');
 
   INSERT INTO public.professional_cost_component_decisions
     (id, organization_id, calculation_context_id, component, decision,
@@ -114,13 +156,19 @@ BEGIN
   VALUES
     (decision_id, fixture_a.org_id, fixture_a.context_id,
       'labor_contributions', 'applied', rule_a);
+  INSERT INTO public.professional_cost_component_decisions
+    (organization_id, calculation_context_id, component, decision,
+     professional_rule_definition_id)
+  VALUES
+    (fixture_a.org_id, fixture_a.context_id, 'overhead', 'applied',
+      rule_overhead);
   PERFORM pg_temp.expect_component_decision_failure(
     sql,
     '23505');
   INSERT INTO public.professional_cost_component_decisions
     (organization_id, calculation_context_id, component, decision, reason)
   VALUES
-    (fixture_a.org_id, fixture_a.context_id, 'overhead',
+    (fixture_a.org_id, fixture_a.context_id, 'estimated_profit',
       'not_applicable', 'Explicit company decision');
 END
 $$;

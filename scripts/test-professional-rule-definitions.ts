@@ -11,6 +11,7 @@ import {
 } from "../domain/professional-estimates/calculation";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
@@ -30,21 +31,27 @@ class MemoryRuleDefinitionRepository
   definitions: ProfessionalRuleDefinitionRecord[] = [];
   decisions: SeededDecision[] = [];
   createCalls = 0;
-  companySourceCalls = 0;
+  companySource: CompanyCalculationRuleSourceRecord | null = null;
 
-  async ensureCompanyCalculationRuleSource(): Promise<{
-    id: string;
-    code: string;
-    edition: string;
-    sourceType: string;
-  }> {
-    this.companySourceCalls += 1;
-    return {
+  async getCompanyCalculationRuleSource() {
+    return this.companySource;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(organizationId: string) {
+    if (this.companySource) return null;
+    this.companySource = {
       id: "10000000-0000-4000-8000-000000000001",
+      organizationId,
       code: "DEVIZO-COMPANY-CALC-RULES",
       edition: "1",
+      title: "Reguli interne de calcul ale companiei",
       sourceType: "company_custom",
+      jurisdiction: "MD",
+      status: "active",
+      officialStatus: "unknown",
+      monitoringEnabled: false,
     };
+    return this.companySource;
   }
 
   async createRuleDefinition(
@@ -230,7 +237,7 @@ async function main(): Promise<void> {
   assert.equal(source.edition, "1");
   assert.equal(source.sourceType, "company_custom");
   await service.ensureCompanyCalculationRuleSource(UUID_ORG);
-  assert.equal(repo.companySourceCalls, 2);
+  assert.equal(repo.companySource?.id, source.id);
 
   const created = await service.createCompanyRuleDefinition(UUID_ORG, {
     name: "Company labor fixture",

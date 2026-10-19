@@ -7,6 +7,17 @@ import type {
 } from "./calculation";
 import type { ProfessionalCostStackComponent } from "./calculation";
 
+export const COMPANY_CALCULATION_RULE_SOURCE_IDENTITY = {
+  code: "DEVIZO-COMPANY-CALC-RULES",
+  edition: "1",
+  title: "Reguli interne de calcul ale companiei",
+  sourceType: "company_custom",
+  jurisdiction: "MD",
+  status: "active",
+  officialStatus: "unknown",
+  monitoringEnabled: false,
+} as const;
+
 /**
  * A persisted reusable professional rule definition (M8.3D). The row id becomes
  * the M8.3C `candidateId` when mapped to a `ProfessionalRuleCandidate`. Decimal
@@ -63,10 +74,27 @@ export interface ApplicabilityDecisionForRule {
   applicableUntil: string | null;
 }
 
+export interface CompanyCalculationRuleSourceRecord {
+  id: string;
+  organizationId: string;
+  code: string;
+  edition: string;
+  title: string;
+  sourceType: string;
+  jurisdiction: string;
+  status: string;
+  officialStatus: string;
+  monitoringEnabled: boolean;
+}
+
 export interface ProfessionalRuleDefinitionRepository {
-  ensureCompanyCalculationRuleSource(
+  getCompanyCalculationRuleSource(
     organizationId: string,
-  ): Promise<{ id: string; code: string; edition: string; sourceType: string }>;
+  ): Promise<CompanyCalculationRuleSourceRecord | null>;
+
+  insertCompanyCalculationRuleSourceIfAbsent(
+    organizationId: string,
+  ): Promise<CompanyCalculationRuleSourceRecord | null>;
 
   createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,

@@ -51,12 +51,22 @@ class MemoryRuleDefinitionRepository
   decisions: SeededDecision[] = [];
   createCalls = 0;
 
-  async ensureCompanyCalculationRuleSource() {
+  async getCompanyCalculationRuleSource() {
+    return null;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(organizationId: string) {
     return {
       id: "source-company",
+      organizationId,
       code: "DEVIZO-COMPANY-CALC-RULES",
       edition: "1",
+      title: "Reguli interne de calcul ale companiei",
       sourceType: "company_custom",
+      jurisdiction: "MD",
+      status: "active",
+      officialStatus: "unknown",
+      monitoringEnabled: false,
     };
   }
 

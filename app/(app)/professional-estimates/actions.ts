@@ -32,6 +32,7 @@ import {
 import { getProfessionalResourcePricesService } from "@/server/container";
 import { VAT_TREATMENTS, TRANSPORT_TREATMENTS } from "@/domain/professional-estimates/procurement-semantics";
 import {
+  CompanyCalculationRuleSourceConflictError,
   ProfessionalRuleDefinitionValidationError,
 } from "@/domain/professional-estimates/professional-rule-definitions.error";
 import {
@@ -498,6 +499,9 @@ export async function createCompanyProfessionalRule(
       },
     );
   } catch (error) {
+    if (error instanceof CompanyCalculationRuleSourceConflictError) {
+      return { error: error.message };
+    }
     if (error instanceof ProfessionalRuleDefinitionValidationError) {
       return { error: "Verificați denumirea, valoarea, valabilitatea și semantica regulii." };
     }

@@ -12,8 +12,10 @@ import {
   ProfessionalCostComponentDecisionError,
   ProfessionalCostComponentDecisionService,
 } from "../domain/professional-estimates/professional-cost-component-decisions.service";
+import { CompanyCalculationRuleSourceConflictError } from "../domain/professional-estimates/professional-rule-definitions.error";
 import type {
   ApplicabilityDecisionForRule,
+  CompanyCalculationRuleSourceRecord,
   CreateProfessionalRuleDefinitionInput,
   ProfessionalRuleDefinitionRecord,
   ProfessionalRuleDefinitionRepository,
@@ -31,24 +33,48 @@ const RULE_B = "80000000-0000-4000-8000-000000000080";
 const RULE_C = "a0000000-0000-4000-8000-0000000000a0";
 const OTHER_ORG_RULE = "90000000-0000-4000-8000-000000000090";
 
+function makeCompanySource(
+  organizationId: string,
+): CompanyCalculationRuleSourceRecord {
+  return {
+    id: organizationId === ORG_A ? SOURCE_A : SOURCE_B,
+    organizationId,
+    code: "DEVIZO-COMPANY-CALC-RULES",
+    edition: "1",
+    title: "Reguli interne de calcul ale companiei",
+    sourceType: "company_custom",
+    jurisdiction: "MD",
+    status: "active",
+    officialStatus: "unknown",
+    monitoringEnabled: false,
+  };
+}
+
 class MemoryRuleRepository implements ProfessionalRuleDefinitionRepository {
   readonly definitions: ProfessionalRuleDefinitionRecord[] = [];
-  private readonly sources = new Map<
-    string,
-    { id: string; code: string; edition: string; sourceType: string }
-  >();
-  ensureCalls = 0;
+  readonly sources = new Map<string, CompanyCalculationRuleSourceRecord>();
+  insertRaceOrganization: string | null = null;
+  sourceInsertCalls = 0;
+  readonly sourceReadCalls = new Map<string, number>();
 
-  async ensureCompanyCalculationRuleSource(organizationId: string) {
-    this.ensureCalls += 1;
+  async getCompanyCalculationRuleSource(organizationId: string) {
+    this.sourceReadCalls.set(
+      organizationId,
+      (this.sourceReadCalls.get(organizationId) ?? 0) + 1,
+    );
+    return this.sources.get(organizationId) ?? null;
+  }
+
+  async insertCompanyCalculationRuleSourceIfAbsent(organizationId: string) {
+    this.sourceInsertCalls += 1;
     const existing = this.sources.get(organizationId);
-    if (existing) return existing;
-    const source = {
-      id: organizationId === ORG_A ? SOURCE_A : SOURCE_B,
-      code: "DEVIZO-COMPANY-CALC-RULES",
-      edition: "1",
-      sourceType: "company_custom",
-    };
+    if (existing) return null;
+    const source = makeCompanySource(organizationId);
+    if (this.insertRaceOrganization === organizationId) {
+      this.sources.set(organizationId, source);
+      this.insertRaceOrganization = null;
+      return null;
+    }
     this.sources.set(organizationId, source);
     return source;
   }
@@ -218,11 +244,66 @@ async function main(): Promise<void> {
   );
   assert.equal(sourceA.code, "DEVIZO-COMPANY-CALC-RULES");
   assert.equal(sourceA.edition, "1");
+  assert.equal(sourceA.title, "Reguli interne de calcul ale companiei");
   assert.equal(sourceA.sourceType, "company_custom");
+  assert.equal(sourceA.jurisdiction, "MD");
+  assert.equal(sourceA.status, "active");
+  assert.equal(sourceA.officialStatus, "unknown");
+  assert.equal(sourceA.monitoringEnabled, false);
+  assert.equal(ruleRepo.sourceInsertCalls, 1);
+  const exactOrganization = "d0000000-0000-4000-8000-0000000000d0";
+  const preexistingExactSource = {
+    ...makeCompanySource(exactOrganization),
+    id: "d1000000-0000-4000-8000-0000000000d1",
+  };
+  ruleRepo.sources.set(exactOrganization, preexistingExactSource);
+  assert.deepEqual(
+    await ruleService.ensureCompanyCalculationRuleSource(exactOrganization),
+    preexistingExactSource,
+  );
+  assert.equal(ruleRepo.sourceInsertCalls, 1);
   assert.notEqual(
     (await ruleService.ensureCompanyCalculationRuleSource(ORG_B)).id,
     sourceA.id,
   );
+
+  const raceOrganization = "b0000000-0000-4000-8000-0000000000b0";
+  ruleRepo.insertRaceOrganization = raceOrganization;
+  const racedSource = await ruleService.ensureCompanyCalculationRuleSource(
+    raceOrganization,
+  );
+  assert.equal(racedSource.organizationId, raceOrganization);
+  assert.equal(ruleRepo.sources.get(raceOrganization)?.id, racedSource.id);
+  assert.equal(ruleRepo.sourceReadCalls.get(raceOrganization), 2);
+
+  const conflictingSourceCases: Array<
+    Partial<CompanyCalculationRuleSourceRecord>
+  > = [
+    { sourceType: "official_law" },
+    { officialStatus: "official" },
+    { title: "Conflicting title" },
+    { jurisdiction: "RO" },
+    { status: "inactive" },
+    { monitoringEnabled: true },
+  ];
+  for (const [index, changes] of conflictingSourceCases.entries()) {
+    const organizationId =
+      `c0000000-0000-4000-8000-0000000000${(index + 1).toString(16).padStart(2, "0")}`;
+    const original = { ...makeCompanySource(organizationId), ...changes };
+    ruleRepo.sources.set(organizationId, original);
+    await assert.rejects(
+      ruleService.ensureCompanyCalculationRuleSource(organizationId),
+      (error: unknown) => {
+        assert.ok(error instanceof CompanyCalculationRuleSourceConflictError);
+        assert.match(
+          error.message,
+          /Sursa rezervată pentru regulile interne de calcul are date incompatibile/,
+        );
+        return true;
+      },
+    );
+    assert.deepEqual(ruleRepo.sources.get(organizationId), original);
+  }
 
   const first = await ruleService.createCompanyRuleDefinition(ORG_A, {
     name: "Internal labor A",
