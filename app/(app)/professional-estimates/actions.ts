@@ -24,6 +24,12 @@ import {
   ProfessionalNormLibraryValidationError,
 } from "@/domain/professional-estimates/professional-norm-library.service";
 import { getProfessionalNormLibraryService } from "@/server/container";
+import {
+  ProfessionalResourcePriceNotFoundError,
+  ProfessionalResourcePriceValidationError,
+  RESOURCE_PRICE_SOURCE_TYPES,
+} from "@/domain/professional-estimates/professional-resource-prices.service";
+import { getProfessionalResourcePricesService } from "@/server/container";
 
 export type ProfessionalEstimateFormState =
   | { error: string }
@@ -35,6 +41,11 @@ export type WorkQuantityItemFormState =
   | null;
 
 export type NormLibraryFormState =
+  | { error: string }
+  | { success: string }
+  | null;
+
+export type ResourcePriceFormState =
   | { error: string }
   | { success: string }
   | null;
@@ -277,4 +288,51 @@ export async function assignNormToWorkItem(
   revalidatePath(`/professional-estimates/${calculationContextId}`);
   revalidatePath("/professional-estimates");
   return { success: "Norma a fost alocată poziției." };
+}
+
+export async function createProfessionalResourcePrice(
+  resourceId: string,
+  _previous: ResourcePriceFormState,
+  formData: FormData,
+): Promise<ResourcePriceFormState> {
+  const { org } = await requireCurrentOrg();
+  const currencyValue = String(formData.get("currency") ?? "");
+  if (!isSupportedCurrency(currencyValue)) {
+    return { error: "Moneda selectată nu este acceptată." };
+  }
+  const sourceTypeValue = String(formData.get("sourceType") ?? "");
+  const sourceType = RESOURCE_PRICE_SOURCE_TYPES.find(
+    (value) => value === sourceTypeValue,
+  );
+  if (!sourceType) {
+    return { error: "Tipul sursei nu este valid." };
+  }
+  try {
+    await getProfessionalResourcePricesService().createResourcePrice(
+      org.id,
+      resourceId,
+      {
+        price: String(formData.get("price") ?? ""),
+        basisQuantity: String(formData.get("basisQuantity") ?? ""),
+        currency: currencyValue,
+        validFrom: String(formData.get("validFrom") ?? ""),
+        validTo: String(formData.get("validTo") ?? ""),
+        sourceType,
+        sourceReference: String(formData.get("sourceReference") ?? ""),
+        location: String(formData.get("location") ?? ""),
+      },
+    );
+  } catch (error) {
+    if (
+      error instanceof ProfessionalResourcePriceValidationError ||
+      error instanceof ProfessionalResourcePriceNotFoundError
+    ) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  revalidatePath(`/professional-estimates/resources/${resourceId}`);
+  revalidatePath("/professional-estimates/resources");
+  revalidatePath("/professional-estimates", "layout");
+  return { success: "Prețul resursei a fost adăugat." };
 }

@@ -5,9 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
-import { getProfessionalEstimateWorkspaceService } from "@/server/container";
-import { getProfessionalNormLibraryService } from "@/server/container";
 import type { AppliedNormBreakdown } from "@/domain/professional-estimates/professional-norm-library.service";
+import type { DirectResourceCostPosition } from "@/domain/professional-estimates/professional-resource-prices.service";
+import { formatProfessionalResourceMoney } from "@/lib/ui/professional-resource-money";
+import {
+  getProfessionalEstimateWorkspaceService,
+  getProfessionalNormLibraryService,
+  getProfessionalResourcePricesService,
+} from "@/server/container";
 import {
   assignNormToWorkItem,
   createWorkQuantityItem,
@@ -51,6 +56,41 @@ export default async function ProfessionalEstimateDetailPage({
       org.id,
       calculationContextId,
     );
+  const pricingPositions = workspace.items.flatMap((item) => {
+    const application = normPresentation.assignedByWorkItemId[item.id];
+    if (!application) return [];
+    return [
+      {
+        workQuantityItemId: item.id,
+        workQuantity: item.quantity,
+        estimateNormVersionId: application.norm.norm.id,
+        normApplicationId: application.id,
+        normBasisQuantity: application.norm.norm.basisQuantity,
+        applicationCoefficient: application.applicationCoefficient,
+        resources: application.calculatedResources.map((resource) => ({
+          id: resource.id,
+          code: resource.code,
+          name: resource.name,
+          resourceType: resource.resourceType,
+          unit: resource.unit,
+          resourceConsumptionId: resource.id,
+          resourceId: resource.resourceId,
+          normativeConsumption: resource.quantityPerNormBasis,
+        })),
+      },
+    ];
+  });
+  const resourcePricing =
+    await getProfessionalResourcePricesService().calculateDirectResourceCosts(
+      org.id,
+      workspace.context.currency,
+      workspace.context.valuationDate,
+      pricingPositions,
+    );
+  const pricesComplete =
+    normPresentation.itemCount > 0 &&
+    normPresentation.assignedCount === normPresentation.itemCount &&
+    resourcePricing.completePositionCount === normPresentation.assignedCount;
   const progressSteps = [
     { title: "Obiect și listă create", complete: true },
     {
@@ -63,7 +103,10 @@ export default async function ProfessionalEstimateDetailPage({
         normPresentation.itemCount > 0 &&
         normPresentation.assignedCount === normPresentation.itemCount,
     },
-    { title: "Resurse și prețuri", complete: false },
+    {
+      title: `Resurse și prețuri: ${resourcePricing.pricedResourceCount} / ${resourcePricing.requiredPriceCount}`,
+      complete: pricesComplete,
+    },
     { title: "Calcul profesional", complete: false },
     { title: "Formulare finale", complete: false },
   ];
@@ -148,8 +191,9 @@ export default async function ProfessionalEstimateDetailPage({
               })}
             </ol>
             <p className="mt-2 text-xs text-muted-foreground">
-              Cantitățile de resurse sunt calculate determinist din normele
-              alocate. Prețurile resurselor nu sunt încă alocate.
+              Costurile afișate sunt costuri directe ale resurselor, calculate
+              din prețurile eligibile. Nu includ ajustări normative, TVA,
+              transport sau profit.
             </p>
           </div>
         </CardContent>
@@ -174,57 +218,93 @@ export default async function ProfessionalEstimateDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {workspace.items.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-border/70 align-top last:border-0"
-                  >
-                    <td className="px-3 py-3">{item.positionNumber}</td>
-                    <td className="px-3 py-3">{item.code || "—"}</td>
-                    <td className="px-3 py-3">
-                      <div className="font-medium text-heading">{item.description}</div>
-                      {item.notes && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {item.notes}
-                        </p>
-                      )}
-                      <EditWorkQuantityItemForm
-                        action={updateWorkQuantityItem.bind(
-                          null,
-                          calculationContextId,
-                          item.id,
+                {workspace.items.map((item) => {
+                  const positionPricing =
+                    resourcePricing.positionsByWorkItemId[item.id];
+                  const application =
+                    normPresentation.assignedByWorkItemId[item.id];
+                  return (
+                    <tr
+                      key={item.id}
+                      className="border-b border-border/70 align-top last:border-0"
+                    >
+                      <td className="px-3 py-3">{item.positionNumber}</td>
+                      <td className="px-3 py-3">{item.code || "—"}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-heading">
+                          {item.description}
+                        </div>
+                        {item.notes && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {item.notes}
+                          </p>
                         )}
-                        item={item}
-                      />
-                    </td>
-                    <td className="px-3 py-3">{item.unit}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">
-                      {formatRomanianDecimal(item.quantity)}
-                    </td>
-                    <td className="px-3 py-3">
-                      {normPresentation.assignedByWorkItemId[item.id] ? (
-                        <AssignedNormSummary
-                          application={
-                            normPresentation.assignedByWorkItemId[item.id]!
-                          }
-                        />
-                      ) : (
-                        <AssignNormForm
-                          workItemId={item.id}
-                          action={assignNormToWorkItem.bind(
+                        <EditWorkQuantityItemForm
+                          action={updateWorkQuantityItem.bind(
                             null,
                             calculationContextId,
                             item.id,
                           )}
-                          eligibleNorms={
-                            normPresentation.eligibleByWorkItemId[item.id] ?? []
-                          }
+                          item={item}
                         />
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">—</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-3">{item.unit}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {formatRomanianDecimal(item.quantity)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {application ? (
+                          <AssignedNormSummary
+                            application={application}
+                            pricing={positionPricing}
+                            currency={workspace.context.currency}
+                          />
+                        ) : (
+                          <AssignNormForm
+                            workItemId={item.id}
+                            action={assignNormToWorkItem.bind(
+                              null,
+                              calculationContextId,
+                              item.id,
+                            )}
+                            eligibleNorms={
+                              normPresentation.eligibleByWorkItemId[item.id] ?? []
+                            }
+                          />
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {positionPricing?.directResourceTotal !== null &&
+                        positionPricing ? (
+                          <>
+                            <span className="whitespace-nowrap font-medium">
+                              {formatProfessionalResourceMoney(
+                                positionPricing.directResourceTotal,
+                                workspace.context.currency,
+                              )}
+                            </span>
+                            <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                              Cost direct resurse
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span>—</span>
+                            {application?.calculatedResources.length === 0 ? (
+                              <span className="block whitespace-nowrap text-xs text-amber-700">
+                                Componența normei nu conține resurse
+                              </span>
+                            ) : positionPricing ? (
+                              <span className="block whitespace-nowrap text-xs text-amber-700">
+                                Prețuri incomplete
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {workspace.items.length === 0 && (
                   <tr>
                     <td
@@ -239,7 +319,8 @@ export default async function ProfessionalEstimateDetailPage({
             </table>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Prețurile resurselor nu sunt încă alocate.
+            Costul direct al resurselor este afișat numai când toate resursele
+            necesare au exact un preț eligibil.
           </p>
         </CardContent>
       </Card>
@@ -258,8 +339,12 @@ export default async function ProfessionalEstimateDetailPage({
 
 function AssignedNormSummary({
   application,
+  pricing,
+  currency,
 }: {
   application: AppliedNormBreakdown;
+  pricing?: DirectResourceCostPosition;
+  currency: string;
 }) {
   const { norm } = application.norm;
   return (
@@ -283,30 +368,126 @@ function AssignedNormSummary({
         </summary>
         {application.calculatedResources.length === 0 ? (
           <p className="mt-2 text-muted-foreground">
-            Norma nu are încă resurse.
+            Componența normei nu conține resurse.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {application.calculatedResources.map((resource) => (
-              <li key={resource.id} className="border-l-2 border-border pl-2">
-                <span className="font-medium">
-                  {resourceTypeLabels[resource.resourceType] ?? resource.resourceType}
-                </span>
-                <br />
-                {resource.code ? `${resource.code} · ` : ""}
-                {resource.name}
-                <br />
-                {formatRomanianDecimal(resource.quantityPerNormBasis)}{" "}
-                {resource.unit} / {formatRomanianDecimal(norm.basisQuantity)}{" "}
-                {norm.basisUnit}
-                <br />
-                <span className="font-medium">
-                  Necesar: {formatRomanianDecimal(resource.resourceQuantity)}{" "}
-                  {resource.unit}
-                </span>
-              </li>
-            ))}
+            {application.calculatedResources.map((resource) => {
+              const pricedResource = pricing?.resources.find(
+                ({ id }) => id === resource.id,
+              );
+              const calculation = pricedResource?.calculation;
+              const selectedPrice = pricedResource?.selectedPrice;
+              return (
+                <li
+                  key={resource.id}
+                  className="border-l-2 border-border pl-2"
+                >
+                  <span className="font-medium">
+                    {resourceTypeLabels[resource.resourceType] ??
+                      resource.resourceType}
+                  </span>
+                  <br />
+                  {resource.code ? `${resource.code} · ` : ""}
+                  {resource.name}
+                  <br />
+                  {formatRomanianDecimal(resource.quantityPerNormBasis)}{" "}
+                  {resource.unit} / {formatRomanianDecimal(norm.basisQuantity)}{" "}
+                  {norm.basisUnit}
+                  <br />
+                  <span className="font-medium">
+                    Necesar: {formatRomanianDecimal(resource.resourceQuantity)}{" "}
+                    {resource.unit}
+                  </span>
+                  {pricedResource?.priceStatus === "zero" ? (
+                    <p className="mt-1 text-muted-foreground">
+                      Nu este necesar preț — cantitatea calculată este 0.
+                    </p>
+                  ) : pricedResource?.priceStatus === "missing" ? (
+                    <p className="mt-1 text-amber-700">
+                      Preț: Lipsește
+                      <br />
+                      Nu există un preț {currency} valabil la data evaluării.
+                    </p>
+                  ) : pricedResource?.priceStatus === "ambiguous" ? (
+                    <p className="mt-1 text-amber-700">
+                      Preț: Ambiguu — {pricedResource.eligiblePriceCount} prețuri
+                      eligibile
+                      <br />
+                      Costul nu poate fi determinat până când situația prețului
+                      este clarificată.
+                    </p>
+                  ) : calculation && selectedPrice ? (
+                    <div className="mt-1 space-y-0.5">
+                      <p>
+                        Preț:{" "}
+                        {formatProfessionalResourceMoney(
+                          selectedPrice.price,
+                          selectedPrice.currency,
+                        )}{" "}
+                        / {formatRomanianDecimal(selectedPrice.basisQuantity)}{" "}
+                        {resource.unit}
+                      </p>
+                      <p>
+                        Preț efectiv:{" "}
+                        {formatProfessionalResourceMoney(
+                          calculation.effectiveUnitPrice,
+                          currency,
+                        )}
+                        / {resource.unit}
+                      </p>
+                      <p className="font-medium">
+                        Cost:{" "}
+                        {formatProfessionalResourceMoney(
+                          calculation.resourceCost,
+                          currency,
+                        )}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Sursă: {selectedPrice.sourceType}
+                        {selectedPrice.sourceReference
+                          ? ` · ${selectedPrice.sourceReference}`
+                          : ""}
+                        {selectedPrice.location
+                          ? ` · ${selectedPrice.location}`
+                          : ""}
+                        <br />
+                        Valabil: {selectedPrice.validFrom} –{" "}
+                        {selectedPrice.validTo ?? "fără termen"}
+                        <br />
+                        ID preț: {selectedPrice.resourcePriceId}
+                      </p>
+                    </div>
+                  ) : null}
+                  <Link
+                    href={`/professional-estimates/resources/${resource.resourceId}`}
+                    className="mt-1 inline-block text-primary underline-offset-4 hover:underline"
+                  >
+                    Vezi prețurile resursei
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
+        )}
+        {pricing?.complete && pricing.totalsByResourceType && (
+          <div className="mt-3 space-y-1 border-t pt-2">
+            {Object.entries(pricing.totalsByResourceType)
+              .filter(([, total]) => total !== "0")
+              .map(([resourceType, total]) => (
+                <p key={resourceType} className="text-xs text-muted-foreground">
+                  {resourceTypeLabels[resourceType] ?? resourceType}:{" "}
+                  {formatProfessionalResourceMoney(total, currency)}
+                </p>
+              ))}
+            <p className="pt-1 text-xs font-semibold text-heading">
+              Cost direct resurse:{" "}
+              {formatProfessionalResourceMoney(
+                pricing.directResourceTotal ?? "0",
+                currency,
+              )}
+            </p>
+          </div>
         )}
       </details>
     </div>

@@ -30,6 +30,11 @@ export default async function ProfessionalEstimatesPage() {
           <Button asChild variant="outline">
             <Link href="/professional-estimates/norms">Biblioteca de norme</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/professional-estimates/resources">
+              Resurse și prețuri
+            </Link>
+          </Button>
         </div>
       </div>
 
