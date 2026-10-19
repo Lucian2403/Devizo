@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
@@ -78,7 +79,7 @@ export default async function ProfessionalEstimatesPage() {
                       {estimate.workQuantityList.revision}
                     </dd>
                     <dt className="text-muted-foreground">Data evaluării</dt>
-                    <dd>{estimate.context.valuationDate}</dd>
+                    <dd>{formatDate(estimate.context.valuationDate)}</dd>
                     <dt className="text-muted-foreground">Poziții</dt>
                     <dd>
                       {estimate.itemCount === 0

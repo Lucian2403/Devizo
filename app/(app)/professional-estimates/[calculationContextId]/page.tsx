@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -154,7 +155,7 @@ export default async function ProfessionalEstimateDetailPage({
               </span>
             </DetailValue>
             <DetailValue label="Data evaluării">
-              {workspace.context.valuationDate}
+              {formatDate(workspace.context.valuationDate)}
             </DetailValue>
             <DetailValue label="Moneda">{workspace.context.currency}</DetailValue>
             <DetailValue label="Metodă">Metoda de resurse</DetailValue>
@@ -175,7 +176,7 @@ export default async function ProfessionalEstimateDetailPage({
             )}
             {workspace.workQuantityList.sourceDate && (
               <DetailValue label="Data sursei">
-                {workspace.workQuantityList.sourceDate}
+                {formatDate(workspace.workQuantityList.sourceDate)}
               </DetailValue>
             )}
           </dl>
@@ -484,8 +485,8 @@ function AssignedNormSummary({
                           ? ` · ${selectedPrice.location}`
                           : ""}
                         <br />
-                        Valabil: {selectedPrice.validFrom} –{" "}
-                        {selectedPrice.validTo ?? "fără termen"}
+                        Valabil: {formatDate(selectedPrice.validFrom)} –{" "}
+                        {selectedPrice.validTo ? formatDate(selectedPrice.validTo) : "fără termen"}
                         <br />
                         ID preț: {selectedPrice.resourcePriceId}
                       </p>

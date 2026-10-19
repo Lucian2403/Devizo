@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { ProcurementBlock, ProcurementStorageResult } from "@/domain/professional-estimates/calculation/procurement-storage";
 import type { ProfessionalEstimateWorkspace } from "@/domain/professional-estimates/professional-estimate-workspace.repository";
@@ -34,7 +35,7 @@ export function NormativeCosts({
         <p className="text-sm text-muted-foreground">
           Perspectivă: {context.estimatePerspective ? perspectiveLabels[context.estimatePerspective] : "Neconfigurată"}
           {" · "}Tip lucrări: {context.workKind ? workKindLabels[context.workKind] : "Neconfigurat"}
-          {" · "}Data evaluării: {context.valuationDate}
+          {" · "}Data evaluării: {formatDate(context.valuationDate)}
         </p>
         {!result.contextComplete &&
           <p className="text-sm text-amber-700">Selectați perspectiva devizului și tipul lucrărilor.</p>}

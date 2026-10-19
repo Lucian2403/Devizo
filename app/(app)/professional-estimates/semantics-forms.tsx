@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   PROCUREMENT_CATEGORIES, VAT_TREATMENTS, TRANSPORT_TREATMENTS,
@@ -34,7 +34,7 @@ export function CloseResourcePriceValidityForm({
       </summary>
       <form action={formAction} className="mt-2 space-y-3">
         <Label htmlFor={`${priceId}-valid-to`}>Valabil până la</Label>
-        <Input id={`${priceId}-valid-to`} name="validTo" type="date"
+        <DateInput id={`${priceId}-valid-to`} name="validTo"
           required min={validFrom} defaultValue={validTo ?? ""} />
         <p>Data de sfârșit este inclusivă. Se modifică doar această dată.</p>
         <Message state={state} />

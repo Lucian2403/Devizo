@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,8 +92,8 @@ export default async function ProfessionalNormDetailPage({
                   ? "Publicată pentru utilizare internă"
                   : norm.publicationStatus}
             </DetailValue>
-            <DetailValue label="Valabilă de la">{norm.validFrom ?? "—"}</DetailValue>
-            <DetailValue label="Valabilă până la">{norm.validTo ?? "—"}</DetailValue>
+            <DetailValue label="Valabilă de la">{formatDate(norm.validFrom)}</DetailValue>
+            <DetailValue label="Valabilă până la">{formatDate(norm.validTo)}</DetailValue>
             {norm.description && (
               <DetailValue label="Descriere">{norm.description}</DetailValue>
             )}

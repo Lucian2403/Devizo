@@ -5,6 +5,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "../components/ui/button";
 import { formatRomanianDecimal } from "../lib/ui/decimal-display";
+import { DateInput } from "../components/ui/date-input";
+import { dateInputError, formatDate, parseDateInput } from "../lib/ui/date-display";
 import { NormativeCosts } from "../app/(app)/professional-estimates/[calculationContextId]/normative-costs";
 import type { ProcurementStorageResult } from "../domain/professional-estimates/calculation/procurement-storage";
 import type { ProfessionalEstimateWorkspace } from "../domain/professional-estimates/professional-estimate-workspace.repository";
@@ -26,7 +28,7 @@ import {
     forms.indexOf("export function PriceSemanticsFields"));
   assert.ok(closure.includes('validTo ? "Modifică data de încheiere" : "Închide valabilitatea"'));
   assert.ok(closure.includes("Valabil până la"));
-  assert.match(closure, /name="validTo" type="date"\s+required min=\{validFrom\} defaultValue=\{validTo \?\? ""\}/);
+  assert.match(closure, /<DateInput[^>]*name="validTo"\s+required min=\{validFrom\} defaultValue=\{validTo \?\? ""\}/);
   assert.ok(closure.includes("<Message state={state} />"));
   for (const field of [
     "price", "basisQuantity", "currency", "validFrom", "sourceType", "sourceReference",
@@ -43,6 +45,40 @@ import {
     "professional-estimates", "resources", "[resourceId]", "page.tsx"), "utf8");
   assert.ok(detail.includes("Prețurile nu se șterg și valoarea lor nu se rescrie retroactiv."));
   assert.ok(detail.includes("closeResourcePriceValidity.bind(null, resource.id, price.id)"));
+}
+
+{
+  assert.equal(formatDate("2026-10-19"), "19-Oct-2026");
+  assert.equal(formatDate(new Date("2026-10-19T00:00:00Z")), "19-Oct-2026");
+  assert.equal(formatDate("2026-10-19T00:30:00+03:00"), "18-Oct-2026");
+  assert.equal(formatDate(null), "—");
+  assert.equal(formatDate(undefined), "—");
+  assert.equal(formatDate(""), "—");
+  assert.throws(() => formatDate("2026-02-30"));
+  assert.throws(() => formatDate("invalid"));
+  assert.throws(() => formatDate(new Date("invalid")));
+  assert.equal(parseDateInput("19-Oct-2026"), "2026-10-19");
+  assert.equal(parseDateInput(" 19-oct-2026 "), "2026-10-19");
+  assert.equal(parseDateInput("29-Feb-2024"), "2024-02-29");
+  for (const invalid of ["29-Feb-2026", "31-Apr-2026", "19-xxx-2026", "2026-10-19", "10/19/2026", ""]) {
+    assert.equal(parseDateInput(invalid), null, invalid);
+  }
+  for (let month = 1; month <= 12; month++) {
+    const iso = `2026-${String(month).padStart(2, "0")}-19`;
+    assert.equal(parseDateInput(formatDate(iso)), iso);
+  }
+  assert.equal(dateInputError("19-Oct-2026", "2026-10-19", "2026-10-19"), "");
+  assert.ok(dateInputError("18-Oct-2026", "2026-10-19").includes("19-Oct-2026"));
+  assert.ok(dateInputError("20-Oct-2026", undefined, "2026-10-19").includes("19-Oct-2026"));
+  assert.ok(dateInputError("31-Feb-2026").includes("19-Oct-2026"));
+  assert.ok(dateInputError("   ").includes("19-Oct-2026"));
+  assert.equal(dateInputError(""), "");
+  const rendered = renderToStaticMarkup(createElement(DateInput, {
+    id: "test-date", name: "validTo", defaultValue: "2026-10-19", required: true,
+  }));
+  assert.ok(rendered.includes('type="text"'));
+  assert.ok(rendered.includes('value="19-Oct-2026"'));
+  assert.ok(rendered.includes('type="hidden" name="validTo" value="2026-10-19"'));
 }
 
 {

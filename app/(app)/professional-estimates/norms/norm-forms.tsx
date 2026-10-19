@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { NormAssignmentOption } from "@/domain/professional-estimates/professional-norm-library.service";
@@ -80,11 +81,11 @@ export function CreateInternalNormForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="norm-valid-from">Valabilă de la (opțional)</Label>
-        <Input id="norm-valid-from" name="validFrom" type="date" />
+        <DateInput id="norm-valid-from" name="validFrom" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="norm-valid-to">Valabilă până la (opțional)</Label>
-        <Input id="norm-valid-to" name="validTo" type="date" />
+        <DateInput id="norm-valid-to" name="validTo" />
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="norm-description">Descriere (opțional)</Label>

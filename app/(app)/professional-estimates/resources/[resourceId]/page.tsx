@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDate } from "@/lib/ui/date-display";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,7 +139,7 @@ export default async function ProfessionalResourceDetailPage({
                       <td className="py-3 pr-3 font-mono text-xs">{price.id}</td>
                       <td className="py-3 pr-3">{price.currency}</td>
                       <td className="py-3 pr-3">
-                        {price.validFrom} – {price.validTo ?? "fără termen"}
+                        {formatDate(price.validFrom)} – {price.validTo ? formatDate(price.validTo) : "fără termen"}
                         <CloseResourcePriceValidityForm
                           action={closeResourcePriceValidity.bind(null, resource.id, price.id)}
                           priceId={price.id}

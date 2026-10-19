@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
@@ -79,20 +80,18 @@ export function CreateResourcePriceForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="resource-price-valid-from">Valabil de la</Label>
-        <Input
+        <DateInput
           id="resource-price-valid-from"
           name="validFrom"
-          type="date"
           defaultValue={defaultDate}
           required
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="resource-price-valid-to">Valabil până la (opțional)</Label>
-        <Input
+        <DateInput
           id="resource-price-valid-to"
           name="validTo"
-          type="date"
         />
       </div>
       <div className="space-y-2">

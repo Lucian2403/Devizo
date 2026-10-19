@@ -63,6 +63,12 @@ updates only `resource_prices.valid_to`, separately from VAT/transport
 classification, and revalidates the resource register and estimate layout.
 No new migration or RLS change is needed.
 
+Application date displays and date-entry fields use `DD-Mmm-YYYY`, for example
+`19-Oct-2026`, with fixed English month abbreviations. Text fields validate real
+calendar dates and submit ISO `YYYY-MM-DD` values to the existing server
+validators; storage, calculations and inclusive boundaries are unchanged.
+Customer PDFs retain their frozen template's date formatting.
+
 With two MDL prices starting `2026-10-01` and `2026-10-19`, both open-ended,
 an estimate dated `2026-10-19` is ambiguous. Close the first at `2026-10-18`:
 the second alone must be selected on `2026-10-19`, while the first remains

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formatDate } from "@/lib/ui/date-display";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getQuoteService } from "@/server/container";
 import { QuoteVersionNotFoundError } from "@/domain/quotes/quote.service";
@@ -10,15 +11,6 @@ import {
 } from "@/components/ui/quote-status-badge";
 import { QuoteVersionActions } from "./quote-version-actions";
 import { buildQuoteDocumentNumber } from "@/lib/quotes/document-number";
-
-function formatDate(value: Date | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("ro-RO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(value);
-}
 
 export default async function QuoteVersionPage({
   params,
