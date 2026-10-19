@@ -44,8 +44,8 @@ BEGIN
       'Reguli interne de calcul ale companiei', '1', 'company_custom',
       'MD', 'active', 'unknown', false),
     (source_b, fixture_b.org_id, 'DEVIZO-COMPANY-CALC-RULES',
-      'Conflicting normative source', '1', 'official_law',
-      'RO', 'inactive', 'official', true);
+      'Conflicting normative source', '1', 'legislation',
+      'RO', 'superseded', 'in_force', true);
   INSERT INTO public.normative_sources
     (organization_id, code, title, edition, source_type, jurisdiction, status,
      official_status, monitoring_enabled)
@@ -76,10 +76,10 @@ BEGIN
   ON CONFLICT (organization_id, code, edition) DO NOTHING;
   IF NOT EXISTS (
     SELECT 1 FROM public.normative_sources
-    WHERE id = source_b AND source_type = 'official_law'
+    WHERE id = source_b AND source_type = 'legislation'
       AND title = 'Conflicting normative source'
-      AND jurisdiction = 'RO' AND status = 'inactive'
-      AND official_status = 'official' AND monitoring_enabled = true
+      AND jurisdiction = 'RO' AND status = 'superseded'
+      AND official_status = 'in_force' AND monitoring_enabled = true
   ) THEN RAISE EXCEPTION 'A conflicting reserved source was mutated'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.normative_sources
