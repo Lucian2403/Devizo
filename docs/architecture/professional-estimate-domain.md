@@ -581,6 +581,14 @@ location, validity, currency and basis quantity for future snapshots.
 
 ## M8.4D real procurement/storage bridge
 
+The price register also supports a focused validity closure/correction action.
+It changes only `resource_prices.valid_to`, scoped to the authenticated
+organization and exact resource/price, after validating the date against the
+persisted start date. Price amounts, basis, currency, start date and provenance
+remain immutable through this action; semantic classification stays separate.
+History is retained without delete, schema or RLS changes. Inclusive end-date
+eligibility and the existing no-ranking ambiguity rules remain unchanged.
+
 Migration `0019_puzzling_vampiro` adds nullable `estimate_perspective` and
 `work_kind` to calculation contexts, nullable `procurement_category` to
 professional resources, and price `vat_treatment` / `transport_treatment`.

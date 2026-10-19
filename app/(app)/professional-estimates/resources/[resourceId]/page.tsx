@@ -10,8 +10,8 @@ import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { formatProfessionalResourceMoney } from "@/lib/ui/professional-resource-money";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalResourcePricesService } from "@/server/container";
-import { createProfessionalResourcePrice, updateResourcePriceSemantics, updateResourceProcurementCategory } from "../../actions";
-import { ProcurementCategoryForm, UpdatePriceSemanticsForm } from "../../semantics-forms";
+import { closeResourcePriceValidity, createProfessionalResourcePrice, updateResourcePriceSemantics, updateResourceProcurementCategory } from "../../actions";
+import { CloseResourcePriceValidityForm, ProcurementCategoryForm, UpdatePriceSemanticsForm } from "../../semantics-forms";
 import { vatTreatmentLabels, transportTreatmentLabels } from "@/domain/professional-estimates/procurement-semantics";
 import { CreateResourcePriceForm } from "../resource-price-forms";
 
@@ -71,6 +71,11 @@ export default async function ProfessionalResourceDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Prețurile nu se șterg și valoarea lor nu se rescrie retroactiv.
+            Pentru un preț nou, închideți valabilitatea celui vechi și adăugați o
+            înregistrare nouă.
+          </p>
           <dl className="grid gap-4 sm:grid-cols-2">
             <DetailValue label="Tip">
               {resourceTypeLabels[resource.resourceType] ?? resource.resourceType}
@@ -134,6 +139,12 @@ export default async function ProfessionalResourceDetailPage({
                       <td className="py-3 pr-3">{price.currency}</td>
                       <td className="py-3 pr-3">
                         {price.validFrom} – {price.validTo ?? "fără termen"}
+                        <CloseResourcePriceValidityForm
+                          action={closeResourcePriceValidity.bind(null, resource.id, price.id)}
+                          priceId={price.id}
+                          validFrom={price.validFrom}
+                          validTo={price.validTo}
+                        />
                       </td>
                       <td className="py-3 pr-3">
                         {priceSourceLabels[price.sourceType] ?? price.sourceType}

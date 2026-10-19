@@ -69,6 +69,12 @@ export interface CreateResourcePriceData extends PriceSemantics {
 }
 
 export interface ProfessionalResourcePricesRepository {
+  getResourcePrice(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+  ): Promise<ResourcePriceRecord | null>;
+  closeResourcePriceValidity(
+    organizationId: OrganizationId, resourceId: string, priceId: string, validTo: string,
+  ): Promise<boolean>;
   updatePriceSemantics(
     organizationId: OrganizationId, resourceId: string, priceId: string,
     semantics: PriceSemantics,

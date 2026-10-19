@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   PROCUREMENT_CATEGORIES, VAT_TREATMENTS, TRANSPORT_TREATMENTS,
@@ -18,6 +19,29 @@ function Message({ state }: { state: ResourcePriceFormState }) {
   return "error" in state
     ? <p role="alert" className="text-sm text-destructive">{state.error}</p>
     : <p role="status" className="text-sm text-emerald-700">{state.success}</p>;
+}
+
+export function CloseResourcePriceValidityForm({
+  action, priceId, validFrom, validTo,
+}: {
+  action: SemanticAction; priceId: string; validFrom: string; validTo: string | null;
+}) {
+  const [state, formAction] = useActionState(action, null);
+  return (
+    <details className="mt-2 min-w-48 text-xs">
+      <summary className="cursor-pointer text-primary">
+        {validTo ? "Modifică data de încheiere" : "Închide valabilitatea"}
+      </summary>
+      <form action={formAction} className="mt-2 space-y-3">
+        <Label htmlFor={`${priceId}-valid-to`}>Valabil până la</Label>
+        <Input id={`${priceId}-valid-to`} name="validTo" type="date"
+          required min={validFrom} defaultValue={validTo ?? ""} />
+        <p>Data de sfârșit este inclusivă. Se modifică doar această dată.</p>
+        <Message state={state} />
+        <SubmitButton size="sm">Salvează data de încheiere</SubmitButton>
+      </form>
+    </details>
+  );
 }
 
 export function PriceSemanticsFields({

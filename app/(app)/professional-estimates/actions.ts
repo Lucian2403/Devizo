@@ -400,3 +400,23 @@ export async function updateResourcePriceSemantics(
   revalidatePath("/professional-estimates", "layout");
   return { success: "Clasificarea prețului a fost salvată." };
 }
+
+export async function closeResourcePriceValidity(
+  resourceId: string, priceId: string, _previous: ResourcePriceFormState, formData: FormData,
+): Promise<ResourcePriceFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalResourcePricesService().closeResourcePriceValidity(
+      org.id, resourceId, priceId, String(formData.get("validTo") ?? ""),
+    );
+  } catch (error) {
+    if (error instanceof ProfessionalResourcePriceValidationError || error instanceof ProfessionalResourcePriceNotFoundError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  revalidatePath(`/professional-estimates/resources/${resourceId}`);
+  revalidatePath("/professional-estimates/resources");
+  revalidatePath("/professional-estimates", "layout");
+  return { success: "Data de încheiere a valabilității a fost salvată." };
+}

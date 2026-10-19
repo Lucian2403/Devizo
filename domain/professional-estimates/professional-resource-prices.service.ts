@@ -48,8 +48,8 @@ export class ProfessionalResourcePriceValidationError extends Error {
 }
 
 export class ProfessionalResourcePriceNotFoundError extends Error {
-  constructor() {
-    super("Resursa profesională nu a fost găsită.");
+  constructor(message = "Resursa profesională nu a fost găsită.") {
+    super(message);
     this.name = "ProfessionalResourcePriceNotFoundError";
   }
 }
@@ -260,6 +260,27 @@ export class ProfessionalResourcePricesService {
   constructor(
     private readonly repository: ProfessionalResourcePricesRepository,
   ) {}
+
+  async closeResourcePriceValidity(
+    organizationId: OrganizationId, resourceId: string, priceId: string, validTo: string,
+  ): Promise<void> {
+    const notFound = () => new ProfessionalResourcePriceNotFoundError(
+      "Prețul resursei nu a fost găsit.",
+    );
+    if (!isWorkspaceUuid(resourceId) || !isWorkspaceUuid(priceId)) throw notFound();
+    const price = await this.repository.getResourcePrice(organizationId, resourceId, priceId);
+    if (!price) throw notFound();
+    const closingDate = validateDate(validTo, "Data de sfârșit", true)!;
+    if (closingDate < price.validFrom) {
+      throw new ProfessionalResourcePriceValidationError(
+        "Data de sfârșit nu poate preceda data de început a prețului.",
+      );
+    }
+    const updated = await this.repository.closeResourcePriceValidity(
+      organizationId, resourceId, priceId, closingDate,
+    );
+    if (!updated) throw notFound();
+  }
 
   async updatePriceSemantics(
     organizationId: OrganizationId, resourceId: string, priceId: string,

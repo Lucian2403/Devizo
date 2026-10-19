@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import type { OrganizationId, SupportedCurrency } from "@/domain/shared/types";
 import type {
   CreateResourcePriceData,
@@ -41,6 +41,40 @@ function toPriceRecord(
 export class DrizzleProfessionalResourcePricesRepository
   implements ProfessionalResourcePricesRepository
 {
+  async getResourcePrice(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+  ): Promise<ResourcePriceRecord | null> {
+    const [row] = await db.select({ price: resourcePrices })
+      .from(resourcePrices)
+      .innerJoin(professionalResources, and(
+        eq(professionalResources.id, resourcePrices.resourceId),
+        eq(professionalResources.organizationId, resourcePrices.organizationId),
+      ))
+      .where(and(
+        eq(resourcePrices.organizationId, organizationId),
+        eq(resourcePrices.resourceId, resourceId),
+        eq(resourcePrices.id, priceId),
+      )).limit(1);
+    return row ? toPriceRecord(row.price) : null;
+  }
+
+  async closeResourcePriceValidity(
+    organizationId: OrganizationId, resourceId: string, priceId: string, validTo: string,
+  ): Promise<boolean> {
+    const rows = await db.update(resourcePrices).set({ validTo }).where(and(
+      eq(resourcePrices.organizationId, organizationId),
+      eq(resourcePrices.resourceId, resourceId),
+      eq(resourcePrices.id, priceId),
+      lte(resourcePrices.validFrom, validTo),
+      inArray(resourcePrices.resourceId, db.select({ id: professionalResources.id })
+        .from(professionalResources).where(and(
+          eq(professionalResources.id, resourceId),
+          eq(professionalResources.organizationId, organizationId),
+        ))),
+    )).returning({ id: resourcePrices.id });
+    return rows.length === 1;
+  }
+
   async updatePriceSemantics(
     organizationId: OrganizationId, resourceId: string, priceId: string,
     semantics: PriceSemantics,

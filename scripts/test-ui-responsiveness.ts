@@ -20,6 +20,32 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const forms = readFileSync(join(process.cwd(),
+    "app", "(app)", "professional-estimates", "semantics-forms.tsx"), "utf8");
+  const closure = forms.slice(forms.indexOf("export function CloseResourcePriceValidityForm"),
+    forms.indexOf("export function PriceSemanticsFields"));
+  assert.ok(closure.includes('validTo ? "Modifică data de încheiere" : "Închide valabilitatea"'));
+  assert.ok(closure.includes("Valabil până la"));
+  assert.match(closure, /name="validTo" type="date"\s+required min=\{validFrom\} defaultValue=\{validTo \?\? ""\}/);
+  assert.ok(closure.includes("<Message state={state} />"));
+  for (const field of [
+    "price", "basisQuantity", "currency", "validFrom", "sourceType", "sourceReference",
+    "location", "vatTreatment", "transportTreatment", "organizationId",
+  ]) assert.ok(!closure.includes(`name="${field}"`), field);
+  const actions = readFileSync(join(process.cwd(),
+    "app", "(app)", "professional-estimates", "actions.ts"), "utf8");
+  const action = actions.slice(actions.indexOf("export async function closeResourcePriceValidity"));
+  assert.ok(action.includes("await requireCurrentOrg()"));
+  assert.ok(action.includes('formData.get("validTo")'));
+  assert.ok(action.includes('revalidatePath(`/professional-estimates/resources/${resourceId}`)'));
+  assert.ok(action.includes('revalidatePath("/professional-estimates", "layout")'));
+  const detail = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "resources", "[resourceId]", "page.tsx"), "utf8");
+  assert.ok(detail.includes("Prețurile nu se șterg și valoarea lor nu se rescrie retroactiv."));
+  assert.ok(detail.includes("closeResourcePriceValidity.bind(null, resource.id, price.id)"));
+}
+
+{
   const context: ProfessionalEstimateWorkspace["context"] = {
     id: "context-1", organizationId: "org-1", name: "Test",
     valuationDate: "2026-06-15", currency: "MDL", method: "resource",

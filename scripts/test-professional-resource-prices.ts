@@ -64,6 +64,23 @@ class FakeResourcePriceRepository implements ProfessionalResourcePricesRepositor
   category: ProcurementCategory | null = null;
   readonly priceId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
+  async getResourcePrice(orgId: string, resourceId: string, priceId: string) {
+    if (!this.resourceExists) return null;
+    const record = this.candidates.find((entry) =>
+      entry.organizationId === orgId && entry.resourceId === resourceId && entry.id === priceId);
+    return record ? { ...record } : null;
+  }
+
+  async closeResourcePriceValidity(
+    orgId: string, resourceId: string, priceId: string, validTo: string,
+  ) {
+    const record = this.candidates.find((entry) =>
+      entry.organizationId === orgId && entry.resourceId === resourceId && entry.id === priceId);
+    if (!this.resourceExists || !record || validTo < record.validFrom) return false;
+    record.validTo = validTo;
+    return true;
+  }
+
   async updatePriceSemantics(
     orgId: string, resourceId: string, priceId: string, data: PriceSemantics,
   ) {
@@ -456,6 +473,73 @@ async function main(): Promise<void> {
       ProfessionalResourcePriceValidationError,
     );
   }
+}
+
+// Closing validity preserves immutable price data and inclusive date eligibility.
+{
+  const repo = new FakeResourcePriceRepository();
+  const validityService = new ProfessionalResourcePricesService(repo);
+  const priceA = price(resourceIds.material, {
+    id: repo.priceId, resourcePriceId: repo.priceId,
+    validFrom: "2026-10-01", validTo: null,
+    vatTreatment: "exclusive", transportTreatment: "excluded",
+  });
+  const priceB = price(resourceIds.material, {
+    id: "99999999-9999-4999-8999-999999999999",
+    resourcePriceId: "99999999-9999-4999-8999-999999999999",
+    validFrom: "2026-10-19", validTo: null, price: "200",
+  });
+  repo.candidates = [priceA, priceB];
+  const before = structuredClone(repo.candidates);
+  const resolve = (date: string) => validityService.resolvePriceStatus(
+    organizationId, resourceIds.material, "MDL", date,
+  );
+  assert.equal((await resolve("2026-10-19")).status, "ambiguous");
+  for (const invalidDate of ["2026-09-30", "2026-02-30", "2026-13-01", "19.10.2026", ""]) {
+    await assert.rejects(validityService.closeResourcePriceValidity(
+      organizationId, resourceIds.material, repo.priceId, invalidDate,
+    ), ProfessionalResourcePriceValidationError);
+  }
+  await assert.rejects(validityService.closeResourcePriceValidity(
+    organizationId, resourceIds.material, repo.priceId, "2026-09-30",
+  ), { message: "Data de sfârșit nu poate preceda data de început a prețului." });
+  for (const [org, resource, id] of [
+    [otherOrganizationId, resourceIds.material, repo.priceId],
+    [organizationId, resourceIds.labor, repo.priceId],
+    [organizationId, "invalid-resource", repo.priceId],
+    [organizationId, resourceIds.material, "invalid-price"],
+    [organizationId, resourceIds.material, "88888888-8888-4888-8888-888888888888"],
+  ] as const) {
+    await assert.rejects(validityService.closeResourcePriceValidity(
+      org, resource, id, "2026-10-18",
+    ), { name: "ProfessionalResourcePriceNotFoundError", message: "Prețul resursei nu a fost găsit." });
+  }
+  repo.resourceExists = false;
+  await assert.rejects(validityService.closeResourcePriceValidity(
+    organizationId, resourceIds.material, repo.priceId, "2026-10-18",
+  ), ProfessionalResourcePriceNotFoundError);
+  repo.resourceExists = true;
+  assert.deepEqual(repo.candidates, before, "Rejected closures change no stored fields.");
+  await validityService.closeResourcePriceValidity(
+    organizationId, resourceIds.material, repo.priceId, "2026-10-18",
+  );
+  const selectedB = await resolve("2026-10-19");
+  assert.equal(selectedB.status, "selected");
+  assert.equal(selectedB.selected?.resourcePriceId, priceB.id);
+  const boundary = await resolve("2026-10-18");
+  assert.equal(boundary.status, "selected");
+  assert.equal(boundary.selected?.resourcePriceId, priceA.id);
+  assert.deepEqual(repo.candidates, [{ ...before[0]!, validTo: "2026-10-18" }, before[1]],
+    "Closing validity changes only validTo, not money, provenance or price semantics.");
+  await validityService.closeResourcePriceValidity(
+    organizationId, resourceIds.material, repo.priceId, "2026-10-17",
+  );
+  assert.deepEqual(repo.candidates, [{ ...before[0]!, validTo: "2026-10-17" }, before[1]]);
+  await validityService.closeResourcePriceValidity(
+    organizationId, resourceIds.material, repo.priceId, "2026-10-01",
+  );
+  assert.equal((await resolve("2026-10-01")).status, "selected",
+    "Closing on the start date is valid and includes that day.");
 }
 
 // M8.4D: actual persisted-definition mapping and governance gate feed the same resolver.

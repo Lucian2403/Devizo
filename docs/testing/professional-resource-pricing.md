@@ -53,6 +53,25 @@ seeded automatically.
     it displays that no price is required and contributes zero without a
     fabricated price record.
 
+## Closing an old price's validity
+
+Price records are never deleted and their value/provenance is not rewritten.
+On resource detail, **Închide valabilitatea** accepts only **Valabil până la**.
+For a closed record, **Modifică data de încheiere** corrects that same date.
+The required calendar date cannot precede the saved start date. This action
+updates only `resource_prices.valid_to`, separately from VAT/transport
+classification, and revalidates the resource register and estimate layout.
+No new migration or RLS change is needed.
+
+With two MDL prices starting `2026-10-01` and `2026-10-19`, both open-ended,
+an estimate dated `2026-10-19` is ambiguous. Close the first at `2026-10-18`:
+the second alone must be selected on `2026-10-19`, while the first remains
+eligible on the inclusive closing date `2026-10-18`. Verify both records remain
+visible and their amounts, bases, currency, provenance and VAT/transport
+classifications are unchanged. Correct the closing date and verify it persists.
+An earlier-than-start or invalid date must produce a Romanian error without
+changing the record.
+
 ## Automated verification
 
 Run the professional estimate, normative, normative database, type-check,
