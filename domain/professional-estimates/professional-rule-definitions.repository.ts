@@ -64,6 +64,10 @@ export interface ApplicabilityDecisionForRule {
 }
 
 export interface ProfessionalRuleDefinitionRepository {
+  ensureCompanyCalculationRuleSource(
+    organizationId: string,
+  ): Promise<{ id: string; code: string; edition: string; sourceType: string }>;
+
   createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
   ): Promise<ProfessionalRuleDefinitionRecord>;
@@ -76,6 +80,10 @@ export interface ProfessionalRuleDefinitionRepository {
   listRuleDefinitionsForComponent(
     organizationId: string,
     component: ProfessionalCostStackComponent,
+  ): Promise<ProfessionalRuleDefinitionRecord[]>;
+
+  listRuleDefinitions(
+    organizationId: string,
   ): Promise<ProfessionalRuleDefinitionRecord[]>;
 
   listRuleDefinitionsForSource(

@@ -23,6 +23,8 @@ export interface ProcurementApplication {
   sourceReference: string | null;
   ruleOrigin: ProfessionalRuleCandidate["ruleOrigin"];
   ratePercent: string;
+  ruleValidFrom: string;
+  ruleValidTo: string | null;
   procurementCategory: ProcurementCategory;
   materialBase: string;
   amount: string;
@@ -177,6 +179,8 @@ export function calculateProcurementStorage(
         sourceReference: selected.sourceReference ?? null,
         ruleOrigin: selected.ruleOrigin,
         ratePercent: selected.value,
+        ruleValidFrom: selected.validFrom,
+        ruleValidTo: selected.validTo,
         procurementCategory: category,
         materialBase,
         amount: calculateProcurementStorageAmount(materialBase, selected.value),

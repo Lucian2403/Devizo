@@ -26,6 +26,7 @@ export type CostStackValidationErrorCode =
   | "negative_rate"
   | "negative_amount"
   | "invalid_overhead_basis"
+  | "nonzero_basis"
   | "unsupported_transport_method"
   | "currency_mismatch"
   | "missing_resource_calculation"
@@ -50,11 +51,26 @@ export interface ResolvedCostRuleReference {
   calculationRuleId?: string | null;
   sourceId?: string | null;
   sourceReference?: string | null;
+  professionalRuleDefinitionId?: string | null;
+  ruleOrigin?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+  estimatePerspective?: string | null;
+  workKind?: string | null;
 }
 
 export interface NotApplicableDecision {
   status: "not_applicable";
   reason: string;
+}
+
+export interface ZeroBasisDecision {
+  status: "zero_basis";
+  basis:
+    | "labor_cost"
+    | "material_cost"
+    | "direct_cost"
+    | "estimate_cost_before_profit";
 }
 
 export interface AppliedPercentageDecision {
@@ -65,10 +81,12 @@ export interface AppliedPercentageDecision {
 
 export type LaborContributionsDecision =
   | NotApplicableDecision
+  | ZeroBasisDecision
   | AppliedPercentageDecision;
 
 export type MaterialTransportDecision =
   | NotApplicableDecision
+  | ZeroBasisDecision
   | {
       status: "applied";
       method: "percentage_of_material";
@@ -95,16 +113,57 @@ export type MaterialTransportDecision =
 
 export type ProcurementStorageDecision =
   | NotApplicableDecision
-  | AppliedPercentageDecision;
+  | ZeroBasisDecision
+  | AppliedPercentageDecision
+  | {
+      status: "applied";
+      method: "resolved_total";
+      amount: string;
+      currency: string;
+      applications: {
+        materialBase: string;
+        ratePercent: string;
+        amount: string;
+        rule: ResolvedCostRuleReference;
+      }[];
+    };
+
+type ResolvedProcurementStorageDecision = Extract<
+    ProcurementStorageDecision,
+    { method: "resolved_total" }
+>;
+
+function isResolvedProcurementStorageDecision(
+    value: unknown,
+): value is ResolvedProcurementStorageDecision {
+    return (
+      isRecord(value) &&
+      value.status === "applied" &&
+      value.method === "resolved_total" &&
+      Array.isArray(value.applications)
+    );
+}
+
+function isAppliedPercentageDecision(
+    value: unknown,
+): value is AppliedPercentageDecision {
+    return (
+      isRecord(value) &&
+      value.status === "applied" &&
+      typeof value.ratePercent === "string"
+    );
+}
 
 export type OverheadDecision =
   | NotApplicableDecision
+  | ZeroBasisDecision
   | (AppliedPercentageDecision & {
       basis: "direct_cost" | "labor_cost";
     });
 
 export type EstimatedProfitDecision =
   | NotApplicableDecision
+  | ZeroBasisDecision
   | AppliedPercentageDecision;
 
 export interface ProfessionalCostStackInput {
@@ -147,11 +206,18 @@ export interface CostStackRuleApplication {
   calculationRuleId: string | null;
   sourceId: string | null;
   sourceReference: string | null;
+  professionalRuleDefinitionId: string | null;
+  ruleOrigin: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  estimatePerspective: string | null;
+  workKind: string | null;
 }
 
 export type CostStackDecisionResult =
   | { status: "applied" }
-  | { status: "not_applicable"; reason: string };
+  | { status: "not_applicable"; reason: string }
+  | { status: "zero_basis"; basis: ZeroBasisDecision["basis"] };
 
 export type CostStackDecisionResults = Record<
   ProfessionalCostStackComponent,
@@ -270,7 +336,11 @@ function assertDecision(
       component,
     );
   }
-  if (value.status !== "applied" && value.status !== "not_applicable") {
+  if (
+    value.status !== "applied" &&
+    value.status !== "not_applicable" &&
+    value.status !== "zero_basis"
+  ) {
     throw new CostStackValidationError(
       "invalid_decision",
       `The decision for ${component} must explicitly be applied or not_applicable.`,
@@ -287,6 +357,22 @@ function assertDecision(
         "reason",
       );
     }
+  }
+  if (
+    value.status === "zero_basis" &&
+    ![
+      "labor_cost",
+      "material_cost",
+      "direct_cost",
+      "estimate_cost_before_profit",
+    ].includes(String(value.basis))
+  ) {
+    throw new CostStackValidationError(
+      "invalid_decision",
+      `A valid zero basis is required for ${component}.`,
+      component,
+      "basis",
+    );
   }
 }
 
@@ -318,6 +404,20 @@ function ruleReference(
       "sourceReference",
       component,
     ),
+    professionalRuleDefinitionId: optionalReference(
+      value.professionalRuleDefinitionId,
+      "professionalRuleDefinitionId",
+      component,
+    ),
+    ruleOrigin: optionalReference(value.ruleOrigin, "ruleOrigin", component),
+    validFrom: optionalReference(value.validFrom, "validFrom", component),
+    validTo: optionalReference(value.validTo, "validTo", component),
+    estimatePerspective: optionalReference(
+      value.estimatePerspective,
+      "estimatePerspective",
+      component,
+    ),
+    workKind: optionalReference(value.workKind, "workKind", component),
   };
 }
 
@@ -346,9 +446,33 @@ function notApplicableReason(
 function componentResult(
   decision: Record<string, unknown>,
 ): CostStackDecisionResult {
-  return decision.status === "not_applicable"
-    ? { status: "not_applicable", reason: notApplicableReason(decision) }
-    : { status: "applied" };
+  if (decision.status === "not_applicable") {
+    return { status: "not_applicable", reason: notApplicableReason(decision) };
+  }
+  if (decision.status === "zero_basis") {
+    return {
+      status: "zero_basis",
+      basis: decision.basis as ZeroBasisDecision["basis"],
+    };
+  }
+  return { status: "applied" };
+}
+
+function assertZeroBasis(
+  decision: unknown,
+  component: ProfessionalCostStackComponent,
+  expectedBasis: ZeroBasisDecision["basis"],
+  amount: InstanceType<typeof Decimal>,
+): void {
+  if (!isRecord(decision) || decision.status !== "zero_basis") return;
+  if (decision.basis !== expectedBasis || !amount.isZero()) {
+    throw new CostStackValidationError(
+      "nonzero_basis",
+      `The ${component} zero_basis decision does not match an exactly zero ${expectedBasis} basis.`,
+      component,
+      "basis",
+    );
+  }
 }
 
 function ruleApplication(
@@ -423,6 +547,7 @@ export function calculateProfessionalCostStack(
       "resource_totals",
     );
   }
+  const procurementStorageInput = input.procurementStorage;
   assertDecision(input.laborContributions, "labor_contributions");
   assertDecision(input.materialTransport, "material_transport");
   assertDecision(input.procurementStorage, "procurement_storage");
@@ -487,6 +612,12 @@ export function calculateProfessionalCostStack(
   const appliedRules: CostStackRuleApplication[] = [];
 
   let laborContributions = ZERO;
+  assertZeroBasis(
+    input.laborContributions,
+    "labor_contributions",
+    "labor_cost",
+    laborCost,
+  );
   if (input.laborContributions.status === "applied") {
     const laborRate = rate(
       input.laborContributions.ratePercent,
@@ -506,6 +637,12 @@ export function calculateProfessionalCostStack(
   }
 
   let materialTransport = ZERO;
+  assertZeroBasis(
+    input.materialTransport,
+    "material_transport",
+    "material_cost",
+    materialCost,
+  );
   if (input.materialTransport.status === "applied") {
     const method = input.materialTransport.method;
     if (method === "percentage_of_material") {
@@ -571,22 +708,108 @@ export function calculateProfessionalCostStack(
   }
 
   let procurementStorage = ZERO;
-  if (input.procurementStorage.status === "applied") {
-    const storageRate = rate(
-      input.procurementStorage.ratePercent,
-      "procurement_storage",
-    );
-    procurementStorage = percentAmount(materialCost, storageRate);
-    appliedRules.push(
-      ruleApplication(
+  assertZeroBasis(
+    procurementStorageInput,
+    "procurement_storage",
+    "material_cost",
+    materialCost,
+  );
+  if (procurementStorageInput.status === "applied") {
+    if (
+      isResolvedProcurementStorageDecision(procurementStorageInput)
+    ) {
+      if (
+        typeof procurementStorageInput.currency !== "string" ||
+        procurementStorageInput.currency.trim() !== currency
+      ) {
+        throw new CostStackValidationError(
+          "currency_mismatch",
+          `Resolved procurement/storage currency must match calculation currency ${currency}.`,
+          "procurement_storage",
+          "currency",
+        );
+      }
+      const suppliedAmount = decimal(
+        procurementStorageInput.amount,
+        "amount",
         "procurement_storage",
-        "material_cost",
-        ruleReference(input.procurementStorage.rule, "procurement_storage"),
-        procurementStorage,
-        storageRate,
-        null,
-      ),
-    );
+      );
+      if (suppliedAmount.lessThan(0) || procurementStorageInput.applications.length === 0) {
+        throw new CostStackValidationError(
+          "invalid_rule",
+          "A resolved procurement/storage total requires non-negative amount and exact rule applications.",
+          "procurement_storage",
+          "applications",
+        );
+      }
+      let verifiedAmount = ZERO;
+      for (const application of procurementStorageInput.applications) {
+        const materialBase = decimal(
+          application.materialBase,
+          "materialBase",
+          "procurement_storage",
+        );
+        const applicationRate = rate(
+          application.ratePercent,
+          "procurement_storage",
+        );
+        const applicationAmount = decimal(
+          application.amount,
+          "application.amount",
+          "procurement_storage",
+        );
+        if (!percentAmount(materialBase, applicationRate).equals(applicationAmount)) {
+          throw new CostStackValidationError(
+            "invalid_rule",
+            "A procurement/storage application amount does not match its exact material base and rate.",
+            "procurement_storage",
+            "applications",
+          );
+        }
+        verifiedAmount = verifiedAmount.plus(applicationAmount);
+        appliedRules.push(
+          ruleApplication(
+            "procurement_storage",
+            "material_cost",
+            ruleReference(application.rule, "procurement_storage"),
+            applicationAmount,
+            applicationRate,
+            null,
+          ),
+        );
+      }
+      if (!verifiedAmount.equals(suppliedAmount)) {
+        throw new CostStackValidationError(
+          "resource_total_mismatch",
+          "Resolved procurement/storage total does not match its exact applications.",
+          "procurement_storage",
+          "amount",
+        );
+      }
+      procurementStorage = suppliedAmount;
+    } else if (isAppliedPercentageDecision(procurementStorageInput)) {
+      const storageRate = rate(
+        procurementStorageInput.ratePercent,
+        "procurement_storage",
+      );
+      procurementStorage = percentAmount(materialCost, storageRate);
+      appliedRules.push(
+        ruleApplication(
+          "procurement_storage",
+          "material_cost",
+          ruleReference(procurementStorageInput.rule, "procurement_storage"),
+          procurementStorage,
+          storageRate,
+          null,
+        ),
+      );
+    } else {
+      throw new CostStackValidationError(
+        "invalid_decision",
+        "An applied procurement/storage decision must carry an exact resolved total or percentage rule.",
+        "procurement_storage",
+      );
+    }
   }
 
   const directCost = rawResourceTotal
@@ -595,6 +818,24 @@ export function calculateProfessionalCostStack(
     .plus(procurementStorage);
 
   let overhead = ZERO;
+  if (input.overhead.status === "zero_basis") {
+    if (
+      input.overhead.basis !== "direct_cost" &&
+      input.overhead.basis !== "labor_cost"
+    ) {
+      throw new CostStackValidationError(
+        "invalid_overhead_basis",
+        `Unsupported overhead zero basis: ${String(input.overhead.basis)}.`,
+        "overhead",
+        "basis",
+      );
+    }
+    const basis =
+      input.overhead.basis === "labor_cost" ? laborCost : ZERO;
+    const actualBasis =
+      input.overhead.basis === "direct_cost" ? directCost : basis;
+    assertZeroBasis(input.overhead, "overhead", input.overhead.basis, actualBasis);
+  }
   if (input.overhead.status === "applied") {
     const overheadRate = rate(input.overhead.ratePercent, "overhead");
     let overheadBasis: InstanceType<typeof Decimal>;
@@ -626,6 +867,12 @@ export function calculateProfessionalCostStack(
   const estimateCostBeforeProfit = directCost.plus(overhead);
 
   let estimatedProfit = ZERO;
+  assertZeroBasis(
+    input.estimatedProfit,
+    "estimated_profit",
+    "estimate_cost_before_profit",
+    estimateCostBeforeProfit,
+  );
   if (input.estimatedProfit.status === "applied") {
     const profitRate = rate(
       input.estimatedProfit.ratePercent,

@@ -25,6 +25,13 @@ const RESOLVABLE_COMPONENTS: readonly ProfessionalCostStackComponent[] = [
   "overhead",
   "estimated_profit",
 ];
+const COMPANY_RULE_COMPONENTS: readonly ProfessionalCostStackComponent[] = [
+  "labor_contributions",
+  "material_transport",
+  "overhead",
+  "estimated_profit",
+];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function fail(
   code: string,
@@ -137,6 +144,20 @@ export function validateRuleDefinitionInput(
       fail("invalid_decimal", error.message, "value");
     }
     throw error;
+  }
+  if (typeof input.value !== "string" || !/^[+]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(input.value.trim())) {
+    fail("invalid_decimal", "value must be a plain decimal value.", "value");
+  }
+  const [integerPart = "", fractionPart = ""] = input.value.trim().replace(/^\+/, "").split(".");
+  if (
+    (integerPart.replace(/^0+/, "") || "0").length > 12 ||
+    fractionPart.replace(/0+$/, "").length > 6
+  ) {
+    fail(
+      "invalid_decimal_precision",
+      "Valoarea poate avea maximum 12 cifre întregi și 6 zecimale.",
+      "value",
+    );
   }
   if (value.lessThan(0)) {
     fail("negative_value", "value must not be negative.", "value");
@@ -328,6 +349,45 @@ export class ProfessionalRuleDefinitionService {
     private readonly repository: ProfessionalRuleDefinitionRepository,
   ) {}
 
+  async ensureCompanyCalculationRuleSource(
+    organizationId: string,
+  ): Promise<{ id: string; code: string; edition: string; sourceType: string }> {
+    if (!UUID.test(organizationId)) {
+      fail("invalid_organization", "Compania selectată nu este validă.");
+    }
+    return this.repository.ensureCompanyCalculationRuleSource(organizationId);
+  }
+
+  async createCompanyRuleDefinition(
+    organizationId: string,
+    input: Omit<
+      CreateProfessionalRuleDefinitionInput,
+      | "organizationId"
+      | "sourceId"
+      | "applicabilityDecisionId"
+      | "ruleOrigin"
+    >,
+  ): Promise<ProfessionalRuleDefinitionRecord> {
+    if (!UUID.test(organizationId)) {
+      fail("invalid_organization", "Compania selectată nu este validă.");
+    }
+    if (!COMPANY_RULE_COMPONENTS.includes(input.component)) {
+      fail(
+        "invalid_component",
+        "Regulile interne pot fi create doar pentru contribuții, transport materiale, cheltuieli de regie sau beneficiu estimat.",
+        "component",
+      );
+    }
+    const source = await this.ensureCompanyCalculationRuleSource(organizationId);
+    return this.createRuleDefinition({
+      ...input,
+      organizationId,
+      sourceId: source.id,
+      applicabilityDecisionId: null,
+      ruleOrigin: "company_individual",
+    });
+  }
+
   async createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
   ): Promise<ProfessionalRuleDefinitionRecord> {
@@ -430,5 +490,11 @@ export class ProfessionalRuleDefinitionService {
       organizationId,
       sourceId,
     );
+  }
+
+  listRuleDefinitions(
+    organizationId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.repository.listRuleDefinitions(organizationId);
   }
 }

@@ -11,13 +11,31 @@ import type { DirectResourceCostPosition } from "@/domain/professional-estimates
 import { formatProfessionalResourceMoney } from "@/lib/ui/professional-resource-money";
 import {
   getProfessionalEstimateWorkspaceService,
+  getProfessionalCostComponentDecisionService,
   getProfessionalNormLibraryService,
   getProfessionalResourcePricesService,
   getProfessionalRuleDefinitionService,
 } from "@/server/container";
 import { calculateProcurementStorage } from "@/domain/professional-estimates/calculation/procurement-storage";
+import {
+  calculateProfessionalCostStack,
+  parseDecimal,
+  toDecimalString,
+  resolveProfessionalRule,
+  type ResolvedCostRuleReference,
+  type ProfessionalCostStackInput,
+  type ResourceTypeTotals,
+} from "@/domain/professional-estimates/calculation";
+import type {
+  PersistedCostComponent,
+  ProfessionalCostComponentDecisionRecord,
+} from "@/domain/professional-estimates/professional-cost-component-decisions.repository";
+import { isStoredCostComponentDecisionStale } from "@/domain/professional-estimates/professional-cost-component-decisions.service";
+import type { ProfessionalRuleDefinitionRecord } from "@/domain/professional-estimates/professional-rule-definitions.repository";
 import { CalculationContextForm } from "../semantics-forms";
 import { NormativeCosts } from "./normative-costs";
+import { CostComponentDecisionCard } from "./cost-component-forms";
+import { saveProfessionalCostComponentDecision } from "../actions";
 import { vatTreatmentLabels, transportTreatmentLabels } from "@/domain/professional-estimates/procurement-semantics";
 import {
   assignNormToWorkItem,
@@ -39,6 +57,138 @@ const resourceTypeLabels: Record<string, string> = {
   energy: "Energie",
   other: "Altele",
 };
+const costComponents: PersistedCostComponent[] = [
+  "labor_contributions",
+  "material_transport",
+  "overhead",
+  "estimated_profit",
+];
+const costComponentLabels: Record<PersistedCostComponent, string> = {
+  labor_contributions: "Contribuții aferente manoperei",
+  material_transport: "Transport materiale",
+  overhead: "Cheltuieli de regie",
+  estimated_profit: "Beneficiu estimat",
+};
+
+function professionalRuleReference(
+  definition: ProfessionalRuleDefinitionRecord,
+): ResolvedCostRuleReference {
+  return {
+    ruleType: definition.component,
+    calculationRuleId: null,
+    sourceId: definition.sourceId,
+    sourceReference: definition.sourceReference,
+    professionalRuleDefinitionId: definition.id,
+    ruleOrigin: definition.ruleOrigin,
+    validFrom: definition.validFrom,
+    validTo: definition.validTo,
+    estimatePerspective: definition.estimatePerspective,
+    workKind: definition.workKind,
+  };
+}
+
+type ComponentDecision<C extends PersistedCostComponent> =
+  C extends "labor_contributions"
+    ? ProfessionalCostStackInput["laborContributions"]
+    : C extends "material_transport"
+      ? ProfessionalCostStackInput["materialTransport"]
+      : C extends "overhead"
+        ? ProfessionalCostStackInput["overhead"]
+        : ProfessionalCostStackInput["estimatedProfit"];
+
+function makeComponentDecision(
+  component: "labor_contributions",
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+): ComponentDecision<"labor_contributions"> | null;
+function makeComponentDecision(
+  component: "material_transport",
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+): ComponentDecision<"material_transport"> | null;
+function makeComponentDecision(
+  component: "overhead",
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+): ComponentDecision<"overhead"> | null;
+function makeComponentDecision(
+  component: "estimated_profit",
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+): ComponentDecision<"estimated_profit"> | null;
+function makeComponentDecision(
+  component: PersistedCostComponent,
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+):
+  | ProfessionalCostStackInput["laborContributions"]
+  | ProfessionalCostStackInput["materialTransport"]
+  | ProfessionalCostStackInput["overhead"]
+  | ProfessionalCostStackInput["estimatedProfit"]
+  | null;
+function makeComponentDecision(
+  component: PersistedCostComponent,
+  saved: ProfessionalCostComponentDecisionRecord | undefined,
+  eligibleDefinitions: ProfessionalRuleDefinitionRecord[],
+  zeroBasis: boolean,
+):
+  | ProfessionalCostStackInput["laborContributions"]
+  | ProfessionalCostStackInput["materialTransport"]
+  | ProfessionalCostStackInput["overhead"]
+  | ProfessionalCostStackInput["estimatedProfit"]
+  | null {
+  if (saved?.decision === "not_applicable") {
+    return { status: "not_applicable", reason: saved.reason ?? "" };
+  }
+  if (saved?.decision === "applied") {
+    const definition = eligibleDefinitions.find(
+      ({ id }) => id === saved.professionalRuleDefinitionId,
+    );
+    if (!definition) return null;
+    const rule = professionalRuleReference(definition);
+    if (component === "material_transport") {
+      return definition.valueType === "fixed_amount"
+        ? {
+            status: "applied",
+            method: "fixed_amount",
+            amount: definition.value,
+            currency: definition.currency ?? "",
+            rule,
+          }
+        : {
+            status: "applied",
+            method: "percentage_of_material",
+            ratePercent: definition.value,
+            rule,
+          };
+    }
+    if (component === "overhead") {
+      return {
+        status: "applied",
+        basis: definition.calculationBasis as "direct_cost" | "labor_cost",
+        ratePercent: definition.value,
+        rule,
+      };
+    }
+    return { status: "applied", ratePercent: definition.value, rule };
+  }
+  if (!zeroBasis) return null;
+  if (component === "labor_contributions") {
+    return { status: "zero_basis", basis: "labor_cost" };
+  }
+  if (component === "material_transport") {
+    return { status: "zero_basis", basis: "material_cost" };
+  }
+  if (component === "overhead") {
+    return { status: "zero_basis", basis: "direct_cost" };
+  }
+  return { status: "zero_basis", basis: "estimate_cost_before_profit" };
+}
 
 export default async function ProfessionalEstimateDetailPage({
   params,
@@ -99,13 +249,215 @@ export default async function ProfessionalEstimateDetailPage({
     normPresentation.itemCount > 0 &&
     normPresentation.assignedCount === normPresentation.itemCount &&
     resourcePricing.completePositionCount === normPresentation.assignedCount;
+  const ruleService = getProfessionalRuleDefinitionService();
+  const procurementCandidates = await ruleService.loadCandidatesForComponent(
+    org.id,
+    "procurement_storage",
+  );
   const procurement = calculateProcurementStorage(
     resourcePricing,
     workspace.context,
-    await getProfessionalRuleDefinitionService().loadCandidatesForComponent(
-      org.id, "procurement_storage",
-    ),
+    procurementCandidates,
   );
+  const allDefinitions = await ruleService.listRuleDefinitions(org.id);
+  const definitionsById = new Map(
+    allDefinitions.map((definition) => [definition.id, definition]),
+  );
+  const savedComponentDecisions =
+    await getProfessionalCostComponentDecisionService().listForContext(
+      org.id,
+      calculationContextId,
+    );
+  const decisionsByComponent = new Map(
+    savedComponentDecisions.map((decision) => [decision.component, decision]),
+  );
+  const contextComplete =
+    workspace.context.estimatePerspective !== null &&
+    workspace.context.workKind !== null;
+  const currentResolutions = new Map<
+    PersistedCostComponent,
+    ProfessionalRuleDefinitionRecord[]
+  >();
+  for (const component of costComponents) {
+    const candidates = contextComplete
+      ? await ruleService.loadCandidatesForComponent(org.id, component)
+      : [];
+    const eligibleCandidates =
+      contextComplete
+        ? resolveProfessionalRule(component, candidates, {
+            valuationDate: workspace.context.valuationDate,
+            estimatePerspective: workspace.context.estimatePerspective!,
+            workKind: workspace.context.workKind!,
+            currency: workspace.context.currency,
+          }).eligibleCandidates
+        : [];
+    currentResolutions.set(
+      component,
+      eligibleCandidates.map((candidate) => {
+        const definition = definitionsById.get(candidate.candidateId);
+        if (!definition) {
+          throw new Error(
+            `Resolved professional rule ${candidate.candidateId} has no persisted definition.`,
+          );
+        }
+        return definition;
+      }),
+    );
+  }
+
+  const allPricedPositions =
+    pricesComplete &&
+    normPresentation.assignedCount === workspace.items.length &&
+    workspace.items.length > 0;
+  const sumResourceType = (key: keyof ResourceTypeTotals) =>
+    toDecimalString(
+      Object.values(resourcePricing.positionsByWorkItemId).reduce(
+        (total, position) =>
+          total.plus(
+            parseDecimal(position.totalsByResourceType?.[key] ?? "0", key),
+          ),
+        parseDecimal("0", key),
+      ),
+    );
+  const resourceTotals = allPricedPositions
+    ? {
+        labor: sumResourceType("labor"),
+        material: sumResourceType("material"),
+        machinery: sumResourceType("machinery"),
+        transport: sumResourceType("transport"),
+        energy: sumResourceType("energy"),
+        other: sumResourceType("other"),
+      }
+    : null;
+  const directResourceTotal = allPricedPositions
+    ? toDecimalString(
+        Object.values(resourcePricing.positionsByWorkItemId).reduce(
+          (total, position) =>
+            total.plus(
+              parseDecimal(position.directResourceTotal ?? "0", "directResourceTotal"),
+            ),
+          parseDecimal("0", "directResourceTotal"),
+        ),
+      )
+    : null;
+  const resourceCalculation =
+    resourceTotals && directResourceTotal !== null
+      ? {
+          currency: workspace.context.currency,
+          totalsByResourceType: resourceTotals,
+          directResourceTotal,
+        }
+      : null;
+
+  const savedFor = (component: PersistedCostComponent) =>
+    decisionsByComponent.get(component);
+  const eligibleFor = (component: PersistedCostComponent) =>
+    currentResolutions.get(component) ?? [];
+  const zeroResourceBases = {
+    labor_contributions:
+      resourceTotals !== null &&
+      parseDecimal(resourceTotals.labor, "labor").isZero(),
+    material_transport:
+      resourceTotals !== null &&
+      parseDecimal(resourceTotals.material, "material").isZero(),
+  };
+  const laborDecision = makeComponentDecision(
+    "labor_contributions",
+    savedFor("labor_contributions"),
+    eligibleFor("labor_contributions"),
+    zeroResourceBases.labor_contributions,
+  );
+  const materialTransportDecision = makeComponentDecision(
+    "material_transport",
+    savedFor("material_transport"),
+    eligibleFor("material_transport"),
+    zeroResourceBases.material_transport,
+  );
+
+  const procurementDecision: ProfessionalCostStackInput["procurementStorage"] | null =
+    procurement.complete && procurement.procurementStorageTotal !== null
+      ? procurement.categories.length === 0
+        ? { status: "zero_basis", basis: "material_cost" }
+        : {
+            status: "applied",
+            method: "resolved_total",
+            amount: procurement.procurementStorageTotal,
+            currency: workspace.context.currency,
+            applications: procurement.categories.map((category) => {
+              const application = category.application;
+              if (!application) {
+                throw new Error(
+                  "A complete procurement calculation is missing a category application.",
+                );
+              }
+              const definition = definitionsById.get(
+                application.professionalRuleDefinitionId,
+              );
+              if (!definition) {
+                throw new Error(
+                  `Procurement rule ${application.professionalRuleDefinitionId} has no persisted definition.`,
+                );
+              }
+              return {
+                materialBase: application.materialBase,
+                ratePercent: application.ratePercent,
+                amount: application.amount,
+                rule: professionalRuleReference(definition),
+              };
+            }),
+          }
+      : null;
+
+  const rawResourceZero =
+    resourceCalculation !== null &&
+    parseDecimal(resourceCalculation.directResourceTotal, "directResourceTotal").isZero();
+  const materialTransportZero =
+    materialTransportDecision?.status === "zero_basis" ||
+    materialTransportDecision?.status === "not_applicable" ||
+    (materialTransportDecision?.status === "applied" &&
+      (materialTransportDecision.method === "percentage_of_material"
+        ? zeroResourceBases.material_transport
+        : materialTransportDecision.method === "fixed_amount"
+          ? parseDecimal(materialTransportDecision.amount, "materialTransport").isZero()
+          : false));
+  const procurementZero =
+    procurementDecision?.status === "zero_basis" ||
+    (procurementDecision?.status === "applied" &&
+      procurement.procurementStorageTotal !== null &&
+      parseDecimal(procurement.procurementStorageTotal, "procurementStorage").isZero());
+  const directCostZero =
+    rawResourceZero &&
+    materialTransportZero &&
+    procurementZero &&
+    laborDecision !== null;
+  const overheadDecision = makeComponentDecision(
+    "overhead",
+    savedFor("overhead"),
+    eligibleFor("overhead"),
+    directCostZero,
+  );
+  const estimatedProfitDecision = makeComponentDecision(
+    "estimated_profit",
+    savedFor("estimated_profit"),
+    eligibleFor("estimated_profit"),
+    directCostZero,
+  );
+  const stackResult =
+    resourceCalculation &&
+    procurementDecision &&
+    laborDecision &&
+    materialTransportDecision &&
+    overheadDecision &&
+    estimatedProfitDecision
+      ? calculateProfessionalCostStack({
+          resourceCalculation,
+          laborContributions: laborDecision,
+          materialTransport: materialTransportDecision,
+          procurementStorage: procurementDecision,
+          overhead: overheadDecision,
+          estimatedProfit: estimatedProfitDecision,
+        })
+      : null;
   const progressSteps = [
     { title: "Obiect și listă create", complete: true },
     {
@@ -122,7 +474,7 @@ export default async function ProfessionalEstimateDetailPage({
       title: `Resurse și prețuri: ${resourcePricing.pricedResourceCount} / ${resourcePricing.requiredPriceCount}`,
       complete: pricesComplete,
     },
-    { title: "Calcul profesional", complete: false },
+    { title: "Calcul profesional", complete: stackResult !== null },
     { title: "Formulare finale", complete: false },
   ];
 
@@ -356,6 +708,185 @@ export default async function ProfessionalEstimateDetailPage({
       />
 
       <Card>
+        <CardHeader>
+          <CardTitle>Configurarea costurilor</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Regulile interne trebuie justificate prin datele companiei sau
+            configurarea contractuală. Ele nu sunt automat valori normative
+            oficiale.
+          </p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {costComponents.map((component) => {
+              const saved = savedFor(component) ?? null;
+              const definitions = eligibleFor(component);
+              const stale = isStoredCostComponentDecisionStale(
+                saved,
+                definitions.map(({ id }) => id),
+              );
+              const zeroBasis =
+                saved === undefined &&
+                (component === "labor_contributions"
+                  ? zeroResourceBases.labor_contributions
+                  : component === "material_transport"
+                    ? zeroResourceBases.material_transport
+                    : directCostZero);
+              return (
+                <CostComponentDecisionCard
+                  key={component}
+                  component={component}
+                  action={saveProfessionalCostComponentDecision.bind(
+                    null,
+                    calculationContextId,
+                  )}
+                  definitions={definitions}
+                  decision={saved}
+                  contextComplete={contextComplete}
+                  zeroBasis={zeroBasis}
+                  stale={stale}
+                />
+              );
+            })}
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/professional-estimates/rules">Deschide biblioteca de reguli</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Calcul profesional</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {stackResult ? (
+            <>
+              <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                <CostLine
+                  label="Cost resurse"
+                  value={stackResult.rawResourceTotal}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Contribuții aferente manoperei"
+                  value={stackResult.laborContributions}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Transport materiale"
+                  value={stackResult.materialTransport}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Aprovizionare-depozitare"
+                  value={stackResult.procurementStorage}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Cost direct"
+                  value={stackResult.directCost}
+                  currency={stackResult.currency}
+                  emphasized
+                />
+                <CostLine
+                  label="Cheltuieli de regie"
+                  value={stackResult.overhead}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Cost înainte de beneficiu"
+                  value={stackResult.estimateCostBeforeProfit}
+                  currency={stackResult.currency}
+                  emphasized
+                />
+                <CostLine
+                  label="Beneficiu estimat"
+                  value={stackResult.estimatedProfit}
+                  currency={stackResult.currency}
+                />
+                <CostLine
+                  label="Subtotal înainte de TVA"
+                  value={stackResult.estimateSubtotalBeforeLimitedCostsAndVat}
+                  currency={stackResult.currency}
+                  emphasized
+                />
+              </dl>
+              {savedComponentDecisions
+                .filter((decision) => decision.decision === "not_applicable")
+                .map((decision) => (
+                  <p key={decision.id} className="text-sm text-muted-foreground">
+                    {costComponentLabels[decision.component]} — neaplicabilă,
+                    conform deciziei explicite {decision.id}: {decision.reason}
+                  </p>
+                ))}
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-amber-800">
+                Calculul profesional este incomplet.
+              </p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {!allPricedPositions && (
+                  <li>Resursele directe sau prețurile eligibile sunt incomplete.</li>
+                )}
+                {allPricedPositions &&
+                  costComponents.map((component) => {
+                    const saved = savedFor(component);
+                    const definitions = eligibleFor(component);
+                    const stale = isStoredCostComponentDecisionStale(
+                      saved,
+                      definitions.map(({ id }) => id),
+                    );
+                    const zeroBasis =
+                      saved === undefined &&
+                      (component === "labor_contributions"
+                        ? zeroResourceBases.labor_contributions
+                        : component === "material_transport"
+                          ? zeroResourceBases.material_transport
+                          : directCostZero);
+                    const componentDecision = makeComponentDecision(
+                      component,
+                      saved,
+                      definitions,
+                      zeroBasis,
+                    );
+                    if (componentDecision !== null && !stale) return null;
+                    return (
+                      <li key={component}>
+                        {costComponentLabels[component]} —{" "}
+                        {stale
+                          ? "decizia salvată nu mai este eligibilă"
+                          : !contextComplete
+                            ? "context incomplet"
+                            : definitions.length > 1
+                              ? `ambiguu (${definitions.length} reguli eligibile)`
+                              : definitions.length === 0
+                                ? "nu există regulă eligibilă sau decizie explicită"
+                                : "alegeți și aplicați explicit regula eligibilă"}
+                      </li>
+                    );
+                  })}
+                {!procurement.complete && (
+                  <li>
+                    Aprovizionare-depozitare — nerezolvată; verificați contextul,
+                    clasificarea materialelor, prețurile și regulile CP L.01.07.
+                  </li>
+                )}
+                {procurement.complete && !contextComplete && (
+                  <li>Completați perspectiva și tipul lucrărilor din context.</li>
+                )}
+              </ul>
+            </>
+          )}
+          <p className="border-t pt-3 text-sm text-muted-foreground">
+            Subtotal intermediar. TVA și alte costuri limitate/finale nu sunt
+            încă calculate.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
           <CardTitle className="text-base">Adaugă poziție</CardTitle>
         </CardHeader>
@@ -538,6 +1069,29 @@ function DetailValue({
     <div className="min-w-0">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-1 break-words text-sm font-medium text-heading">{children}</dd>
+    </div>
+  );
+}
+
+function CostLine({
+  label,
+  value,
+  currency,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  currency: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b py-2">
+      <dt className={emphasized ? "font-semibold text-heading" : "text-muted-foreground"}>
+        {label}
+      </dt>
+      <dd className={`whitespace-nowrap text-right tabular-nums ${emphasized ? "font-semibold text-heading" : "font-medium"}`}>
+        {formatProfessionalResourceMoney(value, currency)}
+      </dd>
     </div>
   );
 }

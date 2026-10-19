@@ -51,6 +51,15 @@ class MemoryRuleDefinitionRepository
   decisions: SeededDecision[] = [];
   createCalls = 0;
 
+  async ensureCompanyCalculationRuleSource() {
+    return {
+      id: "source-company",
+      code: "DEVIZO-COMPANY-CALC-RULES",
+      edition: "1",
+      sourceType: "company_custom",
+    };
+  }
+
   async createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
   ): Promise<ProfessionalRuleDefinitionRecord> {
@@ -99,6 +108,14 @@ class MemoryRuleDefinitionRepository
   ): Promise<ProfessionalRuleDefinitionRecord[]> {
     return this.definitions.filter(
       (d) => d.organizationId === organizationId && d.component === component,
+    );
+  }
+
+  async listRuleDefinitions(
+    organizationId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    return this.definitions.filter(
+      (definition) => definition.organizationId === organizationId,
     );
   }
 

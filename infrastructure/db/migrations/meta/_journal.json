@@ -141,6 +141,13 @@
       "when": 1792395670289,
       "tag": "0019_puzzling_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792409999925,
+      "tag": "0020_clumsy_lockheed",
+      "breakpoints": true
     }
   ]
 }

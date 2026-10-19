@@ -477,4 +477,123 @@ function expectCostStackError(
   assert.equal(result.directCost, "0.32");
 }
 
+// M8.4E technical fixture: the existing M8.3B order preserves exact decimals,
+// and procurement totals reuse the exact M8.4D rule applications.
+{
+  const internalRule: ResolvedCostRuleReference = {
+    ruleType: "company_individual",
+    professionalRuleDefinitionId: "definition-test-id",
+    sourceId: "company-source-id",
+    sourceReference: "Internal technical fixture",
+    ruleOrigin: "company_individual",
+    validFrom: "2012-08-17",
+    validTo: null,
+    estimatePerspective: "investor",
+    workKind: "construction",
+  };
+  const result = calculateProfessionalCostStack(
+    baseInput({
+      resourceTotals: {
+        labor: "2750",
+        material: "99",
+        machinery: "1375",
+        transport: "0",
+        energy: "0",
+        other: "0",
+      },
+      laborContributions: {
+        status: "applied",
+        ratePercent: "5",
+        rule: internalRule,
+      },
+      materialTransport: {
+        status: "applied",
+        method: "percentage_of_material",
+        ratePercent: "10",
+        rule: internalRule,
+      },
+      procurementStorage: {
+        status: "applied",
+        method: "resolved_total",
+        amount: "1.98",
+        currency: "MDL",
+        applications: [
+          {
+            materialBase: "99",
+            ratePercent: "2",
+            amount: "1.98",
+            rule: {
+              ...internalRule,
+              ruleType: "normative_sector_average",
+              professionalRuleDefinitionId: "cp-l-01-07-definition",
+              sourceReference: "CP L.01.07-2012",
+            },
+          },
+        ],
+      },
+      overhead: {
+        status: "applied",
+        basis: "direct_cost",
+        ratePercent: "10",
+        rule: internalRule,
+      },
+      estimatedProfit: {
+        status: "applied",
+        ratePercent: "5",
+        rule: internalRule,
+      },
+    }),
+  );
+  assert.equal(result.rawResourceTotal, "4224");
+  assert.equal(result.laborContributions, "137.5");
+  assert.equal(result.materialTransport, "9.9");
+  assert.equal(result.procurementStorage, "1.98");
+  assert.equal(result.directCost, "4373.38");
+  assert.equal(result.overhead, "437.338");
+  assert.equal(result.estimateCostBeforeProfit, "4810.718");
+  assert.equal(result.estimatedProfit, "240.5359");
+  assert.equal(result.estimateSubtotalBeforeLimitedCostsAndVat, "5051.2539");
+  assert.equal(result.appliedRules[0]?.professionalRuleDefinitionId, "definition-test-id");
+  assert.equal(result.appliedRules[0]?.sourceId, "company-source-id");
+  assert.equal(result.appliedRules[0]?.ruleOrigin, "company_individual");
+  assert.equal(result.appliedRules[2]?.sourceReference, "CP L.01.07-2012");
+  assert.equal(
+    result.appliedRules[2]?.professionalRuleDefinitionId,
+    "cp-l-01-07-definition",
+  );
+  assert.equal(result.estimateSubtotalBeforeLimitedCostsAndVat, "5051.2539");
+}
+
+// Objective zero bases are distinct from not-applicable and do not fabricate
+// rule references or persisted decisions.
+{
+  const result = calculateProfessionalCostStack(
+    baseInput({
+      laborContributions: { status: "zero_basis", basis: "labor_cost" },
+      materialTransport: { status: "zero_basis", basis: "material_cost" },
+      procurementStorage: { status: "zero_basis", basis: "material_cost" },
+      overhead: { status: "zero_basis", basis: "direct_cost" },
+      estimatedProfit: {
+        status: "zero_basis",
+        basis: "estimate_cost_before_profit",
+      },
+    }),
+  );
+  assert.equal(result.decisions.labor_contributions.status, "zero_basis");
+  assert.equal(result.decisions.material_transport.status, "zero_basis");
+  assert.equal(result.decisions.procurement_storage.status, "zero_basis");
+  assert.equal(result.decisions.overhead.status, "zero_basis");
+  assert.equal(result.decisions.estimated_profit.status, "zero_basis");
+  assert.equal(result.appliedRules.length, 0);
+  assert.equal(result.estimateSubtotalBeforeLimitedCostsAndVat, "0");
+  expectCostStackError("nonzero_basis", () =>
+    calculateProfessionalCostStack(
+      baseInput({
+        resourceTotals: { ...zeroResourceTotals, labor: "1" },
+        laborContributions: { status: "zero_basis", basis: "labor_cost" },
+      }),
+    ),
+  );
+}
+
 console.log("Professional cost stack checks passed.");

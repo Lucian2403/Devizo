@@ -36,6 +36,9 @@ export default async function ProfessionalEstimatesPage() {
               Resurse și prețuri
             </Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/professional-estimates/rules">Reguli de calcul</Link>
+          </Button>
         </div>
       </div>
 

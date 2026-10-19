@@ -82,6 +82,9 @@ export function NormativeCosts({
                     <div><dt className="inline">Decizie aplicabilitate: </dt><dd className="inline">{application.applicabilityDecisionId ?? "—"}</dd></div>
                     <div><dt className="inline">Origine: </dt><dd className="inline">{application.ruleOrigin}</dd></div>
                     <div><dt className="inline">Categorie: </dt><dd className="inline">{application.procurementCategory}</dd></div>
+                    <div><dt className="inline">Valabilitate regulă: </dt><dd className="inline">{formatDate(application.ruleValidFrom)} – {application.ruleValidTo ? formatDate(application.ruleValidTo) : "fără termen"}</dd></div>
+                    <div><dt className="inline">Perspectivă / lucrări: </dt><dd className="inline">{perspectiveLabels[application.estimatePerspective]} · {workKindLabels[application.workKind]}</dd></div>
+                    <div><dt className="inline">Valoare / bază: </dt><dd className="inline">{formatRomanianDecimal(application.ratePercent)}% · costul materialelor</dd></div>
                   </dl>
                   <ul className="mt-2 space-y-2">
                     {application.materials.map((material) =>

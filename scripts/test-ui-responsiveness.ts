@@ -111,6 +111,7 @@ import {
         sourceId: "source-test", applicabilityDecisionId: "decision-test",
         sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
         ruleOrigin: "normative_sector_average", ratePercent: "2",
+        ruleValidFrom: "2012-08-17", ruleValidTo: null,
         procurementCategory: "construction_materials", materialBase: "99",
         amount: "1.98", valuationDate: context.valuationDate,
         estimatePerspective: "investor", workKind: "construction", currency: "MDL",

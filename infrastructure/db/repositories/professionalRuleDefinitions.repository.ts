@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   normativeApplicabilityDecisions,
+  normativeSources,
   professionalRuleDefinitions,
 } from "@/infrastructure/db/schema";
 import type {
@@ -49,6 +50,48 @@ function toRecord(
 export class DrizzleProfessionalRuleDefinitionRepository
   implements ProfessionalRuleDefinitionRepository
 {
+  async ensureCompanyCalculationRuleSource(
+    organizationId: string,
+  ): Promise<{ id: string; code: string; edition: string; sourceType: string }> {
+    const [row] = await db
+      .insert(normativeSources)
+      .values({
+        organizationId,
+        code: "DEVIZO-COMPANY-CALC-RULES",
+        edition: "1",
+        title: "Reguli interne de calcul ale companiei",
+        sourceType: "company_custom",
+        jurisdiction: "MD",
+        status: "active",
+        officialStatus: "unknown",
+        monitoringEnabled: false,
+      })
+      .onConflictDoUpdate({
+        target: [
+          normativeSources.organizationId,
+          normativeSources.code,
+          normativeSources.edition,
+        ],
+        set: {
+          title: "Reguli interne de calcul ale companiei",
+          sourceType: "company_custom",
+          jurisdiction: "MD",
+          status: "active",
+          officialStatus: "unknown",
+          monitoringEnabled: false,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({
+        id: normativeSources.id,
+        code: normativeSources.code,
+        edition: normativeSources.edition,
+        sourceType: normativeSources.sourceType,
+      });
+    if (!row) throw new Error("Failed to ensure company calculation rule source.");
+    return row;
+  }
+
   async createRuleDefinition(
     input: CreateProfessionalRuleDefinitionInput,
   ): Promise<ProfessionalRuleDefinitionRecord> {
@@ -110,6 +153,16 @@ export class DrizzleProfessionalRuleDefinitionRepository
           eq(professionalRuleDefinitions.component, component),
         ),
       );
+    return rows.map(toRecord);
+  }
+
+  async listRuleDefinitions(
+    organizationId: string,
+  ): Promise<ProfessionalRuleDefinitionRecord[]> {
+    const rows = await db
+      .select()
+      .from(professionalRuleDefinitions)
+      .where(eq(professionalRuleDefinitions.organizationId, organizationId));
     return rows.map(toRecord);
   }
 

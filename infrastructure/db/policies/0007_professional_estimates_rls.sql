@@ -21,7 +21,8 @@ DECLARE
     'calculation_contexts',
     'norm_applications',
     'calculation_rules',
-    'professional_rule_definitions'
+    'professional_rule_definitions',
+    'professional_cost_component_decisions'
   ];
   immutable_tables text[] := ARRAY[
     'normative_update_reviews',
