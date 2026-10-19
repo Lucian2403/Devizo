@@ -140,6 +140,7 @@ export class DrizzleProfessionalNormLibraryRepository
         code: resource.code,
         name: resource.name,
         resourceType: resource.resourceType as NormResourceConsumption["resourceType"],
+        procurementCategory: resource.procurementCategory as NormResourceConsumption["procurementCategory"],
         unit: resource.unit,
         quantityPerNormBasis: consumption.quantityPerNormBasis,
       });

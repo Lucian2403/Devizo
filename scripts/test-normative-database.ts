@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { config } from "dotenv";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -38,7 +39,25 @@ async function main() {
       `);
       console.log("Installed minimal test-only Supabase auth dependencies.");
     }
-    await migrate(drizzle(client), { migrationsFolder: "infrastructure/db/migrations" });
+    // Insert real pre-M8.4D rows before applying its new semantic columns.
+    const migrationsFolder = "infrastructure/db/migrations";
+    const journal = JSON.parse(readFileSync(join(migrationsFolder, "meta/_journal.json"), "utf8")) as {
+      entries: { idx: number; tag: string }[];
+    };
+    const baseline = mkdtempSync(join(tmpdir(), "devizo-m84d-migrations-"));
+    try {
+      mkdirSync(join(baseline, "meta"));
+      const entries = journal.entries.filter((entry) => entry.idx < 19);
+      for (const entry of entries) {
+        copyFileSync(join(migrationsFolder, `${entry.tag}.sql`), join(baseline, `${entry.tag}.sql`));
+      }
+      writeFileSync(join(baseline, "meta/_journal.json"), JSON.stringify({ ...journal, entries }));
+      await migrate(drizzle(client), { migrationsFolder: baseline });
+    } finally {
+      rmSync(baseline, { recursive: true });
+    }
+    await client.unsafe(readFileSync("scripts/test-procurement-legacy-data.sql", "utf8"));
+    await migrate(drizzle(client), { migrationsFolder });
     console.log("Applied the full migration chain.");
     const policiesPath = join(process.cwd(), "infrastructure/db/policies");
     for (const file of readdirSync(policiesPath).filter((file) => file.endsWith(".sql")).sort()) {
@@ -51,7 +70,10 @@ async function main() {
     }
     await client.unsafe(readFileSync("scripts/test-normative-database.sql", "utf8"));
     await client.unsafe(readFileSync("scripts/test-professional-norm-lifecycle.sql", "utf8"));
-    console.log("Database guards, membership lifecycle, provenance, draft-only consumptions, rule-definition constraints, M8.4B norm publication lifecycle and RLS checks passed. Fixtures rolled back.");
+    await client.unsafe(readFileSync("scripts/test-professional-procurement-database.sql", "utf8"));
+    console.log("M8.4D legacy migration defaults, semantic CHECK constraints and organization RLS checks passed.");
+    console.log("Database guards, membership lifecycle, provenance, draft-only consumptions, rule-definition constraints, M8.4B norm publication lifecycle and RLS checks passed.");
+    console.log("Test mutations rolled back; legacy migration fixtures remain in the disposable database.");
   } finally {
     await client.end();
   }

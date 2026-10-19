@@ -20,6 +20,11 @@ seeded automatically.
    | MAT-001 | 1200 | 100 kg | MDL |
    | MCH-001 | 250 | 1 h | MDL |
 
+   Since M8.4D, explicitly select **TVA în preț** and **Transport în preț**
+   when creating each price; unknown is a valid declaration. These fields do
+   not change the direct-cost arithmetic. For the normative material base and
+   required migration, follow the [procurement/storage checklist](professional-procurement-storage.md).
+
 5. Open the existing professional estimate with `Tencuieli interioare`,
    quantity `275 m²`, and norm `TEST-TENC-001` (basis `100 m²`).
 6. Expand **Vezi resursele** and verify the resource lines show:

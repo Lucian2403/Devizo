@@ -1,4 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { calculateProcurementStorage, calculateProcurementStorageAmount } from "../domain/professional-estimates/calculation/procurement-storage";
+import { CP_L_01_07_2012_RULE_PACK } from "../domain/professional-estimates/official-rule-packs/cp-l-01-07-2012";
+import { ProfessionalRuleDefinitionService } from "../domain/professional-estimates/professional-rule-definitions.service";
+import type { ProfessionalRuleDefinitionRecord, ProfessionalRuleDefinitionRepository } from "../domain/professional-estimates/professional-rule-definitions.repository";
+import type { PriceSemantics, ProcurementCategory } from "../domain/professional-estimates/procurement-semantics";
 import {
   ProfessionalResourcePriceNotFoundError,
   ProfessionalResourcePriceValidationError,
@@ -42,6 +48,8 @@ function price(
     sourceReference: "Acceptare tehnică",
     location: "Chișinău",
     createdAt: new Date("2026-01-01T00:00:00Z"),
+    vatTreatment: "unknown",
+    transportTreatment: "unknown",
     ...overrides,
   };
 }
@@ -53,6 +61,27 @@ class FakeResourcePriceRepository implements ProfessionalResourcePricesRepositor
   requestedResourceIds: string[] = [];
   requestedCurrency: string | null = null;
   resourceExists = true;
+  category: ProcurementCategory | null = null;
+  readonly priceId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+
+  async updatePriceSemantics(
+    orgId: string, resourceId: string, priceId: string, data: PriceSemantics,
+  ) {
+    if (orgId !== organizationId || resourceId !== resourceIds.material || priceId !== this.priceId) return false;
+    const candidate = this.candidates.find((entry) => entry.id === priceId);
+    if (!candidate) return false;
+    candidate.vatTreatment = data.vatTreatment;
+    candidate.transportTreatment = data.transportTreatment;
+    return true;
+  }
+
+  async updateProcurementCategory(
+    orgId: string, resourceId: string, category: ProcurementCategory | null,
+  ) {
+    if (orgId !== organizationId || resourceId !== resourceIds.material) return false;
+    this.category = category;
+    return true;
+  }
 
   async listProfessionalResourcesWithPrices() {
     return [];
@@ -84,6 +113,8 @@ class FakeResourcePriceRepository implements ProfessionalResourcePricesRepositor
       sourceReference: data.sourceReference ?? null,
       location: data.location ?? null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
+      vatTreatment: data.vatTreatment,
+      transportTreatment: data.transportTreatment,
     };
     this.created.push(created);
     return created;
@@ -114,6 +145,7 @@ function line(
     name: id,
     resourceId,
     resourceType,
+    procurementCategory: null,
     normativeConsumption,
     unit,
     resourceConsumptionId: `consumption-${id}`,
@@ -381,6 +413,7 @@ async function main(): Promise<void> {
   repository.resourceExists = false;
   await assert.rejects(
     service.createResourcePrice(organizationId, resourceIds.labor, {
+      vatTreatment: "unknown", transportTreatment: "unknown",
       price: "1",
       basisQuantity: "1",
       currency: "MDL",
@@ -395,6 +428,7 @@ async function main(): Promise<void> {
     organizationId,
     resourceIds.labor,
     {
+      vatTreatment: "unknown", transportTreatment: "unknown",
       price: "0",
       basisQuantity: "1.25",
       currency: "MDL",
@@ -405,7 +439,7 @@ async function main(): Promise<void> {
   assert.equal(validPrice.price, "0");
   assert.equal(validPrice.sourceId, null);
 
-  const invalidInputs: CreateResourcePriceData[] = [
+  const invalidInputs: Omit<CreateResourcePriceData, keyof PriceSemantics>[] = [
     { price: "-1", basisQuantity: "1", currency: "MDL", validFrom: "2026-01-01", sourceType: "manual" },
     { price: "1.1234567", basisQuantity: "1", currency: "MDL", validFrom: "2026-01-01", sourceType: "manual" },
     { price: "1", basisQuantity: "0", currency: "MDL", validFrom: "2026-01-01", sourceType: "manual" },
@@ -416,13 +450,225 @@ async function main(): Promise<void> {
   ];
   for (const input of invalidInputs) {
     await assert.rejects(
-      service.createResourcePrice(organizationId, resourceIds.labor, input),
+      service.createResourcePrice(organizationId, resourceIds.labor, {
+        ...input, vatTreatment: "unknown", transportTreatment: "unknown",
+      }),
       ProfessionalResourcePriceValidationError,
     );
   }
 }
 
-console.log("Professional resource price register and direct-cost checks passed.");
+// M8.4D: actual persisted-definition mapping and governance gate feed the same resolver.
+{
+  const definitions: ProfessionalRuleDefinitionRecord[] = CP_L_01_07_2012_RULE_PACK.map((entry, index) => ({
+    ...entry,
+    id: `persisted-rule-${index}`, organizationId, sourceId: "official-source",
+    applicabilityDecisionId: "decision-1", notes: null,
+    createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+  }));
+  const rulesRepository: ProfessionalRuleDefinitionRepository = {
+    async createRuleDefinition() { throw new Error("No rules are created by estimate calculation."); },
+    async getRuleDefinition(org, id) { return definitions.find((row) => row.organizationId === org && row.id === id) ?? null; },
+    async listRuleDefinitionsForComponent(org, component) {
+      assert.equal(org, organizationId);
+      return definitions.filter((row) => row.organizationId === org && row.component === component);
+    },
+    async listRuleDefinitionsForSource() { return []; },
+    async getApplicabilityDecisionForSource(org, sourceId, id) {
+      assert.equal(org, organizationId);
+      return { id, sourceId, decision: "applicable", applicableFrom: "2012-08-17", applicableUntil: null };
+    },
+  };
+  const candidates = await new ProfessionalRuleDefinitionService(rulesRepository)
+    .loadCandidatesForComponent(organizationId, "procurement_storage");
+  const context = {
+    estimatePerspective: "investor" as const, workKind: "construction" as const,
+    valuationDate: "2026-06-15", currency: "MDL",
+  };
+  const classifiedPosition: ResourcePricingPositionInput = {
+    ...position,
+    resources: position.resources.map((entry) => ({
+      ...entry, procurementCategory: "construction_materials",
+    })),
+  };
+  repository.candidates = [
+    price(resourceIds.labor, { price: "100" }),
+    price(resourceIds.material, {
+      id: repository.priceId, resourcePriceId: repository.priceId,
+      price: "1200", basisQuantity: "100", priceBasisQuantity: "100",
+      vatTreatment: "exclusive", transportTreatment: "excluded",
+    }),
+    price(resourceIds.machinery, { price: "250" }),
+  ];
+  const calculate = async (input = classifiedPosition) =>
+    service.calculateDirectResourceCosts(organizationId, "MDL", context.valuationDate, [input]);
+  const direct = await calculate();
+  const result = calculateProcurementStorage(direct, context, candidates);
+  assert.equal(direct.positionsByWorkItemId["work-1"]?.directResourceTotal, "4224");
+  assert.equal(result.procurementStorageTotal, "1.98");
+  assert.equal(result.directPlusProcurement, "4225.98");
+  assert.equal(result.categories.length, 1);
+  const application = result.categories[0]?.application;
+  assert.equal(application?.materialBase, "99");
+  assert.equal(application?.professionalRuleDefinitionId, "persisted-rule-0");
+  assert.equal(application?.sourceId, "official-source");
+  assert.equal(application?.applicabilityDecisionId, "decision-1");
+  assert.equal(application?.materials[0]?.resourcePriceId, repository.priceId);
+  assert.equal(application?.materials.length, 1, "Non-material types never enter the material base.");
+  assert.equal(application?.valuationDate, context.valuationDate);
+
+  for (const semantics of [
+    { vatTreatment: "inclusive", transportTreatment: "excluded" },
+    { vatTreatment: "unknown", transportTreatment: "excluded" },
+    { vatTreatment: "exclusive", transportTreatment: "included" },
+    { vatTreatment: "exclusive", transportTreatment: "unknown" },
+    { vatTreatment: "unknown", transportTreatment: "unknown" },
+  ] satisfies PriceSemantics[]) {
+    await service.updatePriceSemantics(organizationId, resourceIds.material, repository.priceId, semantics);
+    const blocked = calculateProcurementStorage(await calculate(), context, candidates);
+    assert.equal(blocked.blocks[0]?.reason, "price_semantics");
+    assert.equal(blocked.procurementStorageTotal, null);
+    assert.equal(blocked.directPlusProcurement, null);
+    assert.equal(blocked.categories.length, 0);
+  }
+  const before = { ...repository.candidates[1]! };
+  const semanticsOnly = {
+    vatTreatment: "exclusive", transportTreatment: "excluded",
+    price: "99999", sourceReference: "must not change", currency: "EUR",
+  };
+  await service.updatePriceSemantics(organizationId, resourceIds.material, repository.priceId, semanticsOnly);
+  assert.deepEqual(repository.candidates[1], {
+    ...before, vatTreatment: "exclusive", transportTreatment: "excluded",
+  }, "Classification changes no monetary or provenance field.");
+  await assert.rejects(service.updatePriceSemantics(
+    otherOrganizationId, resourceIds.material, repository.priceId, semanticsOnly,
+  ), ProfessionalResourcePriceNotFoundError);
+  await assert.rejects(service.updatePriceSemantics(
+    organizationId, resourceIds.material, "bad-id", semanticsOnly,
+  ), ProfessionalResourcePriceNotFoundError);
+  await assert.rejects(service.updatePriceSemantics(
+    organizationId, resourceIds.material, repository.priceId,
+    { vatTreatment: "", transportTreatment: "excluded" },
+  ), ProfessionalResourcePriceValidationError);
+  for (const category of ["construction_materials", "metal_structures", "equipment", "other", ""]) {
+    await service.updateProcurementCategory(organizationId, resourceIds.material, category);
+    assert.equal(repository.category, category || null);
+  }
+  await assert.rejects(service.updateProcurementCategory(
+    otherOrganizationId, resourceIds.material, "construction_materials",
+  ), ProfessionalResourcePriceNotFoundError);
+  await assert.rejects(service.updateProcurementCategory(
+    organizationId, resourceIds.labor, "construction_materials",
+  ), ProfessionalResourcePriceNotFoundError);
+  await assert.rejects(service.updateProcurementCategory(
+    organizationId, resourceIds.material, "inferred",
+  ), ProfessionalResourcePriceValidationError);
+
+  const contractor = calculateProcurementStorage(direct, { ...context, estimatePerspective: "contractor" }, candidates);
+  assert.equal(contractor.categories[0]?.resolution.status, "missing");
+  assert.equal(contractor.procurementStorageTotal, null);
+  const early = calculateProcurementStorage(direct, { ...context, valuationDate: "2012-08-16" }, candidates);
+  assert.equal(early.categories[0]?.resolution.status, "missing");
+  const boundary = calculateProcurementStorage(direct, { ...context, valuationDate: "2012-08-17" }, candidates);
+  assert.equal(boundary.categories[0]?.resolution.status, "selected");
+  const overlapping = calculateProcurementStorage(direct, context, [
+    ...candidates, { ...candidates[0]!, candidateId: "overlap" },
+  ]);
+  assert.equal(overlapping.categories[0]?.resolution.status, "ambiguous");
+  assert.equal(overlapping.categories[0]?.application, null);
+  assert.equal(overlapping.procurementStorageTotal, null);
+  const missing = calculateProcurementStorage(direct, context, []);
+  assert.equal(missing.categories[0]?.resolution.status, "missing");
+  assert.equal(missing.directPlusProcurement, null);
+  const noContext = calculateProcurementStorage(direct, { ...context, estimatePerspective: null }, candidates);
+  assert.equal(noContext.contextComplete, false);
+  assert.equal(noContext.procurementStorageTotal, null);
+  for (const category of ["equipment", "other", null] as const) {
+    const changed = await calculate({
+      ...classifiedPosition,
+      resources: classifiedPosition.resources.map((entry) => ({ ...entry, procurementCategory: category })),
+    });
+    const unresolved = calculateProcurementStorage(changed, context, candidates);
+    assert.equal(unresolved.procurementStorageTotal, null);
+    if (category === null) assert.equal(unresolved.blocks[0]?.reason, "category");
+    else assert.equal(unresolved.categories[0]?.resolution.status, "missing");
+  }
+  const selectedPrice = repository.candidates[1]!;
+  repository.candidates = repository.candidates.filter((entry) => entry.resourceId !== resourceIds.material);
+  const priceMissing = calculateProcurementStorage(await calculate(), context, candidates);
+  assert.equal(priceMissing.blocks[0]?.reason, "direct_price");
+  repository.candidates.push(selectedPrice, { ...selectedPrice, id: "duplicate", resourcePriceId: "duplicate" });
+  const priceAmbiguous = calculateProcurementStorage(await calculate(), context, candidates);
+  assert.equal(priceAmbiguous.blocks[0]?.reason, "direct_price");
+  assert.equal(priceAmbiguous.procurementStorageTotal, null);
+
+  const multiPosition: ResourcePricingPositionInput = {
+    ...position, workQuantity: "1", normBasisQuantity: "1",
+    resources: [
+      { ...line("A", resourceIds.material, "material", "1", "kg"), procurementCategory: "construction_materials" },
+      { ...line("B", resourceIds.unpriced, "material", "1", "kg"), procurementCategory: "metal_structures" },
+    ],
+  };
+  repository.candidates = [
+    price(resourceIds.material, { price: "100", vatTreatment: "exclusive", transportTreatment: "excluded" }),
+    price(resourceIds.unpriced, { price: "200", vatTreatment: "exclusive", transportTreatment: "excluded" }),
+  ];
+  const multi = calculateProcurementStorage(await calculate(multiPosition), context, candidates);
+  assert.deepEqual(multi.categories.map((entry) => [
+    entry.category, entry.materialBase, entry.application?.amount,
+  ]), [["construction_materials", "100", "2"], ["metal_structures", "200", "1.5"]]);
+  assert.equal(multi.procurementStorageTotal, "3.5");
+  const partiallyClassified = calculateProcurementStorage(await calculate({
+    ...multiPosition,
+    resources: multiPosition.resources.map((entry, index) => ({
+      ...entry, procurementCategory: index === 0 ? entry.procurementCategory : null,
+    })),
+  }), context, candidates);
+  assert.equal(partiallyClassified.blocks[0]?.reason, "category");
+  assert.equal(partiallyClassified.complete, false);
+  assert.equal(partiallyClassified.procurementStorageTotal, null);
+  assert.equal(partiallyClassified.directPlusProcurement, null);
+
+  const empty = calculateProcurementStorage(
+    await calculate({ ...classifiedPosition, resources: [] }), context, candidates,
+  );
+  assert.equal(empty.complete, false);
+  assert.equal(empty.blocks[0]?.reason, "empty_composition");
+  assert.equal(empty.directResourceTotal, null);
+  assert.equal(empty.procurementStorageTotal, null);
+  assert.equal(empty.directPlusProcurement, null);
+  repository.candidates = [];
+  const zero = calculateProcurementStorage(await calculate({
+    ...classifiedPosition,
+    resources: [line("ZERO-MAT", resourceIds.zero, "material", "0", "kg")],
+  }), context, []);
+  assert.equal(zero.complete, true);
+  assert.deepEqual(zero.blocks, []);
+  assert.deepEqual(zero.categories, []);
+  assert.equal(zero.directResourceTotal, "0");
+  assert.equal(zero.procurementStorageTotal, "0");
+  assert.equal(zero.directPlusProcurement, "0");
+  const noPositions = calculateProcurementStorage({
+    positionsByWorkItemId: {}, positionCount: 0, completePositionCount: 0,
+    requiredPriceCount: 0, pricedResourceCount: 0,
+  }, context, candidates);
+  assert.equal(noPositions.complete, false);
+  assert.equal(noPositions.directPlusProcurement, null);
+  assert.equal(calculateProcurementStorageAmount("0.123456", "0.75"), "0.00092592");
+  assert.throws(() => calculateProcurementStorageAmount(99 as never, "2"));
+  assert.throws(() => calculateProcurementStorageAmount("-1", "2"));
+  assert.throws(() => calculateProcurementStorageAmount("99", "-2"));
+  for (const file of [
+    "domain/professional-estimates/calculation/procurement-storage.ts",
+    "domain/professional-estimates/professional-resource-prices.service.ts",
+    "infrastructure/db/repositories/professionalResourcePrices.repository.ts",
+  ]) {
+    const source = readFileSync(file, "utf8");
+    assert.doesNotMatch(source, /calculateProfessionalCostStack|not_applicable|sellingPrice|catalogItems|quoteItems/);
+  }
+}
+
+console.log("Professional resource price register, direct-cost and procurement/storage checks passed.");
 }
 
 void main();

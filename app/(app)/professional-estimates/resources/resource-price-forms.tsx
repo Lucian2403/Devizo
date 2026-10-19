@@ -10,6 +10,7 @@ import {
 } from "@/domain/professional-estimates/professional-resource-prices.service";
 import type { SupportedCurrency } from "@/domain/shared/types";
 import type { ResourcePriceFormState } from "../actions";
+import { PriceSemanticsFields } from "../semantics-forms";
 
 const sourceTypeLabels: Record<ResourcePriceSourceType, string> = {
   manual: "Manual",
@@ -126,6 +127,7 @@ export function CreateResourcePriceForm({
         </Label>
         <Input id="resource-price-location" name="location" maxLength={300} />
       </div>
+      <PriceSemanticsFields id="new-price" />
       <div className="space-y-3 sm:col-span-2">
         {state && "error" in state && (
           <p role="alert" className="text-sm text-destructive">

@@ -165,6 +165,7 @@ class MemoryNormLibraryRepository implements ProfessionalNormLibraryRepository {
       code: data.code ?? null,
       name: data.name,
       resourceType: data.resourceType,
+      procurementCategory: null,
       unit: data.unit,
       quantityPerNormBasis: data.quantityPerNormBasis,
     };

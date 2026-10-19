@@ -415,6 +415,7 @@ export const professionalResources = pgTable(
     resourceType: text("resource_type").notNull(),
     unit: text("unit").notNull(),
     description: text("description"),
+    procurementCategory: text("procurement_category"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -434,6 +435,10 @@ export const professionalResources = pgTable(
     resourceTypeCheck: check(
       "professional_resources_type_check",
       sql`${table.resourceType} in ('labor', 'material', 'machinery', 'transport', 'energy', 'other')`,
+    ),
+    procurementCategoryCheck: check(
+      "professional_resources_procurement_category_check",
+      sql`${table.procurementCategory} is null or ${table.procurementCategory} in ('construction_materials', 'metal_structures', 'equipment', 'other')`,
     ),
     unitCheck: check(
       "professional_resources_unit_nonempty_check",
@@ -663,6 +668,8 @@ export const resourcePrices = pgTable(
     sourceType: text("source_type").notNull().default("manual"),
     sourceReference: text("source_reference"),
     location: text("location"),
+    vatTreatment: text("vat_treatment").notNull().default("unknown"),
+    transportTreatment: text("transport_treatment").notNull().default("unknown"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
@@ -685,6 +692,14 @@ export const resourcePrices = pgTable(
       table.validFrom,
     ),
     priceCheck: check("resource_prices_price_check", sql`${table.price} >= 0`),
+    vatTreatmentCheck: check(
+      "resource_prices_vat_treatment_check",
+      sql`${table.vatTreatment} in ('exclusive', 'inclusive', 'unknown')`,
+    ),
+    transportTreatmentCheck: check(
+      "resource_prices_transport_treatment_check",
+      sql`${table.transportTreatment} in ('excluded', 'included', 'unknown')`,
+    ),
     basisQuantityCheck: check(
       "resource_prices_basis_quantity_check",
       sql`${table.basisQuantity} > 0`,
@@ -717,6 +732,8 @@ export const calculationContexts = pgTable(
     valuationDate: date("valuation_date").notNull(),
     currency: text("currency").notNull(),
     region: text("region"),
+    estimatePerspective: text("estimate_perspective"),
+    workKind: text("work_kind"),
     method: text("method").notNull().default("resource"),
     normativeBasis: text("normative_basis"),
     notes: text("notes"),
@@ -742,6 +759,14 @@ export const calculationContexts = pgTable(
       ],
       name: "calculation_contexts_list_object_org_fkey",
     }).onDelete("cascade"),
+    perspectiveCheck: check(
+      "calculation_contexts_perspective_check",
+      sql`${table.estimatePerspective} is null or ${table.estimatePerspective} in ('investor', 'contractor')`,
+    ),
+    workKindCheck: check(
+      "calculation_contexts_work_kind_check",
+      sql`${table.workKind} is null or ${table.workKind} in ('construction', 'installation', 'commissioning')`,
+    ),
     orgIdUnique: unique("calculation_contexts_id_org_unique").on(
       table.id,
       table.organizationId,

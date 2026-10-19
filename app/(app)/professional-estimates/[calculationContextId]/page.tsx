@@ -12,11 +12,17 @@ import {
   getProfessionalEstimateWorkspaceService,
   getProfessionalNormLibraryService,
   getProfessionalResourcePricesService,
+  getProfessionalRuleDefinitionService,
 } from "@/server/container";
+import { calculateProcurementStorage } from "@/domain/professional-estimates/calculation/procurement-storage";
+import { CalculationContextForm } from "../semantics-forms";
+import { NormativeCosts } from "./normative-costs";
+import { vatTreatmentLabels, transportTreatmentLabels } from "@/domain/professional-estimates/procurement-semantics";
 import {
   assignNormToWorkItem,
   createWorkQuantityItem,
   updateWorkQuantityItem,
+  updateCalculationContext,
 } from "../actions";
 import {
   AddWorkQuantityItemForm,
@@ -72,6 +78,7 @@ export default async function ProfessionalEstimateDetailPage({
           code: resource.code,
           name: resource.name,
           resourceType: resource.resourceType,
+          procurementCategory: resource.procurementCategory,
           unit: resource.unit,
           resourceConsumptionId: resource.id,
           resourceId: resource.resourceId,
@@ -91,6 +98,13 @@ export default async function ProfessionalEstimateDetailPage({
     normPresentation.itemCount > 0 &&
     normPresentation.assignedCount === normPresentation.itemCount &&
     resourcePricing.completePositionCount === normPresentation.assignedCount;
+  const procurement = calculateProcurementStorage(
+    resourcePricing,
+    workspace.context,
+    await getProfessionalRuleDefinitionService().loadCandidatesForComponent(
+      org.id, "procurement_storage",
+    ),
+  );
   const progressSteps = [
     { title: "Obiect și listă create", complete: true },
     {
@@ -192,8 +206,8 @@ export default async function ProfessionalEstimateDetailPage({
             </ol>
             <p className="mt-2 text-xs text-muted-foreground">
               Costurile afișate sunt costuri directe ale resurselor, calculate
-              din prețurile eligibile. Nu includ ajustări normative, TVA,
-              transport sau profit.
+              din prețurile eligibile exact introduse. Nu se aplică automat
+              ajustări normative, TVA, transport sau profit la aceste prețuri.
             </p>
           </div>
         </CardContent>
@@ -326,6 +340,21 @@ export default async function ProfessionalEstimateDetailPage({
       </Card>
 
       <Card>
+        <CardHeader><CardTitle className="text-base">Context de calcul</CardTitle></CardHeader>
+        <CardContent>
+          <CalculationContextForm
+            action={updateCalculationContext.bind(null, calculationContextId)}
+            context={workspace.context}
+          />
+        </CardContent>
+      </Card>
+      <NormativeCosts
+        result={procurement}
+        context={workspace.context}
+        allPositionsAssigned={workspace.items.length > 0 && normPresentation.assignedCount === workspace.items.length}
+      />
+
+      <Card>
         <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
           <CardTitle className="text-base">Adaugă poziție</CardTitle>
         </CardHeader>
@@ -444,6 +473,9 @@ function AssignedNormSummary({
                         )}
                       </p>
                       <p className="text-muted-foreground">
+                        {vatTreatmentLabels[selectedPrice.vatTreatment]} ·{" "}
+                        {transportTreatmentLabels[selectedPrice.transportTreatment]}
+                        <br />
                         Sursă: {selectedPrice.sourceType}
                         {selectedPrice.sourceReference
                           ? ` · ${selectedPrice.sourceReference}`

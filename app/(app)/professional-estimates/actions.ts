@@ -30,6 +30,7 @@ import {
   RESOURCE_PRICE_SOURCE_TYPES,
 } from "@/domain/professional-estimates/professional-resource-prices.service";
 import { getProfessionalResourcePricesService } from "@/server/container";
+import { VAT_TREATMENTS, TRANSPORT_TREATMENTS } from "@/domain/professional-estimates/procurement-semantics";
 
 export type ProfessionalEstimateFormState =
   | { error: string }
@@ -307,6 +308,11 @@ export async function createProfessionalResourcePrice(
   if (!sourceType) {
     return { error: "Tipul sursei nu este valid." };
   }
+  const vatTreatment = VAT_TREATMENTS.find((value) => value === formData.get("vatTreatment"));
+  const transportTreatment = TRANSPORT_TREATMENTS.find((value) => value === formData.get("transportTreatment"));
+  if (!vatTreatment || !transportTreatment) {
+    return { error: "Selectați tratamentul TVA și al transportului în preț." };
+  }
   try {
     await getProfessionalResourcePricesService().createResourcePrice(
       org.id,
@@ -320,6 +326,8 @@ export async function createProfessionalResourcePrice(
         sourceType,
         sourceReference: String(formData.get("sourceReference") ?? ""),
         location: String(formData.get("location") ?? ""),
+        vatTreatment,
+        transportTreatment,
       },
     );
   } catch (error) {
@@ -335,4 +343,60 @@ export async function createProfessionalResourcePrice(
   revalidatePath("/professional-estimates/resources");
   revalidatePath("/professional-estimates", "layout");
   return { success: "Prețul resursei a fost adăugat." };
+}
+
+export async function updateCalculationContext(
+  contextId: string, _previous: ResourcePriceFormState, formData: FormData,
+): Promise<ResourcePriceFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalEstimateWorkspaceService().updateCalculationContext(org.id, contextId, {
+      estimatePerspective: String(formData.get("estimatePerspective") ?? ""),
+      workKind: String(formData.get("workKind") ?? ""),
+    });
+  } catch (error) {
+    if (error instanceof ProfessionalEstimateValidationError || error instanceof ProfessionalEstimateNotFoundError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  revalidatePath(`/professional-estimates/${contextId}`);
+  return { success: "Contextul de calcul a fost salvat." };
+}
+
+export async function updateResourceProcurementCategory(
+  resourceId: string, _previous: ResourcePriceFormState, formData: FormData,
+): Promise<ResourcePriceFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalResourcePricesService().updateProcurementCategory(
+      org.id, resourceId, String(formData.get("procurementCategory") ?? ""),
+    );
+  } catch (error) {
+    if (error instanceof ProfessionalResourcePriceValidationError || error instanceof ProfessionalResourcePriceNotFoundError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  revalidatePath("/professional-estimates", "layout");
+  return { success: "Categoria resursei a fost salvată." };
+}
+
+export async function updateResourcePriceSemantics(
+  resourceId: string, priceId: string, _previous: ResourcePriceFormState, formData: FormData,
+): Promise<ResourcePriceFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalResourcePricesService().updatePriceSemantics(org.id, resourceId, priceId, {
+      vatTreatment: String(formData.get("vatTreatment") ?? ""),
+      transportTreatment: String(formData.get("transportTreatment") ?? ""),
+    });
+  } catch (error) {
+    if (error instanceof ProfessionalResourcePriceValidationError || error instanceof ProfessionalResourcePriceNotFoundError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+  revalidatePath("/professional-estimates", "layout");
+  return { success: "Clasificarea prețului a fost salvată." };
 }

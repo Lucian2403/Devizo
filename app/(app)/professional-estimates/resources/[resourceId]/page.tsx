@@ -10,7 +10,9 @@ import { formatRomanianDecimal } from "@/lib/ui/decimal-display";
 import { formatProfessionalResourceMoney } from "@/lib/ui/professional-resource-money";
 import { requireCurrentOrg } from "@/lib/auth/current-org";
 import { getProfessionalResourcePricesService } from "@/server/container";
-import { createProfessionalResourcePrice } from "../../actions";
+import { createProfessionalResourcePrice, updateResourcePriceSemantics, updateResourceProcurementCategory } from "../../actions";
+import { ProcurementCategoryForm, UpdatePriceSemanticsForm } from "../../semantics-forms";
+import { vatTreatmentLabels, transportTreatmentLabels } from "@/domain/professional-estimates/procurement-semantics";
 import { CreateResourcePriceForm } from "../resource-price-forms";
 
 const resourceTypeLabels: Record<string, string> = {
@@ -85,6 +87,12 @@ export default async function ProfessionalResourceDetailPage({
               <DetailValue label="Descriere">{resource.description}</DetailValue>
             )}
           </dl>
+          {resource.resourceType === "material" && (
+            <ProcurementCategoryForm
+              action={updateResourceProcurementCategory.bind(null, resource.id)}
+              category={resource.procurementCategory}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -109,6 +117,7 @@ export default async function ProfessionalResourceDetailPage({
                     <th className="py-2 pr-3 font-medium">Tip sursă</th>
                     <th className="py-2 pr-3 font-medium">Referință</th>
                     <th className="py-2 font-medium">Localitate / regiune</th>
+                    <th className="py-2 pl-3 font-medium">TVA / transport în preț</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -131,6 +140,15 @@ export default async function ProfessionalResourceDetailPage({
                       </td>
                       <td className="py-3 pr-3">{price.sourceReference ?? "—"}</td>
                       <td className="py-3">{price.location ?? "—"}</td>
+                      <td className="py-3 pl-3">
+                        <p>{vatTreatmentLabels[price.vatTreatment]}</p>
+                        <p>{transportTreatmentLabels[price.transportTreatment]}</p>
+                        <UpdatePriceSemanticsForm
+                          action={updateResourcePriceSemantics.bind(null, resource.id, price.id)}
+                          priceId={price.id}
+                          semantics={price}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

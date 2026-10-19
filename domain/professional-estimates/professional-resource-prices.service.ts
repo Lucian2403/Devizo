@@ -25,6 +25,11 @@ import {
 } from "./professional-resource-prices.repository";
 import type { ProfessionalResourceType } from "./types";
 import { isWorkspaceUuid } from "./workspace-identifiers";
+import {
+  PROCUREMENT_CATEGORIES, VAT_TREATMENTS, TRANSPORT_TREATMENTS,
+  type PriceSemantics,
+  type ProcurementCategory,
+} from "./procurement-semantics";
 
 export {
   RESOURCE_PRICE_SOURCE_TYPES,
@@ -54,6 +59,7 @@ export interface ResourcePricingInput {
   code: string | null;
   name: string;
   resourceType: ProfessionalResourceType;
+  procurementCategory: ProcurementCategory | null;
   unit: string;
   resourceConsumptionId: string;
   resourceId: string;
@@ -82,6 +88,7 @@ export interface PricedResourceLine {
   name: string;
   resourceId: string;
   resourceType: ProfessionalResourceType;
+  procurementCategory: ProcurementCategory | null;
   unit: string;
   resourceQuantity: string;
   priceStatus: PricedResourceStatus;
@@ -168,6 +175,7 @@ function validateDecimal(
 }
 
 function validateCreateData(data: CreateResourcePriceData): CreateResourcePriceData {
+  const semantics = validatePriceSemantics(data);
   const price = validateDecimal(data.price, "Prețul", false);
   const basisQuantity = validateDecimal(
     data.basisQuantity,
@@ -202,6 +210,7 @@ function validateCreateData(data: CreateResourcePriceData): CreateResourcePriceD
     );
   }
   return {
+    ...semantics,
     price,
     basisQuantity,
     currency: data.currency,
@@ -211,6 +220,21 @@ function validateCreateData(data: CreateResourcePriceData): CreateResourcePriceD
     sourceReference,
     location,
   };
+}
+
+function validatePriceSemantics(data: {
+  vatTreatment: string; transportTreatment: string;
+}): PriceSemantics {
+  const vatTreatment = VAT_TREATMENTS.find((value) => value === data.vatTreatment);
+  const transportTreatment = TRANSPORT_TREATMENTS.find(
+    (value) => value === data.transportTreatment,
+  );
+  if (!vatTreatment || !transportTreatment) {
+    throw new ProfessionalResourcePriceValidationError(
+      "Selectați tratamentul TVA și al transportului în preț.",
+    );
+  }
+  return { vatTreatment, transportTreatment };
 }
 
 function toKernelCandidate(
@@ -236,6 +260,35 @@ export class ProfessionalResourcePricesService {
   constructor(
     private readonly repository: ProfessionalResourcePricesRepository,
   ) {}
+
+  async updatePriceSemantics(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+    data: { vatTreatment: string; transportTreatment: string },
+  ): Promise<void> {
+    if (!isWorkspaceUuid(resourceId) || !isWorkspaceUuid(priceId)) {
+      throw new ProfessionalResourcePriceNotFoundError();
+    }
+    const updated = await this.repository.updatePriceSemantics(
+      organizationId, resourceId, priceId, validatePriceSemantics(data),
+    );
+    if (!updated) throw new ProfessionalResourcePriceNotFoundError();
+  }
+
+  async updateProcurementCategory(
+    organizationId: OrganizationId, resourceId: string, value: string,
+  ): Promise<void> {
+    if (!isWorkspaceUuid(resourceId)) throw new ProfessionalResourcePriceNotFoundError();
+    const category = value === "" ? null : PROCUREMENT_CATEGORIES.find(
+      (entry) => entry === value,
+    );
+    if (category === undefined) {
+      throw new ProfessionalResourcePriceValidationError("Categoria resursei nu este validă.");
+    }
+    const updated = await this.repository.updateProcurementCategory(
+      organizationId, resourceId, category,
+    );
+    if (!updated) throw new ProfessionalResourcePriceNotFoundError();
+  }
 
   listProfessionalResourcesWithPrices(
     organizationId: OrganizationId,
@@ -375,6 +428,7 @@ export class ProfessionalResourcePricesService {
             name: resource.name,
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
+            procurementCategory: resource.procurementCategory,
             unit: resource.unit,
             resourceQuantity,
             priceStatus: "zero",
@@ -413,6 +467,7 @@ export class ProfessionalResourcePricesService {
             name: resource.name,
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
+            procurementCategory: resource.procurementCategory,
             unit: resource.unit,
             resourceQuantity,
             priceStatus: "selected",
@@ -431,6 +486,7 @@ export class ProfessionalResourcePricesService {
             unit: resource.unit,
             resourceQuantity,
             priceStatus: eligibility.status,
+            procurementCategory: resource.procurementCategory,
             eligiblePriceCount: eligibility.eligible.length,
             selectedPrice: null,
             calculation: null,

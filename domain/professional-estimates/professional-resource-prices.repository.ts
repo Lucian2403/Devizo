@@ -1,5 +1,6 @@
 import type { OrganizationId, SupportedCurrency } from "@/domain/shared/types";
 import type { ProfessionalResourceType } from "./types";
+import type { PriceSemantics, ProcurementCategory } from "./procurement-semantics";
 
 export const RESOURCE_PRICE_SOURCE_TYPES = [
   "manual",
@@ -26,10 +27,11 @@ export interface ProfessionalResource {
   resourceType: ProfessionalResourceType;
   unit: string;
   description: string | null;
+  procurementCategory: ProcurementCategory | null;
   source: ProfessionalResourceSource;
 }
 
-export interface ResourcePriceRecord {
+export interface ResourcePriceRecord extends PriceSemantics {
   id: string;
   organizationId: OrganizationId;
   resourceId: string;
@@ -55,7 +57,7 @@ export interface ProfessionalResourceWithPrices {
   prices: ResourcePriceRecord[];
 }
 
-export interface CreateResourcePriceData {
+export interface CreateResourcePriceData extends PriceSemantics {
   price: string;
   basisQuantity: string;
   currency: SupportedCurrency;
@@ -67,6 +69,14 @@ export interface CreateResourcePriceData {
 }
 
 export interface ProfessionalResourcePricesRepository {
+  updatePriceSemantics(
+    organizationId: OrganizationId, resourceId: string, priceId: string,
+    semantics: PriceSemantics,
+  ): Promise<boolean>;
+  updateProcurementCategory(
+    organizationId: OrganizationId, resourceId: string,
+    category: ProcurementCategory | null,
+  ): Promise<boolean>;
   listProfessionalResourcesWithPrices(
     organizationId: OrganizationId,
   ): Promise<ProfessionalResourceWithPrices[]>;

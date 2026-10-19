@@ -5,6 +5,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "../components/ui/button";
 import { formatRomanianDecimal } from "../lib/ui/decimal-display";
+import { NormativeCosts } from "../app/(app)/professional-estimates/[calculationContextId]/normative-costs";
+import type { ProcurementStorageResult } from "../domain/professional-estimates/calculation/procurement-storage";
+import type { ProfessionalEstimateWorkspace } from "../domain/professional-estimates/professional-estimate-workspace.repository";
 import { startsInAppNavigation } from "../lib/ui/navigation";
 import {
   isProgressActive,
@@ -15,6 +18,82 @@ import {
   canUsePreparedStatements,
   preferPreparedStatements,
 } from "../infrastructure/db/prepared-statements";
+
+{
+  const context: ProfessionalEstimateWorkspace["context"] = {
+    id: "context-1", organizationId: "org-1", name: "Test",
+    valuationDate: "2026-06-15", currency: "MDL", method: "resource",
+    estimatePerspective: "investor", workKind: "construction",
+  };
+  const result: ProcurementStorageResult = {
+    contextComplete: true, complete: true, blocks: [],
+    directResourceTotal: "4224", procurementStorageTotal: "1.98",
+    directPlusProcurement: "4225.98",
+    categories: [{
+      category: "construction_materials", materialBase: "99",
+      resolution: {
+        component: "procurement_storage", valuationDate: context.valuationDate,
+        status: "selected", candidate: null, eligibleCandidates: [],
+      },
+      application: {
+        professionalRuleDefinitionId: "definition-test",
+        sourceId: "source-test", applicabilityDecisionId: "decision-test",
+        sourceReference: "CP L.01.07-2012, pct. 3.2, 3.3(a)",
+        ruleOrigin: "normative_sector_average", ratePercent: "2",
+        procurementCategory: "construction_materials", materialBase: "99",
+        amount: "1.98", valuationDate: context.valuationDate,
+        estimatePerspective: "investor", workKind: "construction", currency: "MDL",
+        materials: [{
+          workQuantityItemId: "position-test", resourceConsumptionId: "consumption-test",
+          resourceId: "resource-test", resourcePriceId: "price-test", resourceCost: "99",
+        }],
+      },
+    }],
+  };
+  const markup = renderToStaticMarkup(createElement(NormativeCosts, {
+    result, context, allPositionsAssigned: true,
+  }));
+  for (const expected of [
+    "Costuri normative", "1,98 MDL", "4 225,98 MDL", "Investitor", "Construcții",
+    "definition-test", "source-test", "decision-test", "resource-test", "price-test",
+  ]) assert.ok(markup.includes(expected), expected);
+  const unassigned = renderToStaticMarkup(createElement(NormativeCosts, {
+    result, context, allPositionsAssigned: false,
+  }));
+  assert.ok(unassigned.includes("Nu toate pozițiile au norme alocate"));
+  assert.ok(!unassigned.includes("Cost direct + aprovizionare-depozitare:"));
+  const blocked = renderToStaticMarkup(createElement(NormativeCosts, {
+    context: { ...context, estimatePerspective: null },
+    allPositionsAssigned: false,
+    result: {
+      ...result, contextComplete: false, complete: false,
+      procurementStorageTotal: null, directPlusProcurement: null, categories: [],
+      blocks: [{
+        workQuantityItemId: "position-test", resourceId: "resource-test",
+        resourceName: "Material", reason: "price_semantics",
+      }],
+    },
+  }));
+  assert.ok(blocked.includes("Selectați perspectiva devizului"));
+  assert.ok(blocked.includes("Prețul nu este confirmat"));
+  assert.ok(!blocked.includes("1,98 MDL"));
+  assert.ok(!blocked.includes("4 225,98 MDL"));
+  for (const status of ["missing", "ambiguous"] as const) {
+    const unresolved = renderToStaticMarkup(createElement(NormativeCosts, {
+      context, allPositionsAssigned: true,
+      result: {
+        ...result, complete: false, procurementStorageTotal: null, directPlusProcurement: null,
+        categories: result.categories.map((entry) => ({
+          ...entry, application: null, resolution: { ...entry.resolution, status },
+        })),
+      },
+    }));
+    assert.ok(unresolved.includes(status === "missing"
+      ? "Nu există o regulă eligibilă" : "Devizo nu a ales automat una"));
+    assert.ok(!unresolved.includes("1,98 MDL"));
+    assert.ok(!unresolved.includes("4 225,98 MDL"));
+  }
+}
 
 {
   for (const [input, expected] of [
