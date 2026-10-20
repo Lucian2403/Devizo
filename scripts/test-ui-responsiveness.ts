@@ -22,6 +22,17 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const forms = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "semantics-forms.tsx"), "utf8");
+  const contextForm = forms.slice(forms.indexOf("export function CalculationContextForm"));
+  assert.ok(contextForm.includes('key={`${context.estimatePerspective ?? ""}:${context.workKind ?? ""}`}'),
+    "Persisted perspective/workKind changes must remount uncontrolled controls after server actions");
+  assert.ok(contextForm.includes('defaultValue={context.estimatePerspective ?? ""}'));
+  assert.ok(contextForm.includes('defaultValue={context.workKind ?? ""}'));
+  assert.ok(contextForm.includes("<Message state={state} />"));
+}
+
+{
   const page = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "object-estimates", "[objectEstimateId]", "page.tsx"), "utf8");
   assert.ok(page.includes('Obiect local: {local?.constructionObjectId ?? "—"}'));

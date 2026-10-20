@@ -116,7 +116,8 @@ export function CalculationContextForm({
 }: { action: SemanticAction; context: NormativeCalculationContext }) {
   const [state, formAction] = useActionState(action, null);
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-2">
+    <form key={`${context.estimatePerspective ?? ""}:${context.workKind ?? ""}`}
+      action={formAction} className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-2">
         <Label htmlFor="estimate-perspective">Perspectivă</Label>
         <select id="estimate-perspective" name="estimatePerspective" required

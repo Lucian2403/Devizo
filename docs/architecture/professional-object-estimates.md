@@ -19,6 +19,14 @@ cost-component decisions change its displayed values on revalidation.
 Finalization and immutable professional calculation snapshots belong to a
 later milestone.
 
+Changing the local perspective or work kind does not replace or remove saved
+explicit component decisions. Temporarily ineligible decisions block the local
+and linked object totals; restoring eligibility reactivates the exact saved
+rules without reselection or relinking. An absent decision or a saved rule that
+remains ineligible still blocks calculation. The context form remounts its
+controls when persisted perspective/work-kind values change, keeping the
+visible selections synchronized with the server-authoritative context.
+
 VAT, general-estimate chapters 1–12, and Form 8 PDF generation are out of
 scope. Form 8 unit indicators are deferred until explicit area, volume, or
 length data exists:

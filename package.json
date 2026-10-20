@@ -24,7 +24,7 @@
     "test:pdf": "node scripts/run-pdf-test.mjs && tsx scripts/test-pdf-content-disposition.ts",
     "test:terminology": "tsx scripts/test-commercial-terminology.ts",
     "backfill:quote-snapshots": "tsx scripts/backfill-quote-snapshots.ts",
-    "test:professional": "tsx scripts/test-professional-workspace.ts && tsx scripts/test-professional-foundation.ts && tsx scripts/test-professional-calculation.ts && tsx scripts/test-professional-resource-prices.ts && tsx scripts/test-professional-norm-library.ts && tsx scripts/test-professional-cost-stack.ts && tsx scripts/test-professional-rule-resolution.ts && tsx scripts/test-professional-rule-definitions.ts && tsx scripts/test-professional-cost-component-decisions.ts && tsx scripts/test-cp-l-01-07-rule-pack.ts && tsx scripts/test-professional-object-estimates.ts",
+    "test:professional": "tsx scripts/test-professional-workspace.ts && tsx scripts/test-professional-foundation.ts && tsx scripts/test-professional-calculation.ts && tsx scripts/test-professional-resource-prices.ts && tsx scripts/test-professional-norm-library.ts && tsx scripts/test-professional-cost-stack.ts && tsx scripts/test-professional-rule-resolution.ts && tsx scripts/test-professional-rule-definitions.ts && tsx scripts/test-professional-cost-component-decisions.ts && tsx scripts/test-cp-l-01-07-rule-pack.ts && tsx scripts/test-professional-object-estimates.ts && tsx scripts/test-professional-context-round-trip.ts",
     "test:normative": "tsx scripts/test-normative-intelligence.ts && tsx scripts/test-normative-governance.ts",
     "test:normative:db": "tsx scripts/test-normative-database.ts",
     "test:ui": "tsx --tsconfig scripts/tsconfig.jsx.json scripts/test-ui-responsiveness.ts"
