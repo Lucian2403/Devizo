@@ -22,6 +22,16 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const page = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "object-estimates", "[objectEstimateId]", "page.tsx"), "utf8");
+  assert.ok(page.includes('Obiect local: {local?.constructionObjectId ?? "—"}'));
+  assert.ok(page.includes('<Detail label="ID obiect">{estimate.constructionObjectId}</Detail>'));
+  assert.ok(page.includes("Neeligibil pentru agregare"));
+  assert.ok(page.includes("{entry.eligibilityError}"));
+  assert.ok(!page.includes("Obiect: {estimate.constructionObjectId}"));
+}
+
+{
   const rulesDirectory = join(
     process.cwd(), "app", "(app)", "professional-estimates", "rules",
   );

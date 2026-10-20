@@ -48,6 +48,7 @@ import {
   DuplicateProfessionalObjectEstimateEntryError,
 } from "@/infrastructure/db/repositories/professionalObjectEstimate.repository";
 import {
+  LocalProfessionalEstimateNotFoundError,
   ProfessionalObjectEstimateNotFoundError,
   ProfessionalObjectEstimateValidationError,
 } from "@/domain/professional-estimates/professional-object-estimate.service";
@@ -96,6 +97,7 @@ function objectEstimateErrorState(
   if (
     error instanceof ProfessionalObjectEstimateValidationError ||
     error instanceof ProfessionalObjectEstimateNotFoundError ||
+    error instanceof LocalProfessionalEstimateNotFoundError ||
     error instanceof DuplicateProfessionalObjectEstimateEntryError
   ) {
     return { error: error.message };

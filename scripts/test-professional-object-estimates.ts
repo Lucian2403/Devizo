@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import Module from "node:module";
 import {
   calculateProfessionalObjectEstimate,
   ProfessionalObjectEstimateAggregationError,
@@ -183,6 +184,7 @@ function serviceFixture(
   calculations: Record<string, LiveLocalEstimateCalculation>,
   summaries = [localSummary(ids.contextA), localSummary(ids.contextB)],
   onUpdate?: (data: { included?: boolean; costCategory?: ProfessionalObjectEstimateCostCategory }) => void,
+  localOrganizations: Record<string, string> = {},
 ) {
   const estimate = objectEstimateRecord();
   const row: ProfessionalObjectEstimateSummaryRecord = {
@@ -222,8 +224,11 @@ function serviceFixture(
   const service = new ProfessionalObjectEstimateService(
     repository,
     async (orgId) => (orgId === ids.organization ? summaries : []),
-    async (_orgId, calculationContextId) => {
-      const result = calculations[calculationContextId];
+    async (orgId, calculationContextId) => {
+      const result =
+        orgId === (localOrganizations[calculationContextId] ?? ids.organization)
+          ? calculations[calculationContextId]
+          : undefined;
       if (!result) throw new LocalProfessionalEstimateNotFoundError();
       return result;
     },
@@ -290,6 +295,31 @@ const withIncludedIncomplete = await includedIncompleteService.get(
 );
 assert.equal(withIncludedIncomplete.complete, false);
 assert.equal(withIncludedIncomplete.totals, null);
+
+const crossObjectService = serviceFixture(
+  [storedEntry(ids.entryA, ids.contextA, true, 1)],
+  {
+    [ids.contextA]: liveCalculation(ids.contextA, {
+      objectId: ids.anotherObject,
+    }),
+  },
+);
+const crossObjectEstimate = await crossObjectService.get(
+  ids.organization,
+  ids.objectEstimate,
+);
+assert.equal(crossObjectEstimate.complete, false);
+assert.equal(crossObjectEstimate.totals, null);
+assert.equal(
+  crossObjectEstimate.entries[0]?.eligibilityError,
+  "Devizul local aparține altui obiect.",
+);
+assert.equal(
+  crossObjectEstimate.entries[0]?.localEstimate?.constructionObjectId,
+  ids.anotherObject,
+  "ineligible entries retain the actual local construction object provenance",
+);
+assert.equal(crossObjectEstimate.constructionObjectId, ids.object);
 
 const emptyService = serviceFixture([], liveCalculations);
 const emptyEstimate = await emptyService.get(ids.organization, ids.objectEstimate);
@@ -443,7 +473,99 @@ assert.match(createActionSource, /requireCurrentOrg\(\)/);
 assert.match(createActionSource, /getProfessionalObjectEstimateService\(\)\.create\(\s*org\.id/);
 assert.doesNotMatch(createActionSource, /formData\.get\(["']organizationId["']\)/);
 
+await testAddLocalEstimateAction();
 console.log("Professional object estimate domain tests passed.");
+}
+
+async function testAddLocalEstimateAction(): Promise<void> {
+  const originalModules = new Map<string, NodeModule | undefined>();
+  const revalidatedPaths: string[] = [];
+  const foreignContextId = "90000000-0000-4000-8000-000000000002";
+  const missingContextId = "90000000-0000-4000-8000-000000000001";
+  const foreignCalculation = liveCalculation(foreignContextId);
+  const service = serviceFixture(
+    [],
+    { [foreignContextId]: foreignCalculation },
+    [],
+    undefined,
+    { [foreignContextId]: ids.anotherOrganization },
+  );
+
+  function replaceModule(path: string, exports: object): void {
+    const resolvedPath = require.resolve(path);
+    originalModules.set(resolvedPath, require.cache[resolvedPath]);
+    const replacement = new Module(resolvedPath);
+    replacement.exports = exports;
+    require.cache[resolvedPath] = replacement;
+  }
+
+  // Keep the real server action and service; replace authentication, wiring,
+  // and the database connection so no environment credentials are required.
+  replaceModule("../lib/auth/current-org", {
+    requireCurrentOrg: async () => ({ org: { id: ids.organization } }),
+  });
+  replaceModule("../server/container", {
+    getProfessionalObjectEstimateService: () => service,
+  });
+  replaceModule("../infrastructure/db", { db: {} });
+  replaceModule("next/cache", {
+    revalidatePath: (path: string) => revalidatedPaths.push(path),
+  });
+  const actionsPath = require.resolve("../app/(app)/professional-estimates/actions");
+  originalModules.set(actionsPath, require.cache[actionsPath]);
+  delete require.cache[actionsPath];
+
+  try {
+    // Simulate an existing context owned by another organization. The service
+    // only receives org-scoped calculations, so it must be indistinguishable
+    // from a missing context to the current organization's action.
+    const { addProfessionalObjectEstimateEntry } = await import(
+      "../app/(app)/professional-estimates/actions"
+    );
+    const results = [];
+    for (const calculationContextId of [missingContextId, foreignContextId]) {
+      const formData = new FormData();
+      formData.set("calculationContextId", calculationContextId);
+      formData.set("costCategory", "construction_works");
+      formData.set("organizationId", ids.anotherOrganization);
+      const result = await addProfessionalObjectEstimateEntry(
+        ids.objectEstimate,
+        null,
+        formData,
+      );
+      assert.deepEqual(result, {
+        error: "Devizul local asociat nu mai este disponibil.",
+      });
+      for (const sensitiveId of [
+        ids.organization,
+        ids.anotherOrganization,
+        calculationContextId,
+      ]) {
+        assert.ok(!JSON.stringify(result).includes(sensitiveId));
+      }
+      results.push(result);
+    }
+    assert.deepEqual(results[0], results[1]);
+
+    for (const [objectEstimateId, calculationContextId] of [
+      ["malformed", ids.contextA],
+      [ids.objectEstimate, "malformed"],
+    ]) {
+      const formData = new FormData();
+      formData.set("calculationContextId", calculationContextId!);
+      formData.set("costCategory", "construction_works");
+      assert.deepEqual(
+        await addProfessionalObjectEstimateEntry(objectEstimateId!, null, formData),
+        { error: "Devizul pe obiect nu a fost găsit." },
+      );
+    }
+    assert.deepEqual(revalidatedPaths, [], "failed actions must not report success");
+  } finally {
+    for (const [path, originalModule] of originalModules) {
+      if (originalModule) require.cache[path] = originalModule;
+      else delete require.cache[path];
+    }
+  }
 }
 
 void main().catch((error: unknown) => {

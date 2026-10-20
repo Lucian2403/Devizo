@@ -103,7 +103,7 @@ export default async function ProfessionalObjectEstimateDetailPage({
                         <p className="mt-1 break-all text-xs text-muted-foreground">
                           Intrare: {entry.id}<br />
                           Context de calcul: {entry.calculationContextId}<br />
-                          Obiect: {estimate.constructionObjectId}
+                          Obiect local: {local?.constructionObjectId ?? "—"}
                         </p>
                         {entry.eligibilityError && (
                           <p className="mt-1 text-xs text-destructive">{entry.eligibilityError}</p>
