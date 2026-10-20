@@ -37,6 +37,13 @@ import { ProfessionalResourcePricesService } from "@/domain/professional-estimat
 import { DrizzleProfessionalResourcePricesRepository } from "@/infrastructure/db/repositories/professionalResourcePrices.repository";
 import { ProfessionalCostComponentDecisionService } from "@/domain/professional-estimates/professional-cost-component-decisions.service";
 import { DrizzleProfessionalCostComponentDecisionRepository } from "@/infrastructure/db/repositories/professionalCostComponentDecisions.repository";
+import {
+  LocalProfessionalEstimateNotFoundError,
+  ProfessionalObjectEstimateService,
+} from "@/domain/professional-estimates/professional-object-estimate.service";
+import { DrizzleProfessionalObjectEstimateRepository } from "@/infrastructure/db/repositories/professionalObjectEstimate.repository";
+import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
+import { getProfessionalEstimateCalculation } from "@/server/professionalEstimateCalculation";
 
 /**
  * Wires domain services to their Drizzle adapters in one place,
@@ -98,6 +105,43 @@ export function getProfessionalCostComponentDecisionService(): ProfessionalCostC
   return new ProfessionalCostComponentDecisionService(
     new DrizzleProfessionalCostComponentDecisionRepository(),
     getProfessionalRuleDefinitionService(),
+  );
+}
+
+export function getProfessionalObjectEstimateService(): ProfessionalObjectEstimateService {
+  const workspaceService = getProfessionalEstimateWorkspaceService();
+  return new ProfessionalObjectEstimateService(
+    new DrizzleProfessionalObjectEstimateRepository(),
+    (organizationId) => workspaceService.listProfessionalEstimates(organizationId),
+    async (organizationId, calculationContextId) => {
+      let workspace;
+      try {
+        workspace = await workspaceService.getProfessionalEstimate(
+          organizationId,
+          calculationContextId,
+        );
+      } catch (error) {
+        if (error instanceof ProfessionalEstimateNotFoundError) {
+          throw new LocalProfessionalEstimateNotFoundError();
+        }
+        throw error;
+      }
+      const calculation = await getProfessionalEstimateCalculation(
+        organizationId,
+        workspace,
+      );
+      return {
+        calculationContextId,
+        constructionObjectId: workspace.constructionObject.id,
+        name: workspace.context.name,
+        valuationDate: workspace.context.valuationDate,
+        currency: workspace.context.currency,
+        subtotal:
+          calculation.stackResult?.estimateSubtotalBeforeLimitedCostsAndVat ??
+          null,
+        complete: calculation.stackResult !== null,
+      };
+    },
   );
 }
 
