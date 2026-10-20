@@ -1250,6 +1250,107 @@ export const professionalObjectEstimateEntries = pgTable(
   }),
 );
 
+export const professionalGeneralEstimates = pgTable(
+  "professional_general_estimates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    code: text("code"),
+    valuationDate: date("valuation_date").notNull(),
+    currency: text("currency").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    orgIdUnique: unique("professional_general_estimates_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    currencyCheck: check(
+      "professional_general_estimates_currency_check",
+      sql`${table.currency} in ('MDL', 'EUR', 'RON', 'USD', 'GBP')`,
+    ),
+    nameCheck: check(
+      "professional_general_estimates_name_check",
+      sql`length(trim(${table.name})) > 0`,
+    ),
+    orgDateIdx: index("professional_general_estimates_org_date_idx").on(
+      table.organizationId,
+      table.valuationDate,
+    ),
+  }),
+);
+
+export const professionalGeneralEstimateEntries = pgTable(
+  "professional_general_estimate_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    generalEstimateId: uuid("general_estimate_id").notNull(),
+    objectEstimateId: uuid("object_estimate_id").notNull(),
+    chapterNumber: integer("chapter_number").notNull(),
+    chapterPositionNumber: integer("chapter_position_number").notNull(),
+    included: boolean("included").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    generalEstimateOrgFk: foreignKey({
+      columns: [table.generalEstimateId, table.organizationId],
+      foreignColumns: [
+        professionalGeneralEstimates.id,
+        professionalGeneralEstimates.organizationId,
+      ],
+      name: "professional_general_estimate_entries_general_estimate_org_fkey",
+    }).onDelete("cascade"),
+    objectEstimateOrgFk: foreignKey({
+      columns: [table.objectEstimateId, table.organizationId],
+      foreignColumns: [
+        professionalObjectEstimates.id,
+        professionalObjectEstimates.organizationId,
+      ],
+      name: "professional_general_estimate_entries_object_estimate_org_fkey",
+    }).onDelete("restrict"),
+    membershipUnique: unique(
+      "professional_general_estimate_entries_membership_unique",
+    ).on(table.organizationId, table.generalEstimateId, table.objectEstimateId),
+    chapterPositionUnique: unique(
+      "professional_general_estimate_entries_chapter_position_unique",
+    ).on(
+      table.organizationId,
+      table.generalEstimateId,
+      table.chapterNumber,
+      table.chapterPositionNumber,
+    ),
+    chapterCheck: check(
+      "professional_general_estimate_entries_chapter_check",
+      sql`${table.chapterNumber} between 1 and 12`,
+    ),
+    positionCheck: check(
+      "professional_general_estimate_entries_position_check",
+      sql`${table.chapterPositionNumber} > 0`,
+    ),
+    orgObjectIdx: index(
+      "professional_general_estimate_entries_org_object_idx",
+    ).on(table.organizationId, table.objectEstimateId),
+  }),
+);
+
 export type ConstructionObject = typeof constructionObjects.$inferSelect;
 export type WorkQuantityList = typeof workQuantityLists.$inferSelect;
 export type WorkQuantityItem = typeof workQuantityItems.$inferSelect;
@@ -1272,3 +1373,7 @@ export type ProfessionalRuleDefinition =
 export type ProfessionalObjectEstimate = typeof professionalObjectEstimates.$inferSelect;
 export type ProfessionalObjectEstimateEntry =
   typeof professionalObjectEstimateEntries.$inferSelect;
+export type ProfessionalGeneralEstimate =
+  typeof professionalGeneralEstimates.$inferSelect;
+export type ProfessionalGeneralEstimateEntry =
+  typeof professionalGeneralEstimateEntries.$inferSelect;

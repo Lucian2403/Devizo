@@ -43,6 +43,7 @@ import {
   getProfessionalCostComponentDecisionService,
   getProfessionalRuleDefinitionService,
   getProfessionalObjectEstimateService,
+  getProfessionalGeneralEstimateService,
 } from "@/server/container";
 import {
   DuplicateProfessionalObjectEstimateEntryError,
@@ -52,6 +53,14 @@ import {
   ProfessionalObjectEstimateNotFoundError,
   ProfessionalObjectEstimateValidationError,
 } from "@/domain/professional-estimates/professional-object-estimate.service";
+import {
+  ProfessionalGeneralEstimateNotFoundError,
+  ProfessionalGeneralEstimateSourceNotFoundError,
+  ProfessionalGeneralEstimateValidationError,
+} from "@/domain/professional-estimates/professional-general-estimate.service";
+import {
+  DuplicateProfessionalGeneralEstimateEntryError,
+} from "@/infrastructure/db/repositories/professionalGeneralEstimate.repository";
 
 export type ProfessionalEstimateFormState =
   | { error: string }
@@ -89,6 +98,15 @@ function revalidateObjectEstimateViews(): void {
     "/professional-estimates/object-estimates/[objectEstimateId]",
     "page",
   );
+  revalidateProfessionalAggregationViews();
+}
+
+function revalidateProfessionalAggregationViews(): void {
+  revalidatePath("/professional-estimates/general-estimates");
+  revalidatePath(
+    "/professional-estimates/general-estimates/[generalEstimateId]",
+    "page",
+  );
 }
 
 function objectEstimateErrorState(
@@ -99,6 +117,20 @@ function objectEstimateErrorState(
     error instanceof ProfessionalObjectEstimateNotFoundError ||
     error instanceof LocalProfessionalEstimateNotFoundError ||
     error instanceof DuplicateProfessionalObjectEstimateEntryError
+  ) {
+    return { error: error.message };
+  }
+  throw error;
+}
+
+function generalEstimateErrorState(
+  error: unknown,
+): ProfessionalObjectEstimateFormState {
+  if (
+    error instanceof ProfessionalGeneralEstimateValidationError ||
+    error instanceof ProfessionalGeneralEstimateNotFoundError ||
+    error instanceof ProfessionalGeneralEstimateSourceNotFoundError ||
+    error instanceof DuplicateProfessionalGeneralEstimateEntryError
   ) {
     return { error: error.message };
   }
@@ -688,4 +720,93 @@ export async function updateProfessionalObjectEstimateEntry(
   }
   revalidateObjectEstimateViews();
   return { success: "Poziția devizului pe obiect a fost actualizată." };
+}
+
+export async function createProfessionalGeneralEstimate(
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  const currency = String(formData.get("currency") ?? "");
+  if (!isSupportedCurrency(currency)) {
+    return { error: "Moneda selectată nu este acceptată." };
+  }
+  let generalEstimateId: string;
+  try {
+    generalEstimateId = await getProfessionalGeneralEstimateService().create(
+      org.id,
+      {
+        name: String(formData.get("name") ?? ""),
+        code: String(formData.get("code") ?? ""),
+        valuationDate: String(formData.get("valuationDate") ?? ""),
+        currency,
+        notes: String(formData.get("notes") ?? ""),
+      },
+    );
+  } catch (error) {
+    return generalEstimateErrorState(error);
+  }
+  revalidateProfessionalAggregationViews();
+  redirect(
+    `/professional-estimates/general-estimates/${generalEstimateId}`,
+  );
+}
+
+export async function addProfessionalGeneralEstimateEntry(
+  generalEstimateId: string,
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  const chapterNumber = Number(String(formData.get("chapterNumber") ?? ""));
+  try {
+    await getProfessionalGeneralEstimateService().addEntry(
+      org.id,
+      generalEstimateId,
+      String(formData.get("objectEstimateId") ?? ""),
+      chapterNumber,
+    );
+  } catch (error) {
+    return generalEstimateErrorState(error);
+  }
+  revalidateProfessionalAggregationViews();
+  return { success: "Devizul pe obiect a fost asociat." };
+}
+
+export async function updateProfessionalGeneralEstimateEntry(
+  generalEstimateId: string,
+  entryId: string,
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  const includedValue = formData.get("included");
+  const included =
+    includedValue === null
+      ? undefined
+      : includedValue === "true"
+        ? true
+        : includedValue === "false"
+          ? false
+          : null;
+  const chapterValue = formData.get("chapterNumber");
+  const chapterNumber =
+    chapterValue === null || String(chapterValue).trim() === ""
+      ? undefined
+      : Number(String(chapterValue));
+  if (included === null) {
+    return { error: "Starea includerii nu este validă." };
+  }
+  try {
+    await getProfessionalGeneralEstimateService().updateEntry(
+      org.id,
+      generalEstimateId,
+      entryId,
+      { included, chapterNumber },
+    );
+  } catch (error) {
+    return generalEstimateErrorState(error);
+  }
+  revalidateProfessionalAggregationViews();
+  return { success: "Poziția devizului general a fost actualizată." };
 }

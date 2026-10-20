@@ -27,9 +27,10 @@ remains ineligible still blocks calculation. The context form remounts its
 controls when persisted perspective/work-kind values change, keeping the
 visible selections synchronized with the server-authoritative context.
 
-VAT, general-estimate chapters 1–12, and Form 8 PDF generation are out of
-scope. Form 8 unit indicators are deferred until explicit area, volume, or
-length data exists:
+General-estimate chapters 1–12 are implemented as a separate live aggregation
+layer; normative additions, VAT, and Form 9 remain deferred. Form 8 PDF
+generation is out of scope. Form 8 unit indicators are deferred until explicit
+area, volume, or length data exists:
 
 > Indicatorii unitari ai Formularului 8 sunt deferiți până când există date
 > explicite despre suprafață, volum sau lungime.

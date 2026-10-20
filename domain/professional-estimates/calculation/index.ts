@@ -76,3 +76,12 @@ export {
   type ProfessionalObjectEstimateCostCategory,
   type ProfessionalObjectEstimateTotals,
 } from "./object-estimate";
+export {
+  calculateProfessionalGeneralEstimate,
+  ProfessionalGeneralEstimateAggregationError,
+  PROFESSIONAL_GENERAL_ESTIMATE_CHAPTERS,
+  type ProfessionalGeneralEstimateAggregationEntry,
+  type ProfessionalGeneralEstimateChapterNumber,
+  type ProfessionalGeneralEstimateChapterTotals,
+  type ProfessionalGeneralEstimateTotals,
+} from "./general-estimate";
