@@ -42,7 +42,16 @@ import {
 import {
   getProfessionalCostComponentDecisionService,
   getProfessionalRuleDefinitionService,
+  getProfessionalObjectEstimateService,
 } from "@/server/container";
+import {
+  DuplicateProfessionalObjectEstimateEntryError,
+} from "@/infrastructure/db/repositories/professionalObjectEstimate.repository";
+import {
+  LocalProfessionalEstimateNotFoundError,
+  ProfessionalObjectEstimateNotFoundError,
+  ProfessionalObjectEstimateValidationError,
+} from "@/domain/professional-estimates/professional-object-estimate.service";
 
 export type ProfessionalEstimateFormState =
   | { error: string }
@@ -68,6 +77,33 @@ export type ProfessionalRuleFormState =
   | { success: string }
   | null;
 
+export type ProfessionalObjectEstimateFormState =
+  | { error: string }
+  | { success: string }
+  | null;
+
+function revalidateObjectEstimateViews(): void {
+  revalidatePath("/professional-estimates/[calculationContextId]", "page");
+  revalidatePath("/professional-estimates/object-estimates");
+  revalidatePath(
+    "/professional-estimates/object-estimates/[objectEstimateId]",
+    "page",
+  );
+}
+
+function objectEstimateErrorState(
+  error: unknown,
+): ProfessionalObjectEstimateFormState {
+  if (
+    error instanceof ProfessionalObjectEstimateValidationError ||
+    error instanceof ProfessionalObjectEstimateNotFoundError ||
+    error instanceof LocalProfessionalEstimateNotFoundError ||
+    error instanceof DuplicateProfessionalObjectEstimateEntryError
+  ) {
+    return { error: error.message };
+  }
+  throw error;
+}
 function errorState(error: unknown): ProfessionalEstimateFormState {
   if (
     error instanceof ProfessionalEstimateValidationError ||
@@ -106,6 +142,7 @@ export async function createProfessionalEstimate(
     return errorState(error);
   }
   revalidatePath("/professional-estimates");
+  revalidateObjectEstimateViews();
   redirect(`/professional-estimates/${calculationContextId}`);
 }
 
@@ -143,6 +180,7 @@ export async function createWorkQuantityItem(
   }
   revalidatePath(`/professional-estimates/${calculationContextId}`);
   revalidatePath("/professional-estimates");
+  revalidateObjectEstimateViews();
   return { success: "Poziția de lucru a fost adăugată." };
 }
 
@@ -186,6 +224,7 @@ export async function updateWorkQuantityItem(
   }
   revalidatePath(`/professional-estimates/${calculationContextId}`);
   revalidatePath("/professional-estimates");
+  revalidateObjectEstimateViews();
   return { success: "Poziția de lucru a fost actualizată." };
 }
 
@@ -257,6 +296,7 @@ export async function addInternalNormResource(
   }
   revalidatePath(`/professional-estimates/norms/${estimateNormVersionId}`);
   revalidatePath("/professional-estimates", "layout");
+  revalidateObjectEstimateViews();
   return { success: "Resursa a fost adăugată la normă." };
 }
 
@@ -277,6 +317,7 @@ export async function publishInternalNormVersion(
   revalidatePath(`/professional-estimates/norms/${estimateNormVersionId}`);
   revalidatePath("/professional-estimates/norms");
   revalidatePath("/professional-estimates");
+  revalidateObjectEstimateViews();
   return { success: "Norma internă a fost publicată pentru utilizare." };
 }
 
@@ -305,6 +346,7 @@ export async function assignNormToWorkItem(
   }
   revalidatePath(`/professional-estimates/${calculationContextId}`);
   revalidatePath("/professional-estimates");
+  revalidateObjectEstimateViews();
   return { success: "Norma a fost alocată poziției." };
 }
 
@@ -359,6 +401,7 @@ export async function createProfessionalResourcePrice(
   revalidatePath(`/professional-estimates/resources/${resourceId}`);
   revalidatePath("/professional-estimates/resources");
   revalidatePath("/professional-estimates", "layout");
+  revalidateObjectEstimateViews();
   return { success: "Prețul resursei a fost adăugat." };
 }
 
@@ -378,6 +421,7 @@ export async function updateCalculationContext(
     throw error;
   }
   revalidatePath(`/professional-estimates/${contextId}`);
+  revalidateObjectEstimateViews();
   return { success: "Contextul de calcul a fost salvat." };
 }
 
@@ -396,6 +440,7 @@ export async function updateResourceProcurementCategory(
     throw error;
   }
   revalidatePath("/professional-estimates", "layout");
+  revalidateObjectEstimateViews();
   return { success: "Categoria resursei a fost salvată." };
 }
 
@@ -415,6 +460,7 @@ export async function updateResourcePriceSemantics(
     throw error;
   }
   revalidatePath("/professional-estimates", "layout");
+  revalidateObjectEstimateViews();
   return { success: "Clasificarea prețului a fost salvată." };
 }
 
@@ -435,6 +481,7 @@ export async function closeResourcePriceValidity(
   revalidatePath(`/professional-estimates/resources/${resourceId}`);
   revalidatePath("/professional-estimates/resources");
   revalidatePath("/professional-estimates", "layout");
+  revalidateObjectEstimateViews();
   return { success: "Data de încheiere a valabilității a fost salvată." };
 }
 
@@ -508,6 +555,7 @@ export async function createCompanyProfessionalRule(
     throw error;
   }
   revalidatePath("/professional-estimates/rules");
+  revalidateObjectEstimateViews();
   return { success: "Regula internă a companiei a fost salvată." };
 }
 
@@ -552,5 +600,92 @@ export async function saveProfessionalCostComponentDecision(
     return errorState(error);
   }
   revalidatePath(`/professional-estimates/${calculationContextId}`);
+  revalidateObjectEstimateViews();
   return { success: "Decizia componentei a fost salvată." };
+}
+
+export async function createProfessionalObjectEstimate(
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  const currency = String(formData.get("currency") ?? "");
+  if (!isSupportedCurrency(currency)) {
+    return { error: "Moneda selectată nu este acceptată." };
+  }
+  let objectEstimateId: string;
+  try {
+    objectEstimateId = await getProfessionalObjectEstimateService().create(
+      org.id,
+      {
+        constructionObjectId: String(formData.get("constructionObjectId") ?? ""),
+        name: String(formData.get("name") ?? ""),
+        code: String(formData.get("code") ?? ""),
+        valuationDate: String(formData.get("valuationDate") ?? ""),
+        currency,
+        notes: String(formData.get("notes") ?? ""),
+      },
+    );
+  } catch (error) {
+    return objectEstimateErrorState(error);
+  }
+  revalidateObjectEstimateViews();
+  redirect(`/professional-estimates/object-estimates/${objectEstimateId}`);
+}
+
+export async function addProfessionalObjectEstimateEntry(
+  objectEstimateId: string,
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  try {
+    await getProfessionalObjectEstimateService().addEntry(
+      org.id,
+      objectEstimateId,
+      String(formData.get("calculationContextId") ?? ""),
+      String(formData.get("costCategory") ?? ""),
+    );
+  } catch (error) {
+    return objectEstimateErrorState(error);
+  }
+  revalidateObjectEstimateViews();
+  return { success: "Devizul local a fost asociat." };
+}
+
+export async function updateProfessionalObjectEstimateEntry(
+  objectEstimateId: string,
+  entryId: string,
+  _previous: ProfessionalObjectEstimateFormState,
+  formData: FormData,
+): Promise<ProfessionalObjectEstimateFormState> {
+  const { org } = await requireCurrentOrg();
+  const includedValue = formData.get("included");
+  const included =
+    includedValue === null
+      ? undefined
+      : includedValue === "true"
+        ? true
+        : includedValue === "false"
+          ? false
+          : null;
+  if (included === null) {
+    return { error: "Starea includerii nu este validă." };
+  }
+  const categoryValue = String(formData.get("costCategory") ?? "");
+  try {
+    await getProfessionalObjectEstimateService().updateEntry(
+      org.id,
+      objectEstimateId,
+      entryId,
+      {
+        included,
+        costCategory: categoryValue || undefined,
+      },
+    );
+  } catch (error) {
+    return objectEstimateErrorState(error);
+  }
+  revalidateObjectEstimateViews();
+  return { success: "Poziția devizului pe obiect a fost actualizată." };
 }

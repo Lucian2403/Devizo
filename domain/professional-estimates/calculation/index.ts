@@ -68,3 +68,11 @@ export {
   type RuleResolutionStatus,
   type RuleResolutionValidationErrorCode,
 } from "./rule-resolution";
+export {
+  calculateProfessionalObjectEstimate,
+  ProfessionalObjectEstimateAggregationError,
+  PROFESSIONAL_OBJECT_ESTIMATE_COST_CATEGORIES,
+  type ProfessionalObjectEstimateAggregationEntry,
+  type ProfessionalObjectEstimateCostCategory,
+  type ProfessionalObjectEstimateTotals,
+} from "./object-estimate";

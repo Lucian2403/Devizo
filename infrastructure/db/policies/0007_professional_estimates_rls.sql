@@ -22,7 +22,9 @@ DECLARE
     'norm_applications',
     'calculation_rules',
     'professional_rule_definitions',
-    'professional_cost_component_decisions'
+    'professional_cost_component_decisions',
+    'professional_object_estimates',
+    'professional_object_estimate_entries'
   ];
   immutable_tables text[] := ARRAY[
     'normative_update_reviews',

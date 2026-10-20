@@ -1144,6 +1144,112 @@ export const professionalCostComponentDecisions = pgTable(
   }),
 );
 
+export const professionalObjectEstimates = pgTable(
+  "professional_object_estimates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    constructionObjectId: uuid("construction_object_id").notNull(),
+    name: text("name").notNull(),
+    code: text("code"),
+    valuationDate: date("valuation_date").notNull(),
+    currency: text("currency").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    objectOrgFk: foreignKey({
+      columns: [table.constructionObjectId, table.organizationId],
+      foreignColumns: [constructionObjects.id, constructionObjects.organizationId],
+      name: "professional_object_estimates_object_org_fkey",
+    }).onDelete("restrict"),
+    orgIdUnique: unique("professional_object_estimates_id_org_unique").on(
+      table.id,
+      table.organizationId,
+    ),
+    currencyCheck: check(
+      "professional_object_estimates_currency_check",
+      sql`${table.currency} in ('MDL', 'EUR', 'RON', 'USD', 'GBP')`,
+    ),
+    nameCheck: check(
+      "professional_object_estimates_name_check",
+      sql`length(trim(${table.name})) > 0`,
+    ),
+    objectIdx: index("professional_object_estimates_org_object_idx").on(
+      table.organizationId,
+      table.constructionObjectId,
+    ),
+  }),
+);
+
+export const professionalObjectEstimateEntries = pgTable(
+  "professional_object_estimate_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    objectEstimateId: uuid("object_estimate_id").notNull(),
+    calculationContextId: uuid("calculation_context_id").notNull(),
+    positionNumber: integer("position_number").notNull(),
+    costCategory: text("cost_category").notNull(),
+    included: boolean("included").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    objectEstimateOrgFk: foreignKey({
+      columns: [table.objectEstimateId, table.organizationId],
+      foreignColumns: [
+        professionalObjectEstimates.id,
+        professionalObjectEstimates.organizationId,
+      ],
+      name: "professional_object_estimate_entries_object_estimate_org_fkey",
+    }).onDelete("cascade"),
+    calculationContextOrgFk: foreignKey({
+      columns: [table.calculationContextId, table.organizationId],
+      foreignColumns: [calculationContexts.id, calculationContexts.organizationId],
+      name: "professional_object_estimate_entries_context_org_fkey",
+    }).onDelete("restrict"),
+    membershipUnique: unique(
+      "professional_object_estimate_entries_membership_unique",
+    ).on(
+      table.organizationId,
+      table.objectEstimateId,
+      table.calculationContextId,
+    ),
+    positionUnique: unique("professional_object_estimate_entries_position_unique").on(
+      table.organizationId,
+      table.objectEstimateId,
+      table.positionNumber,
+    ),
+    positionCheck: check(
+      "professional_object_estimate_entries_position_check",
+      sql`${table.positionNumber} > 0`,
+    ),
+    costCategoryCheck: check(
+      "professional_object_estimate_entries_cost_category_check",
+      sql`${table.costCategory} in ('construction_works', 'installation_works', 'equipment_furniture_inventory', 'other_costs')`,
+    ),
+    contextIdx: index("professional_object_estimate_entries_org_context_idx").on(
+      table.organizationId,
+      table.calculationContextId,
+    ),
+  }),
+);
+
 export type ConstructionObject = typeof constructionObjects.$inferSelect;
 export type WorkQuantityList = typeof workQuantityLists.$inferSelect;
 export type WorkQuantityItem = typeof workQuantityItems.$inferSelect;
@@ -1163,3 +1269,6 @@ export type NormApplication = typeof normApplications.$inferSelect;
 export type CalculationRule = typeof calculationRules.$inferSelect;
 export type ProfessionalRuleDefinition =
   typeof professionalRuleDefinitions.$inferSelect;
+export type ProfessionalObjectEstimate = typeof professionalObjectEstimates.$inferSelect;
+export type ProfessionalObjectEstimateEntry =
+  typeof professionalObjectEstimateEntries.$inferSelect;
