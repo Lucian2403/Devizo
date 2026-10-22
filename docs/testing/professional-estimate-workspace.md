@@ -42,6 +42,12 @@ Run this checklist after pulling the feature branch:
 For resource price entry and direct resource cost checks, follow
 [professional-resource-pricing.md](./professional-resource-pricing.md).
 
+The header's **Devize** item also exposes all six workspace shortcuts on hover.
+Confirm the dropdown stays visible outside the horizontally scrolling header,
+its arrow button opens it on touch/click, Tab reaches its links, and Escape
+closes it and returns focus to the toggle. The **Devize** link still opens the
+workspace, and the original page buttons remain available.
+
 For internal norm creation, resource composition, norm assignment, and
 resource-quantity checks, follow
 [professional-norm-assignment.md](./professional-norm-assignment.md).

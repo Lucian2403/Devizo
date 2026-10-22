@@ -22,6 +22,30 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const nav = readFileSync(join(process.cwd(), "app", "(app)", "main-nav.tsx"), "utf8");
+  const workspacePage = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "page.tsx"), "utf8");
+  for (const [href, label] of [
+    ["/professional-estimates/new", "Deviz profesional nou"],
+    ["/professional-estimates/object-estimates", "Devize pe obiect"],
+    ["/professional-estimates/general-estimates", "Devize generale"],
+    ["/professional-estimates/norms", "Biblioteca de norme"],
+    ["/professional-estimates/resources", "Resurse și prețuri"],
+    ["/professional-estimates/rules", "Reguli de calcul"],
+  ]) {
+    assert.ok(nav.includes(`href: "${href}"`), `Header shortcut: ${href}`);
+    assert.ok(nav.includes(`label: "${label}"`), `Header label: ${label}`);
+    assert.ok(workspacePage.includes(`href="${href}"`), `Keep page shortcut: ${href}`);
+  }
+  assert.ok(nav.includes("onMouseEnter={open}"), "Hover opens the shortcuts");
+  assert.ok(nav.includes('aria-expanded={position !== null}'), "Expose the toggle state");
+  assert.ok(nav.includes('event.key === "Escape"'), "Escape dismisses the dropdown");
+  assert.ok(nav.includes('event.key === "Tab"'), "Keyboard can enter the portaled links");
+  assert.ok(nav.includes("createPortal("), "Horizontal header scrolling must not clip the dropdown");
+  assert.ok(nav.includes('href="/professional-estimates"'), "Devize still links to the workspace");
+}
+
+{
   const forms = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "semantics-forms.tsx"), "utf8");
   const contextForm = forms.slice(forms.indexOf("export function CalculationContextForm"));
