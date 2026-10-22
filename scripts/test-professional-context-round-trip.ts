@@ -15,12 +15,15 @@ import type { ResourcePriceCandidateRecord } from "../domain/professional-estima
 import type { ProfessionalRuleDefinitionRecord } from "../domain/professional-estimates/professional-rule-definitions.repository";
 import { ProfessionalObjectEstimateService } from "../domain/professional-estimates/professional-object-estimate.service";
 import type { ProfessionalObjectEstimateWorkspaceRecord } from "../domain/professional-estimates/professional-object-estimate.repository";
+import { ProfessionalGeneralEstimateService } from "../domain/professional-estimates/professional-general-estimate.service";
+import type { ProfessionalGeneralEstimateSummaryRecord } from "../domain/professional-estimates/professional-general-estimate.repository";
 
 async function testProfessionalContextRoundTrip(): Promise<void> {
   const org = "10000000-0000-4000-8000-000000000001";
   const contextId = "20000000-0000-4000-8000-000000000001";
   const objectId = "30000000-0000-4000-8000-000000000001";
   const objectEstimateId = "40000000-0000-4000-8000-000000000001";
+  const generalEstimateId = "80000000-0000-4000-8000-000000000001";
   const now = new Date("2026-10-15T00:00:00Z");
   const workspace: ProfessionalEstimateWorkspace = {
     context: {
@@ -242,6 +245,30 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
         subtotal: calculation.stackResult?.estimateSubtotalBeforeLimitedCostsAndVat ?? null,
       };
     });
+    const generalRow: ProfessionalGeneralEstimateSummaryRecord = {
+      estimate: {
+        id: generalEstimateId, organizationId: org, name: "General estimate",
+        code: null, notes: null, valuationDate: "2026-10-15", currency: "MDL",
+        createdAt: now, updatedAt: now,
+      },
+      entries: [{
+        id: "general-entry", organizationId: org, generalEstimateId,
+        objectEstimateId, chapterNumber: 2, chapterPositionNumber: 1,
+        included: true, notes: null, createdAt: now, updatedAt: now,
+      }],
+    };
+    const originalGeneralRow = structuredClone(generalRow);
+    const generalService = new ProfessionalGeneralEstimateService({
+      async list() { return [generalRow]; },
+      async get(organizationId, id) {
+        assert.equal(organizationId, org);
+        assert.equal(id, generalEstimateId);
+        return generalRow;
+      },
+      async create() { throw new Error("Unexpected general estimate create"); },
+      async addEntry() { throw new Error("Must not relink object estimate"); },
+      async updateEntry() { throw new Error("Must not reselect chapter"); },
+    }, objectService);
     async function assertStage(complete: boolean) {
       const calculation = await localCalculation();
       assert.equal(calculation.stackResult?.estimateSubtotalBeforeLimitedCostsAndVat ?? null,
@@ -261,8 +288,25 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
         assert.equal(detail.totals, null);
         assert.equal(listItem?.total, null);
       }
+      const general = await generalService.get(org, generalEstimateId);
+      const [generalListItem] = await generalService.list(org);
+      assert.equal(general.id, generalEstimateId);
+      assert.equal(general.entries[0]?.objectEstimate?.id, objectEstimateId);
+      assert.equal(general.entries[0]?.objectEstimate?.entries[0]?.calculationContextId, contextId);
+      assert.equal(general.complete, complete);
+      assert.equal(generalListItem?.complete, complete);
+      if (complete) {
+        assert.equal(general.totals?.chapters[2].constructionWorks, "5051.2539");
+        assert.equal(general.totals?.chapters[2].total, "5051.2539");
+        assert.equal(general.totals?.totals.total, "5051.2539");
+        assert.equal(generalListItem?.subtotal, "5051.2539");
+      } else {
+        assert.equal(general.totals, null);
+        assert.equal(generalListItem?.subtotal, null);
+      }
       assert.deepEqual(decisions, originalDecisions);
       assert.deepEqual(objectRow.entries, originalEntries);
+      assert.deepEqual(generalRow, originalGeneralRow);
       assert.equal(decisionWrites, 0);
     }
     await assertStage(true);
@@ -278,6 +322,9 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
       assert.ok(revalidated.some(([path]) => path === "/professional-estimates/object-estimates"));
       assert.ok(revalidated.some(([path, type]) =>
         path === "/professional-estimates/object-estimates/[objectEstimateId]" && type === "page"));
+      assert.ok(revalidated.some(([path]) => path === "/professional-estimates/general-estimates"));
+      assert.ok(revalidated.some(([path, type]) =>
+        path === "/professional-estimates/general-estimates/[generalEstimateId]" && type === "page"));
       await assertStage(perspective === "investor");
     }
     assert.equal(contextWrites, 2);
@@ -310,7 +357,7 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
 }
 
 testProfessionalContextRoundTrip().then(() => {
-  console.log("Professional context round-trip, explicit decisions, live object totals, and revalidation passed.");
+  console.log("Professional context round-trip, unchanged explicit decisions and associations, live local/object/general totals, and revalidation passed.");
 }).catch((error: unknown) => {
   console.error(error);
   process.exitCode = 1;

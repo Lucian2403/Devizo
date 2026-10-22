@@ -42,6 +42,8 @@ import {
   ProfessionalObjectEstimateService,
 } from "@/domain/professional-estimates/professional-object-estimate.service";
 import { DrizzleProfessionalObjectEstimateRepository } from "@/infrastructure/db/repositories/professionalObjectEstimate.repository";
+import { ProfessionalGeneralEstimateService } from "@/domain/professional-estimates/professional-general-estimate.service";
+import { DrizzleProfessionalGeneralEstimateRepository } from "@/infrastructure/db/repositories/professionalGeneralEstimate.repository";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { getProfessionalEstimateCalculation } from "@/server/professionalEstimateCalculation";
 
@@ -142,6 +144,13 @@ export function getProfessionalObjectEstimateService(): ProfessionalObjectEstima
         complete: calculation.stackResult !== null,
       };
     },
+  );
+}
+
+export function getProfessionalGeneralEstimateService(): ProfessionalGeneralEstimateService {
+  return new ProfessionalGeneralEstimateService(
+    new DrizzleProfessionalGeneralEstimateRepository(),
+    getProfessionalObjectEstimateService(),
   );
 }
 

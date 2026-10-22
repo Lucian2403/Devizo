@@ -32,6 +32,9 @@ export default async function ProfessionalEstimatesPage() {
             <Link href="/professional-estimates/object-estimates">Devize pe obiect</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link href="/professional-estimates/general-estimates">Devize generale</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/professional-estimates/norms">Biblioteca de norme</Link>
           </Button>
           <Button asChild variant="outline">
