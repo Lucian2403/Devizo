@@ -15,6 +15,10 @@ Run `pnpm db:migrate`, `pnpm db:policies`, then `pnpm dev`.
    valid zero subtotal. Include it again and confirm the subtotal returns.
 8. Move the source from Chapter 2 to Chapter 7 and back. Confirm chapter-local
    numbering is retained/allocated and the overall subtotal is unchanged.
+   After moving to Chapter 7, confirm the row is `7-1`, the chapter column is
+   `Capitolul 7`, and the dropdown visibly selects Chapter 7. After moving back,
+   confirm both the chapter column and dropdown visibly show Chapter 2 without
+   refreshing or reselecting the chapter.
 9. Change the underlying local calculation from Investor to Contractor and
    confirm the object and general estimates become incomplete. Restore
    Investor without relinking or reselection and confirm the Chapter 2 and

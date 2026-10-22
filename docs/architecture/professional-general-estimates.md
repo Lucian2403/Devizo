@@ -24,3 +24,8 @@ The chapter labels are the base NCM L.01.01-2012 nomenclature. Sector-specific
 alternative nomenclature is deferred. All values remain live: changes to local
 calculations propagate through object estimates into general estimates on
 revalidation. No professional snapshot or finalized amount is created.
+
+An empty pure aggregate is rejected rather than assigned zero totals or an
+implicit currency. Only empty chapters within a valid non-empty aggregate have
+zero totals. Chapter-edit controls remount when the persisted entry chapter
+changes, keeping the visible selection synchronized with the server.

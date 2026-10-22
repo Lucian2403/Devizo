@@ -35,6 +35,32 @@ const ids = {
 };
 const date = "2026-10-15";
 
+assert.throws(
+  () => calculateProfessionalGeneralEstimate([]),
+  ProfessionalGeneralEstimateAggregationError,
+  "an empty aggregate must not invent zero totals or a currency",
+);
+assert.deepEqual(PROFESSIONAL_GENERAL_ESTIMATE_CHAPTERS, [
+  { number: 1, label: "Pregătirea terenului pentru construirea obiectivului" },
+  { number: 2, label: "Obiectivul investiții de bază" },
+  { number: 3, label: "Obiecte auxiliare și de deservire" },
+  { number: 4, label: "Obiecte energetice" },
+  { number: 5, label: "Obiecte de comunicații și transport" },
+  {
+    number: 6,
+    label: "Construcții inginerești și rețele exterioare de apă, canalizare, termice și gaze",
+  },
+  { number: 7, label: "Amenajarea terenului" },
+  { number: 8, label: "Organizarea construcțiilor" },
+  { number: 9, label: "Alte cheltuieli" },
+  {
+    number: 10,
+    label: "Întreținerea direcției (supravegherea tehnică) a întreprinderilor (instituțiilor) în construcție",
+  },
+  { number: 11, label: "Pregătirea personalului de exploatare" },
+  { number: 12, label: "Lucrări de proiectări, prospectări, controlul de autor" },
+], "all twelve canonical base NCM chapter labels must remain intact");
+
 function aggregationEntry(
   objectEstimateId: string,
   chapterNumber: number,

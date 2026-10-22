@@ -23,7 +23,11 @@ export const PROFESSIONAL_GENERAL_ESTIMATE_CHAPTERS = [
   { number: 7, label: "Amenajarea terenului" },
   { number: 8, label: "Organizarea construcțiilor" },
   { number: 9, label: "Alte cheltuieli" },
-  { number: 10, label: "Întreținerea direcției / supravegherea tehnică" },
+  {
+    number: 10,
+    label:
+      "Întreținerea direcției (supravegherea tehnică) a întreprinderilor (instituțiilor) în construcție",
+  },
   { number: 11, label: "Pregătirea personalului de exploatare" },
   {
     number: 12,
@@ -110,7 +114,13 @@ function serializeAmounts(
 export function calculateProfessionalGeneralEstimate(
   entries: readonly ProfessionalGeneralEstimateAggregationEntry[],
 ): ProfessionalGeneralEstimateTotals {
-  const currency = entries[0]?.currency ?? "MDL";
+  const [first] = entries;
+  if (!first) {
+    throw new ProfessionalGeneralEstimateAggregationError(
+      "A general estimate requires at least one included object estimate.",
+    );
+  }
+  const currency = first.currency;
   const chapterAmounts = Object.fromEntries(
     PROFESSIONAL_GENERAL_ESTIMATE_CHAPTERS.map(({ number }) => [
       number,

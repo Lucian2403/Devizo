@@ -33,6 +33,18 @@ import {
 }
 
 {
+  const forms = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "general-estimates", "general-estimate-forms.tsx"), "utf8");
+  const controls = forms.slice(forms.indexOf("export function GeneralEstimateEntryControls"));
+  assert.match(controls, /<form\s+key=\{`\$\{entry\.id\}:\$\{entry\.chapterNumber\}`\}\s+action=\{formAction\}/,
+    "Persisted chapter changes (2 -> 7 -> 2) must remount the uncontrolled chapter form");
+  assert.ok(controls.includes('defaultValue={String(entry.chapterNumber)}'),
+    "The persisted server chapter must determine the visible selection");
+  assert.ok(!controls.includes("useState"),
+    "Client state must not become authoritative for the persisted chapter");
+}
+
+{
   const page = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "object-estimates", "[objectEstimateId]", "page.tsx"), "utf8");
   assert.ok(page.includes('Obiect local: {local?.constructionObjectId ?? "—"}'));

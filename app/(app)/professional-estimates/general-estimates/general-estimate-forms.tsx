@@ -208,7 +208,11 @@ export function GeneralEstimateEntryControls({
   );
   return (
     <div className="space-y-2">
-      <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <form
+        key={`${entry.id}:${entry.chapterNumber}`}
+        action={formAction}
+        className="flex flex-wrap items-center gap-2"
+      >
         <select
           name="chapterNumber"
           aria-label="Capitolul devizului pe obiect"
