@@ -112,6 +112,18 @@ function testPureCalculation() {
     ratePercent: "0.8",
     projectCondition: "standard",
   });
+  const ignoredArbitraryCoefficient = calculateTemporaryWorks({
+    baseConstruction: "5051.2539",
+    baseInstallation: "0",
+    ratePercent: "0.8",
+    projectCondition: "standard",
+    coefficient: "999",
+  } as Parameters<typeof calculateTemporaryWorks>[0] & { coefficient: string });
+  assert.equal(
+    ignoredArbitraryCoefficient.temporaryTotal,
+    "40.4100312",
+    "the public calculation contract derives K from the project condition",
+  );
   assert.equal(standard.temporaryConstruction, "40.4100312");
   assert.equal(standard.temporaryInstallation, "0");
   assert.equal(standard.temporaryTotal, "40.4100312");
@@ -366,6 +378,19 @@ async function testService() {
   assert.equal(firstInstall.created, 47);
   assert.equal(firstInstall.reused, 0);
   assert.equal(repo.rules.length, 47);
+  assert.deepEqual(
+    repo.rules.map((rule) => [rule.ruleCode, rule.value]),
+    NCM_L_02_05_2012_RULE_PACK.map((rule) => [
+      rule.ruleCode,
+      rule.ratePercent,
+    ]),
+  );
+  for (const subrow of [
+    "020A", "020B", "021A", "021B", "033A", "033B",
+    "034A", "034B", "034C", "037A", "037B", "037C",
+  ]) {
+    assert.ok(repo.rules.some((rule) => rule.ruleCode === subrow));
+  }
 
   const secondInstall = await service.installRulePack({
     organizationId: ids.org,
@@ -378,6 +403,50 @@ async function testService() {
 
   const rule25 = repo.rules.find((rule) => rule.ruleCode === "025");
   assert.ok(rule25);
+
+  repo.costDecision = null;
+  const zeroBaseTotals = calculateProfessionalGeneralEstimate([
+    {
+      objectEstimateId: "50000000-0000-4000-8000-000000000099",
+      chapterNumber: 9,
+      constructionWorks: "0",
+      installationWorks: "0",
+      equipmentFurnitureInventory: "0",
+      otherCosts: "10",
+      currency: "MDL",
+    },
+  ]);
+  const zeroBaseView = await service.getView(ids.org, {
+    id: ids.general,
+    valuationDate: "2026-10-15",
+    currency: "MDL",
+    complete: true,
+    totals: zeroBaseTotals,
+  });
+  assert.equal(zeroBaseView.temporaryWorksComplete, true);
+  assert.equal(zeroBaseView.result?.mode, "zero_base");
+  assert.equal(zeroBaseView.result?.temporaryTotal, "0");
+  assert.equal(zeroBaseView.adjustedTotals?.totals.total, "10");
+  assert.equal(repo.costDecision, null);
+
+  await assert.rejects(
+    service.saveDecision(ids.org, ids.general, {
+      mode: "normative_rate",
+      ruleDefinitionId: "",
+      projectCondition: "standard",
+    }),
+    ProfessionalTemporaryWorksError,
+  );
+
+  await assert.rejects(
+    service.saveDecision(ids.org, ids.general, {
+      mode: "project_calculation",
+      projectConstructionAmount: "1",
+      projectInstallationAmount: "0",
+      projectReference: "   ",
+    }),
+    ProfessionalTemporaryWorksError,
+  );
 
   await service.saveDecision(ids.org, ids.general, {
     mode: "normative_rate",
@@ -446,6 +515,18 @@ async function testService() {
     ruleDefinitionId: rule25.id,
     projectCondition: "standard",
   });
+  const alternativeApplicability: TemporaryWorksApplicabilityDecision = {
+    ...applicability,
+    id: "30000000-0000-4000-8000-000000000002",
+    revision: 2,
+  };
+  const alternativeRule: ProfessionalGeneralRuleDefinitionRecord = {
+    ...rule25,
+    id: "70000000-0000-4000-8000-999999999999",
+    applicabilityDecisionId: alternativeApplicability.id,
+  };
+  repo.decisions.push(alternativeApplicability);
+  repo.rules.push(alternativeRule);
   repo.decisions[0]!.decision = "not_applicable";
   const stale = await service.getView(ids.org, {
     id: ids.general,
@@ -456,6 +537,10 @@ async function testService() {
   });
   assert.equal(stale.temporaryWorksComplete, false);
   assert.equal(stale.adjustedTotals, null);
+  assert.ok(
+    stale.eligibleRules.some((rule) => rule.id === alternativeRule.id),
+    "an eligible alternative exists but must not replace the saved exact rule",
+  );
   assert.match(stale.error ?? "", /nu mai este eligibilă/);
   assert.equal(repo.costDecision?.ruleDefinitionId, rule25.id);
 
@@ -469,6 +554,22 @@ async function testService() {
   });
   assert.equal(baseIncomplete.baseAggregationComplete, false);
   assert.equal(baseIncomplete.result, null);
+
+  const originalRuleName = repo.rules[0]!.name;
+  repo.rules[0]!.name = "Conflicting persisted rule";
+  await assert.rejects(
+    service.installRulePack({
+      organizationId: ids.org,
+      sourceId: ids.source,
+      applicabilityDecisionId: ids.applicability,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ProfessionalTemporaryWorksError);
+      assert.equal(error.code, "conflicting_existing_rule");
+      return true;
+    },
+  );
+  repo.rules[0]!.name = originalRuleName;
 
   const sourceStatus = repo.source!.status;
   repo.source!.status = "superseded";

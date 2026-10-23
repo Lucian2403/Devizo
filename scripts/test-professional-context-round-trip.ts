@@ -17,6 +17,13 @@ import { ProfessionalObjectEstimateService } from "../domain/professional-estima
 import type { ProfessionalObjectEstimateWorkspaceRecord } from "../domain/professional-estimates/professional-object-estimate.repository";
 import { ProfessionalGeneralEstimateService } from "../domain/professional-estimates/professional-general-estimate.service";
 import type { ProfessionalGeneralEstimateSummaryRecord } from "../domain/professional-estimates/professional-general-estimate.repository";
+import { ProfessionalTemporaryWorksService } from "../domain/professional-estimates/professional-temporary-works.service";
+import type {
+  ProfessionalGeneralCostDecisionRecord,
+  ProfessionalGeneralRuleDefinitionRecord,
+  TemporaryWorksApplicabilityDecision,
+  TemporaryWorksNormativeSource,
+} from "../domain/professional-estimates/professional-temporary-works.repository";
 
 async function testProfessionalContextRoundTrip(): Promise<void> {
   const org = "10000000-0000-4000-8000-000000000001";
@@ -269,6 +276,127 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
       async addEntry() { throw new Error("Must not relink object estimate"); },
       async updateEntry() { throw new Error("Must not reselect chapter"); },
     }, objectService);
+
+    const temporarySource: TemporaryWorksNormativeSource = {
+      id: "90000000-0000-4000-8000-000000000001",
+      organizationId: org,
+      code: "NCM L.02.05-2012",
+      title: "Temporary works fixture",
+      edition: "2012",
+      sourceType: "normative_document",
+      jurisdiction: "MD",
+      status: "active",
+      officialStatus: "in_force",
+      effectiveDate: "2013-02-15",
+      validFrom: "2013-02-15",
+      validTo: null,
+      sourceUri: "https://ednc.gov.md/ncm-l-02-05-2012/",
+    };
+    const temporaryApplicability: TemporaryWorksApplicabilityDecision = {
+      id: "91000000-0000-4000-8000-000000000001",
+      organizationId: org,
+      sourceId: temporarySource.id,
+      revision: 1,
+      decision: "applicable",
+      applicableFrom: "2013-02-15",
+      applicableUntil: null,
+      officialStatus: "in_force",
+      sourceCode: temporarySource.code,
+      sourceEdition: temporarySource.edition,
+      basisNote: "Round-trip fixture",
+    };
+    const temporaryRule: ProfessionalGeneralRuleDefinitionRecord = {
+      id: "92000000-0000-4000-8000-000000000001",
+      organizationId: org,
+      sourceId: temporarySource.id,
+      applicabilityDecisionId: temporaryApplicability.id,
+      component: "temporary_works",
+      ruleCode: "025",
+      groupCode: "civil",
+      groupLabel: "Construcții civile",
+      name: "Technical fixture only",
+      valueType: "percent",
+      value: "0.8",
+      validFrom: "2013-02-15",
+      validTo: null,
+      sourceReference: "NCM L.02.05-2012, pct. 4.6, poziția 25",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const temporaryDecision: ProfessionalGeneralCostDecisionRecord = {
+      id: "93000000-0000-4000-8000-000000000001",
+      organizationId: org,
+      generalEstimateId,
+      component: "temporary_works",
+      mode: "normative_rate",
+      ruleDefinitionId: temporaryRule.id,
+      projectCondition: "standard",
+      projectConstructionAmount: null,
+      projectInstallationAmount: null,
+      projectReference: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const originalTemporaryDecision = structuredClone(temporaryDecision);
+    let temporaryDecisionWrites = 0;
+    const temporaryService = new ProfessionalTemporaryWorksService({
+      async findSourceByIdentity(organizationId, code, edition) {
+        return organizationId === org &&
+          code === temporarySource.code &&
+          edition === temporarySource.edition
+          ? temporarySource
+          : null;
+      },
+      async getSource(organizationId, sourceId) {
+        return organizationId === org && sourceId === temporarySource.id
+          ? temporarySource
+          : null;
+      },
+      async listApplicabilityDecisions(organizationId, sourceId) {
+        return organizationId === org && sourceId === temporarySource.id
+          ? [temporaryApplicability]
+          : [];
+      },
+      async getApplicabilityDecision(organizationId, sourceId, decisionId) {
+        return organizationId === org &&
+          sourceId === temporarySource.id &&
+          decisionId === temporaryApplicability.id
+          ? temporaryApplicability
+          : null;
+      },
+      async listRuleDefinitions(organizationId, sourceId) {
+        return organizationId === org && sourceId === temporarySource.id
+          ? [temporaryRule]
+          : [];
+      },
+      async createRuleDefinitions() {
+        throw new Error("Context changes must not install temporary-work rules.");
+      },
+      async getRuleDefinition(organizationId, ruleId) {
+        return organizationId === org && ruleId === temporaryRule.id
+          ? temporaryRule
+          : null;
+      },
+      async getGeneralEstimate(organizationId, id) {
+        return organizationId === org && id === generalEstimateId
+          ? {
+              id: generalEstimateId,
+              organizationId: org,
+              valuationDate: generalRow.estimate.valuationDate,
+              currency: generalRow.estimate.currency,
+            }
+          : null;
+      },
+      async getDecision(organizationId, id) {
+        return organizationId === org && id === generalEstimateId
+          ? temporaryDecision
+          : null;
+      },
+      async saveDecision() {
+        temporaryDecisionWrites++;
+        throw new Error("Context changes must not rewrite temporary-work decisions.");
+      },
+    });
     async function assertStage(complete: boolean) {
       const calculation = await localCalculation();
       assert.equal(calculation.stackResult?.estimateSubtotalBeforeLimitedCostsAndVat ?? null,
@@ -304,6 +432,35 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
         assert.equal(general.totals, null);
         assert.equal(generalListItem?.subtotal, null);
       }
+
+      const temporary = await temporaryService.getView(org, {
+        id: general.id,
+        valuationDate: general.valuationDate,
+        currency: general.currency,
+        complete: general.complete,
+        totals: general.totals,
+      });
+      assert.equal(temporary.baseAggregationComplete, complete);
+      assert.equal(temporary.temporaryWorksComplete, complete);
+      assert.equal(temporary.adjustedGeneralCalculationComplete, complete);
+      if (complete) {
+        assert.equal(temporary.base?.combined, "5051.2539");
+        assert.equal(temporary.result?.temporaryTotal, "40.4100312");
+        assert.equal(temporary.result?.recoverableAmount, "6.06150468");
+        assert.equal(
+          temporary.adjustedTotals?.chapters[8].constructionWorks,
+          "40.4100312",
+        );
+        assert.equal(
+          temporary.adjustedTotals?.totals.total,
+          "5091.6639312",
+        );
+      } else {
+        assert.equal(temporary.result, null);
+        assert.equal(temporary.adjustedTotals, null);
+      }
+      assert.deepEqual(temporaryDecision, originalTemporaryDecision);
+      assert.equal(temporaryDecisionWrites, 0);
       assert.deepEqual(decisions, originalDecisions);
       assert.deepEqual(objectRow.entries, originalEntries);
       assert.deepEqual(generalRow, originalGeneralRow);
@@ -357,7 +514,7 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
 }
 
 testProfessionalContextRoundTrip().then(() => {
-  console.log("Professional context round-trip, unchanged explicit decisions and associations, live local/object/general totals, and revalidation passed.");
+  console.log("Professional context round-trip, unchanged explicit decisions and associations, live local/object/general/temporary-work totals, and revalidation passed.");
 }).catch((error: unknown) => {
   console.error(error);
   process.exitCode = 1;
