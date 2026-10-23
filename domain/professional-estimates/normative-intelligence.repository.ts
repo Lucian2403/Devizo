@@ -11,7 +11,8 @@ export interface NormativeSourceUsage {
   resources: number;
   resourcePrices: number;
   calculationRules: number;
-  professionalRuleDefinitions: number;\n  professionalGeneralRuleDefinitions: number;
+  professionalRuleDefinitions: number;
+  professionalGeneralRuleDefinitions: number;
 }
 
 export interface NormativeSourceRecord {
