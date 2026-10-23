@@ -1,5 +1,9 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@/infrastructure/db";\nimport { parseDecimal, toDecimalString } from "@/domain/professional-estimates/calculation";
+import { db } from "@/infrastructure/db";
+import {
+  parseDecimal,
+  toDecimalString,
+} from "@/domain/professional-estimates/calculation";
 import {
   normativeApplicabilityDecisions,
   normativeSources,
