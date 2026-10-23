@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "@/infrastructure/db";
+import { db } from "@/infrastructure/db";\nimport { parseDecimal, toDecimalString } from "@/domain/professional-estimates/calculation";
 import {
   normativeApplicabilityDecisions,
   normativeSources,
@@ -56,11 +56,20 @@ function mapApplicability(
   };
 }
 
+function canonicalDecimal(value: string): string {
+  return toDecimalString(parseDecimal(value, "persistedDecimal"));
+}
+
+function optionalCanonicalDecimal(value: string | null): string | null {
+  return value === null ? null : canonicalDecimal(value);
+}
+
 function mapRule(
   row: typeof professionalGeneralRuleDefinitions.$inferSelect,
 ): ProfessionalGeneralRuleDefinitionRecord {
   return {
     ...row,
+    value: canonicalDecimal(row.value),
     component: "temporary_works",
     valueType: "percent",
   };
@@ -71,6 +80,12 @@ function mapDecision(
 ): ProfessionalGeneralCostDecisionRecord {
   return {
     ...row,
+    projectConstructionAmount: optionalCanonicalDecimal(
+      row.projectConstructionAmount,
+    ),
+    projectInstallationAmount: optionalCanonicalDecimal(
+      row.projectInstallationAmount,
+    ),
     component: "temporary_works",
     mode: row.mode as ProfessionalGeneralCostDecisionRecord["mode"],
     projectCondition:
