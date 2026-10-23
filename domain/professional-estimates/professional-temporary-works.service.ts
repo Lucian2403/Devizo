@@ -95,6 +95,17 @@ function parseProjectAmount(value: string, field: string): string {
   if (!PLAIN_DECIMAL.test(normalized)) {
     fail("invalid_decimal", `${field} trebuie să fie o valoare zecimală pozitivă sau zero.`, field);
   }
+  const [integerPart = "", fractionPart = ""] = normalized.split(".");
+  if (
+    (integerPart.replace(/^0+/, "") || "0").length > 12 ||
+    fractionPart.replace(/0+$/, "").length > 6
+  ) {
+    fail(
+      "invalid_decimal_precision",
+      `${field} poate avea maximum 12 cifre întregi și 6 zecimale.`,
+      field,
+    );
+  }
   try {
     const parsed = parseDecimal(normalized, field);
     if (parsed.isNegative()) {
@@ -430,6 +441,13 @@ export class ProfessionalTemporaryWorksService {
         fail(
           "project_reference_required",
           "Indicați referința la calculul din proiect.",
+          "projectReference",
+        );
+      }
+      if (projectReference.length > 4000) {
+        fail(
+          "project_reference_too_long",
+          "Referința la calculul din proiect nu poate depăși 4000 de caractere.",
           "projectReference",
         );
       }

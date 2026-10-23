@@ -448,6 +448,20 @@ async function testService() {
     ProfessionalTemporaryWorksError,
   );
 
+  await assert.rejects(
+    service.saveDecision(ids.org, ids.general, {
+      mode: "project_calculation",
+      projectConstructionAmount: "1.1234567",
+      projectInstallationAmount: "0",
+      projectReference: "POS",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ProfessionalTemporaryWorksError);
+      assert.equal(error.code, "invalid_decimal_precision");
+      return true;
+    },
+  );
+
   await service.saveDecision(ids.org, ids.general, {
     mode: "normative_rate",
     ruleDefinitionId: rule25.id,
