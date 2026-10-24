@@ -75,6 +75,7 @@ export interface TemporaryWorksInstallResult {
   expected: number;
   created: number;
   reused: number;
+  rebound: number;
   definitions: ProfessionalGeneralRuleDefinitionRecord[];
 }
 
@@ -183,7 +184,6 @@ function matchesPackRule(
   return (
     persisted.organizationId === desired.organizationId &&
     persisted.sourceId === desired.sourceId &&
-    persisted.applicabilityDecisionId === desired.applicabilityDecisionId &&
     persisted.component === desired.component &&
     persisted.ruleCode === desired.ruleCode &&
     persisted.groupCode === desired.groupCode &&
@@ -290,10 +290,9 @@ export class ProfessionalTemporaryWorksService {
       );
     }
 
-    const existing = (
-      await this.repository.listRuleDefinitions(input.organizationId, source.id)
-    ).filter(
-      (row) => row.applicabilityDecisionId === input.applicabilityDecisionId,
+    const existing = await this.repository.listRuleDefinitions(
+      input.organizationId,
+      source.id,
     );
 
     const desired = NCM_L_02_05_2012_RULE_PACK.map(
@@ -316,26 +315,48 @@ export class ProfessionalTemporaryWorksService {
 
     const missing: CreateProfessionalGeneralRuleDefinitionInput[] = [];
     const reused: ProfessionalGeneralRuleDefinitionRecord[] = [];
+    const rebindIds: string[] = [];
+
     for (const row of desired) {
       const matches = existing.filter((item) => item.ruleCode === row.ruleCode);
       if (matches.length > 1) {
         fail(
           "duplicate_existing_rule",
-          `Există mai multe reguli persistate pentru poziția ${row.ruleCode}; instalarea a fost oprită.`,
+          `Există mai multe reguli persistate pentru poziția ${row.ruleCode}; rulați migrarea de reparare înainte de verificarea pachetului.`,
         );
       }
+
       const persisted = matches[0];
       if (!persisted) {
         missing.push(row);
-      } else if (!matchesPackRule(persisted, row)) {
+        continue;
+      }
+      if (!matchesPackRule(persisted, row)) {
         fail(
           "conflicting_existing_rule",
           `Regula persistată ${row.ruleCode} diferă de pachetul oficial; datele normative nu sunt suprascrise automat.`,
         );
-      } else {
-        reused.push(persisted);
+      }
+
+      reused.push(persisted);
+      if (persisted.applicabilityDecisionId !== decision.id) {
+        rebindIds.push(persisted.id);
       }
     }
+
+    const rebound =
+      rebindIds.length === 0
+        ? []
+        : await this.repository.rebindRuleDefinitionsApplicability(
+            input.organizationId,
+            source.id,
+            rebindIds,
+            decision.id,
+          );
+    const reboundById = new Map(rebound.map((rule) => [rule.id, rule]));
+    const currentReused = reused.map(
+      (rule) => reboundById.get(rule.id) ?? rule,
+    );
 
     const created =
       missing.length === 0
@@ -345,8 +366,9 @@ export class ProfessionalTemporaryWorksService {
     return {
       expected: desired.length,
       created: created.length,
-      reused: reused.length,
-      definitions: [...reused, ...created].sort((a, b) =>
+      reused: currentReused.length,
+      rebound: rebound.length,
+      definitions: [...currentReused, ...created].sort((a, b) =>
         a.ruleCode.localeCompare(b.ruleCode, "ro"),
       ),
     };
