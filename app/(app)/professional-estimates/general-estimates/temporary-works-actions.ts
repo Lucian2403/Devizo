@@ -41,8 +41,14 @@ export async function installTemporaryWorksRulePack(
       ),
     });
     refreshGeneralEstimate(generalEstimateId);
+    const reboundMessage =
+      result.rebound > 0
+        ? ` Proveniența a fost legată de decizia selectată pentru ${result.rebound} reguli.`
+        : "";
     return {
-      success: `Pachet verificat: ${result.created} reguli create, ${result.reused} reutilizate din ${result.expected}.`,
+      success:
+        `Pachet verificat: ${result.created} reguli create, ${result.reused} reutilizate din ${result.expected}.` +
+        reboundMessage,
     };
   } catch (error) {
     return formError(error);
