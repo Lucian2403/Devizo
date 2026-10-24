@@ -295,6 +295,28 @@ class MemoryRepository implements ProfessionalTemporaryWorksRepository {
     return created;
   }
 
+  async rebindRuleDefinitionsApplicability(
+    org: string,
+    sourceId: string,
+    ruleIds: readonly string[],
+    applicabilityDecisionId: string,
+  ) {
+    const updatedAt = new Date("2026-10-24T00:00:00Z");
+    const changed: ProfessionalGeneralRuleDefinitionRecord[] = [];
+    for (const rule of this.rules) {
+      if (
+        rule.organizationId === org &&
+        rule.sourceId === sourceId &&
+        ruleIds.includes(rule.id)
+      ) {
+        rule.applicabilityDecisionId = applicabilityDecisionId;
+        rule.updatedAt = updatedAt;
+        changed.push(rule);
+      }
+    }
+    return changed;
+  }
+
   async getRuleDefinition(org: string, id: string) {
     return (
       this.rules.find(
@@ -377,6 +399,7 @@ async function testService() {
   });
   assert.equal(firstInstall.created, 47);
   assert.equal(firstInstall.reused, 0);
+  assert.equal(firstInstall.rebound, 0);
   assert.equal(repo.rules.length, 47);
   assert.deepEqual(
     repo.rules.map((rule) => [rule.ruleCode, rule.value]),
@@ -399,7 +422,35 @@ async function testService() {
   });
   assert.equal(secondInstall.created, 0);
   assert.equal(secondInstall.reused, 47);
+  assert.equal(secondInstall.rebound, 0);
   assert.equal(repo.rules.length, 47);
+
+  const secondApplicability: TemporaryWorksApplicabilityDecision = {
+    ...applicability,
+    id: "30000000-0000-4000-8000-000000000002",
+    revision: 2,
+    basisNote: "Explicit second applicability revision",
+  };
+  repo.decisions.push(secondApplicability);
+  const installWithSecondRevision = await service.installRulePack({
+    organizationId: ids.org,
+    sourceId: ids.source,
+    applicabilityDecisionId: secondApplicability.id,
+  });
+  assert.equal(installWithSecondRevision.created, 0);
+  assert.equal(installWithSecondRevision.reused, 47);
+  assert.equal(installWithSecondRevision.rebound, 47);
+  assert.equal(
+    repo.rules.length,
+    47,
+    "a new applicability revision must not duplicate the official pack",
+  );
+  assert.ok(
+    repo.rules.every(
+      (rule) => rule.applicabilityDecisionId === secondApplicability.id,
+    ),
+    "stable rule ids are rebound to the explicitly selected governance revision",
+  );
 
   const rule25 = repo.rules.find((rule) => rule.ruleCode === "025");
   assert.ok(rule25);
@@ -529,19 +580,8 @@ async function testService() {
     ruleDefinitionId: rule25.id,
     projectCondition: "standard",
   });
-  const alternativeApplicability: TemporaryWorksApplicabilityDecision = {
-    ...applicability,
-    id: "30000000-0000-4000-8000-000000000002",
-    revision: 2,
-  };
-  const alternativeRule: ProfessionalGeneralRuleDefinitionRecord = {
-    ...rule25,
-    id: "70000000-0000-4000-8000-999999999999",
-    applicabilityDecisionId: alternativeApplicability.id,
-  };
-  repo.decisions.push(alternativeApplicability);
-  repo.rules.push(alternativeRule);
-  repo.decisions[0]!.decision = "not_applicable";
+  const originalRuleValidTo = rule25.validTo;
+  rule25.validTo = "2026-10-14";
   const stale = await service.getView(ids.org, {
     id: ids.general,
     valuationDate: "2026-10-15",
@@ -552,13 +592,12 @@ async function testService() {
   assert.equal(stale.temporaryWorksComplete, false);
   assert.equal(stale.adjustedTotals, null);
   assert.ok(
-    stale.eligibleRules.some((rule) => rule.id === alternativeRule.id),
-    "an eligible alternative exists but must not replace the saved exact rule",
+    stale.eligibleRules.some((rule) => rule.ruleCode !== "025"),
+    "other eligible table rows exist but must not replace the saved exact rule",
   );
   assert.match(stale.error ?? "", /nu mai este eligibilă/);
   assert.equal(repo.costDecision?.ruleDefinitionId, rule25.id);
-
-  repo.decisions[0]!.decision = "applicable";
+  rule25.validTo = originalRuleValidTo;
   const baseIncomplete = await service.getView(ids.org, {
     id: ids.general,
     valuationDate: "2026-10-15",
