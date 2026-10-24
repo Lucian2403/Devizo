@@ -372,6 +372,9 @@ async function testProfessionalContextRoundTrip(): Promise<void> {
       async createRuleDefinitions() {
         throw new Error("Context changes must not install temporary-work rules.");
       },
+      async rebindRuleDefinitionsApplicability() {
+        throw new Error("Context changes must not rebind temporary-work rules.");
+      },
       async getRuleDefinition(organizationId, ruleId) {
         return organizationId === org && ruleId === temporaryRule.id
           ? temporaryRule
