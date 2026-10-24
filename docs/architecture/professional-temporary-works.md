@@ -49,8 +49,12 @@ decision is required. Installing the pack never creates or changes a normative
 source or applicability decision.
 
 The pack contains 47 explicit rows, including distinct subrows 20A/20B,
-21A/21B, 33A/33B, 34A/34B/34C and 37A/37B/37C. Installation is idempotent:
-exact rows are reused and conflicts are rejected rather than overwritten.
+21A/21B, 33A/33B, 34A/34B/34C and 37A/37B/37C. A pack row has one stable
+identity per organization + normative source + component + rule code. A newer
+explicit applicability revision does not create another copy of the 47 rows:
+the existing stable rule ids are reused and their governance provenance is
+rebound to the explicitly selected decision. Conflicting normative content is
+still rejected rather than overwritten.
 
 A general estimate stores the exact selected rule id and project condition.
 If that rule later becomes ineligible, the adjusted calculation becomes
