@@ -97,6 +97,7 @@ DECLARE
   other record;
   scratch_general uuid;
   scratch_general_for_cross_rule uuid;
+  alternate_applicability uuid;
 BEGIN
   SELECT * INTO own FROM temporary_works_fixture ORDER BY org_id LIMIT 1;
   SELECT * INTO other FROM temporary_works_fixture
@@ -109,6 +110,30 @@ BEGIN
     scratch_general, own.org_id, 'Scratch general estimate',
     '2026-10-15', 'MDL'
   );
+
+  alternate_applicability := gen_random_uuid();
+  INSERT INTO public.normative_applicability_decisions
+    (id, organization_id, source_id, revision, decision, applicable_from,
+     decided_by_user_id, basis_note, source_code, source_edition, official_status)
+  VALUES (
+    alternate_applicability, own.org_id, own.source_id, 2, 'applicable',
+    '2013-02-15', own.actor_id, 'Second applicability revision fixture',
+    'NCM L.02.05-2012', '2012', 'in_force'
+  );
+
+  BEGIN
+    INSERT INTO public.professional_general_rule_definitions
+      (organization_id, source_id, applicability_decision_id, component,
+       rule_code, group_code, group_label, name, value_type, value, valid_from,
+       source_reference)
+    VALUES (
+      own.org_id, own.source_id, alternate_applicability, 'temporary_works',
+      '025', 'civil', 'Civil', 'School fixture', 'percent', 0.8,
+      '2013-02-15', 'NCM L.02.05-2012, pct. 4.6, poziția 25'
+    );
+    RAISE EXCEPTION 'Expected pack rule identity uniqueness failure';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
 
   scratch_general_for_cross_rule := gen_random_uuid();
   INSERT INTO public.professional_general_estimates
