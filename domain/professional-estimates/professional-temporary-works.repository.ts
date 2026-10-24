@@ -141,6 +141,13 @@ export interface ProfessionalTemporaryWorksRepository {
     rows: readonly CreateProfessionalGeneralRuleDefinitionInput[],
   ): Promise<ProfessionalGeneralRuleDefinitionRecord[]>;
 
+  rebindRuleDefinitionsApplicability(
+    organizationId: string,
+    sourceId: string,
+    ruleDefinitionIds: readonly string[],
+    applicabilityDecisionId: string,
+  ): Promise<ProfessionalGeneralRuleDefinitionRecord[]>;
+
   getRuleDefinition(
     organizationId: string,
     ruleDefinitionId: string,
