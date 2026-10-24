@@ -66,6 +66,7 @@ assert.equal(
     resourcePrices: 0,
     calculationRules: 0,
     professionalRuleDefinitions: 0,
+    professionalGeneralRuleDefinitions: 0,
   }),
   "Sursa nu este încă folosită în calcule profesionale.",
 );
@@ -76,6 +77,7 @@ const professionalRuleOnlyImpact = formatSourceImpact({
   resourcePrices: 0,
   calculationRules: 0,
   professionalRuleDefinitions: 2,
+  professionalGeneralRuleDefinitions: 0,
 });
 assert.match(professionalRuleOnlyImpact, /2 definiții de reguli profesionale/);
 assert.notEqual(
@@ -83,12 +85,23 @@ assert.notEqual(
   "Sursa nu este încă folosită în calcule profesionale.",
 );
 
+const generalRuleImpact = formatSourceImpact({
+  normVersions: 0,
+  resources: 0,
+  resourcePrices: 0,
+  calculationRules: 0,
+  professionalRuleDefinitions: 0,
+  professionalGeneralRuleDefinitions: 47,
+});
+assert.match(generalRuleImpact, /47 reguli normative de deviz general/);
+
 const impact = formatSourceImpact({
   normVersions: 2,
   resources: 4,
   resourcePrices: 3,
   calculationRules: 1,
   professionalRuleDefinitions: 0,
+  professionalGeneralRuleDefinitions: 0,
 });
 assert.match(impact, /2 versiuni de norme/);
 assert.match(impact, /4 resurse/);
@@ -170,6 +183,7 @@ class MemoryRepository implements NormativeIntelligenceRepository {
       resourcePrices: 0,
       calculationRules: 1,
       professionalRuleDefinitions: 0,
+      professionalGeneralRuleDefinitions: 0,
     };
   }
 

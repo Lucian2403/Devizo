@@ -51,11 +51,11 @@ export default async function ProfessionalGeneralEstimatesPage() {
                     <dd>{formatDate(estimate.valuationDate)}</dd>
                     <dt className="text-muted-foreground">Devize pe obiect incluse</dt>
                     <dd>{estimate.includedCount}</dd>
-                    <dt className="text-muted-foreground">Stare</dt>
+                    <dt className="text-muted-foreground">Surse</dt>
                     <dd>{estimate.complete ? "Complet" : "Incomplet"}</dd>
                     {estimate.subtotal !== null && (
                       <>
-                        <dt className="text-muted-foreground">Subtotal capitolele 1–12</dt>
+                        <dt className="text-muted-foreground">Subtotal surse (fără ajustări normative)</dt>
                         <dd className="font-medium tabular-nums">
                           {formatProfessionalResourceMoney(estimate.subtotal, estimate.currency)}
                         </dd>

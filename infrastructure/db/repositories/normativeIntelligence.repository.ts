@@ -7,6 +7,7 @@ import {
   normativeUpdates,
   professionalResources,
   professionalRuleDefinitions,
+  professionalGeneralRuleDefinitions,
   resourcePrices,
 } from "@/infrastructure/db/schema";
 import type {
@@ -34,6 +35,7 @@ function emptyUsage(): NormativeSourceUsage {
     resourcePrices: 0,
     calculationRules: 0,
     professionalRuleDefinitions: 0,
+    professionalGeneralRuleDefinitions: 0,
   };
 }
 
@@ -125,6 +127,7 @@ export class DrizzleNormativeIntelligenceRepository
       priceRows,
       ruleRows,
       professionalRuleRows,
+      professionalGeneralRuleRows,
     ] =
       await Promise.all([
         db
@@ -162,6 +165,19 @@ export class DrizzleNormativeIntelligenceRepository
             eq(professionalRuleDefinitions.organizationId, organizationId),
           )
           .groupBy(professionalRuleDefinitions.sourceId),
+        db
+          .select({
+            sourceId: professionalGeneralRuleDefinitions.sourceId,
+            count,
+          })
+          .from(professionalGeneralRuleDefinitions)
+          .where(
+            eq(
+              professionalGeneralRuleDefinitions.organizationId,
+              organizationId,
+            ),
+          )
+          .groupBy(professionalGeneralRuleDefinitions.sourceId),
       ]);
 
     const usage = new Map<string, NormativeSourceUsage>();
@@ -181,6 +197,7 @@ export class DrizzleNormativeIntelligenceRepository
     add(priceRows, "resourcePrices");
     add(ruleRows, "calculationRules");
     add(professionalRuleRows, "professionalRuleDefinitions");
+    add(professionalGeneralRuleRows, "professionalGeneralRuleDefinitions");
     return usage;
   }
 
@@ -315,6 +332,7 @@ export class DrizzleNormativeIntelligenceRepository
       priceRows,
       ruleRows,
       professionalRuleRows,
+      professionalGeneralRuleRows,
     ] =
       await Promise.all([
         db
@@ -362,6 +380,18 @@ export class DrizzleNormativeIntelligenceRepository
               eq(professionalRuleDefinitions.sourceId, sourceId),
             ),
           ),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(professionalGeneralRuleDefinitions)
+          .where(
+            and(
+              eq(
+                professionalGeneralRuleDefinitions.organizationId,
+                organizationId,
+              ),
+              eq(professionalGeneralRuleDefinitions.sourceId, sourceId),
+            ),
+          ),
       ]);
 
     return {
@@ -370,6 +400,8 @@ export class DrizzleNormativeIntelligenceRepository
       resourcePrices: priceRows[0]?.count ?? 0,
       calculationRules: ruleRows[0]?.count ?? 0,
       professionalRuleDefinitions: professionalRuleRows[0]?.count ?? 0,
+      professionalGeneralRuleDefinitions:
+        professionalGeneralRuleRows[0]?.count ?? 0,
     };
   }
 

@@ -44,6 +44,8 @@ import {
 import { DrizzleProfessionalObjectEstimateRepository } from "@/infrastructure/db/repositories/professionalObjectEstimate.repository";
 import { ProfessionalGeneralEstimateService } from "@/domain/professional-estimates/professional-general-estimate.service";
 import { DrizzleProfessionalGeneralEstimateRepository } from "@/infrastructure/db/repositories/professionalGeneralEstimate.repository";
+import { ProfessionalTemporaryWorksService } from "@/domain/professional-estimates/professional-temporary-works.service";
+import { DrizzleProfessionalTemporaryWorksRepository } from "@/infrastructure/db/repositories/professionalTemporaryWorks.repository";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { getProfessionalEstimateCalculation } from "@/server/professionalEstimateCalculation";
 
@@ -151,6 +153,12 @@ export function getProfessionalGeneralEstimateService(): ProfessionalGeneralEsti
   return new ProfessionalGeneralEstimateService(
     new DrizzleProfessionalGeneralEstimateRepository(),
     getProfessionalObjectEstimateService(),
+  );
+}
+
+export function getProfessionalTemporaryWorksService(): ProfessionalTemporaryWorksService {
+  return new ProfessionalTemporaryWorksService(
+    new DrizzleProfessionalTemporaryWorksRepository(),
   );
 }
 
