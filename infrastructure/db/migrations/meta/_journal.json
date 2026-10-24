@@ -176,6 +176,13 @@
       "when": 1792758600000,
       "tag": "0024_professional_temporary_works",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792846800000,
+      "tag": "0025_temporary_works_pack_identity",
+      "breakpoints": true
     }
   ]
 }
