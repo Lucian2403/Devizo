@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/infrastructure/db";
 import {
   parseDecimal,
@@ -218,6 +218,40 @@ export class DrizzleProfessionalTemporaryWorksRepository
           })),
         )
         .returning();
+      return rows.map(mapRule);
+    });
+  }
+
+  async rebindRuleDefinitionsApplicability(
+    organizationId: string,
+    sourceId: string,
+    ruleDefinitionIds: readonly string[],
+    applicabilityDecisionId: string,
+  ): Promise<ProfessionalGeneralRuleDefinitionRecord[]> {
+    if (ruleDefinitionIds.length === 0) return [];
+
+    return db.transaction(async (tx) => {
+      const rows = await tx
+        .update(professionalGeneralRuleDefinitions)
+        .set({
+          applicabilityDecisionId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(professionalGeneralRuleDefinitions.organizationId, organizationId),
+            eq(professionalGeneralRuleDefinitions.sourceId, sourceId),
+            eq(professionalGeneralRuleDefinitions.component, "temporary_works"),
+            inArray(professionalGeneralRuleDefinitions.id, [...ruleDefinitionIds]),
+          ),
+        )
+        .returning();
+
+      if (rows.length !== ruleDefinitionIds.length) {
+        throw new Error(
+          "Nu s-a putut actualiza proveniența tuturor regulilor pentru construcțiile provizorii.",
+        );
+      }
       return rows.map(mapRule);
     });
   }
