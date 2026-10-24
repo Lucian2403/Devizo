@@ -70,10 +70,9 @@ export const professionalGeneralRuleDefinitions = pgTable(
     idOrgComponentUnique: unique(
       "professional_general_rules_id_org_component_unique",
     ).on(table.id, table.organizationId, table.component),
-    packSlotUnique: unique("professional_general_rules_pack_slot_unique").on(
+    packRuleUnique: unique("professional_general_rules_pack_rule_unique").on(
       table.organizationId,
       table.sourceId,
-      table.applicabilityDecisionId,
       table.component,
       table.ruleCode,
     ),
