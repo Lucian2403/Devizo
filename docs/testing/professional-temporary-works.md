@@ -15,8 +15,10 @@ Use the accepted general estimate with a base source subtotal of
    `5051.2539 MDL`.
 2. In **Clădiri și construcții speciale provizorii**, verify the exact
    NCM L.02.05-2012 source and select an explicit applicable governance decision.
-3. Install/verify the pack. Expected: 47 rules; a second install creates 0 and
-   reuses all 47.
+3. Install/verify the pack. Expected: 47 rules; a second install with the same
+   decision creates 0 and reuses all 47. If another explicit applicability
+   revision is selected later, the same 47 stable rules are reused and rebound
+   to that decision; the installed count must remain 47, never 94.
 4. Select technical fixture row **025** (0.8%) and condition **Standard** (K=1).
 5. Save. Expected:
    - chapters 1–7 construction base: 5051.2539
