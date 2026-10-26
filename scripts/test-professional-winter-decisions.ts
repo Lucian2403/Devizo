@@ -106,7 +106,7 @@ const estimate = {
 const rules = { eligibleRules: [persistedRule("024")], installedRules: [persistedRule("024")] } as WinterRulesSetup;
 const fakeRules = {
   async getSetup() { return rules; },
-} as ProfessionalWinterRulesService;
+} as unknown as ProfessionalWinterRulesService;
 
 async function main() {
   const repo = new MemoryRepository();
@@ -149,7 +149,7 @@ async function main() {
     ["2026-10-01", "2026-10-10", "-1", "POS"],
     ["2026-10-01", "2026-10-10", "1.5", "POS"],
     ["2026-10-01", "2026-10-10", "1", " "],
-  ]) {
+  ] as const) {
     assert.throws(() => validateShortProject(start, end, days, ref),
       ProfessionalWinterConditionsError);
   }
