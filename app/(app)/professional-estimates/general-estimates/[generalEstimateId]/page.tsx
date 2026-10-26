@@ -15,6 +15,7 @@ import { requireCurrentOrg } from "@/lib/auth/current-org";
 import {
   getProfessionalGeneralEstimateService,
   getProfessionalTemporaryWorksService,
+  getProfessionalWinterConditionsService,
 } from "@/server/container";
 import {
   addProfessionalGeneralEstimateEntry,
@@ -32,6 +33,8 @@ import {
   TemporaryWorksDecisionForm,
   TemporaryWorksPackForm,
 } from "../temporary-works-forms";
+import { installWinterRulePack, saveWinterDecision } from "../winter-conditions-actions";
+import { WinterDecisionForm, WinterRulePackForm } from "../winter-conditions-forms";
 
 const columns = [
   ["constructionWorks", "Lucrări de construcții"],
@@ -68,6 +71,22 @@ export default async function ProfessionalGeneralEstimateDetailPage({
       totals: estimate.totals,
     },
   );
+  const winterConditions = await getProfessionalWinterConditionsService().getView(
+    org.id,
+    {
+      id: estimate.id,
+      valuationDate: estimate.valuationDate,
+      currency: estimate.currency,
+      complete: estimate.complete,
+      totals: estimate.totals,
+    },
+    temporaryWorks,
+  );
+  const selectedWinterRule = winterConditions.decision?.ruleDefinitionId
+    ? winterConditions.installedRules.find(
+        (rule) => rule.id === winterConditions.decision?.ruleDefinitionId,
+      ) ?? null
+    : null;
   const selectedTemporaryRule =
     temporaryWorks.decision?.ruleDefinitionId
       ? temporaryWorks.installedRules.find(
@@ -86,6 +105,8 @@ export default async function ProfessionalGeneralEstimateDetailPage({
     null,
     generalEstimateId,
   );
+  const installWinterPackAction = installWinterRulePack.bind(null, generalEstimateId);
+  const saveWinterAction = saveWinterDecision.bind(null, generalEstimateId);
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
@@ -406,16 +427,92 @@ export default async function ProfessionalGeneralEstimateDetailPage({
               </p>
             </div>
           </section>
+
+          <section className="space-y-4 border-t pt-6">
+            <div>
+              <h2 className="font-semibold text-heading">Cheltuieli pentru lucrări pe timp friguros</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                NCM L.02.06-2012 · Capitolul 9. Baza cuprinde numai lucrările
+                de construcții și montaj din capitolele 1–8, inclusiv
+                construcțiile provizorii deja calculate în capitolul 8.
+              </p>
+            </div>
+            <details className="rounded-lg border p-4">
+              <summary className="cursor-pointer font-medium text-heading">
+                Pachetul oficial NCM L.02.06-2012
+              </summary>
+              <div className="pt-4">
+                <WinterRulePackForm action={installWinterPackAction} view={winterConditions} />
+              </div>
+            </details>
+            {winterConditions.base && (
+              <dl className="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3">
+                <Detail label="Bază construcții, cap. 1–8">
+                  {formatProfessionalResourceMoney(winterConditions.base.construction, estimate.currency)}
+                </Detail>
+                <Detail label="Bază montaj, cap. 1–8">
+                  {formatProfessionalResourceMoney(winterConditions.base.installation, estimate.currency)}
+                </Detail>
+                <Detail label="Bază combinată">
+                  {formatProfessionalResourceMoney(winterConditions.base.combined, estimate.currency)}
+                </Detail>
+              </dl>
+            )}
+            <WinterDecisionForm
+              key={[
+                winterConditions.decision?.id ?? "new",
+                winterConditions.decision?.updatedAt?.toISOString() ?? "",
+              ].join(":")}
+              action={saveWinterAction}
+              view={winterConditions}
+            />
+            {winterConditions.error && (
+              <p className="text-sm font-medium text-amber-800">{winterConditions.error}</p>
+            )}
+            {winterConditions.decision?.mode === "not_applicable" && winterConditions.complete && (
+              <p className="text-sm text-muted-foreground">
+                Nu s-au adăugat cheltuieli de iarnă: reparații curente într-o clădire încălzită.
+              </p>
+            )}
+            {winterConditions.result && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  {selectedWinterRule && (
+                    <>
+                      <Detail label="Poziție NCM">
+                        {selectedWinterRule.ruleCode} — {selectedWinterRule.name}
+                      </Detail>
+                      <Detail label="Normă">{selectedWinterRule.value}%</Detail>
+                      <Detail label="Referință normativă">{selectedWinterRule.sourceReference}</Detail>
+                    </>
+                  )}
+                  <Detail label="Coeficient K">{winterConditions.result.coefficient}</Detail>
+                  <Detail label="Calcul timp friguros — construcții">
+                    {formatProfessionalResourceMoney(winterConditions.result.winterConstruction, estimate.currency)}
+                  </Detail>
+                  <Detail label="Calcul timp friguros — montaj">
+                    {formatProfessionalResourceMoney(winterConditions.result.winterInstallation, estimate.currency)}
+                  </Detail>
+                  <Detail label="Total timp friguros, capitolul 9">
+                    {formatProfessionalResourceMoney(winterConditions.result.winterTotal, estimate.currency)}
+                  </Detail>
+                </dl>
+                <p className="text-xs text-muted-foreground">
+                  Valoarea este inclusă în capitolul 9 al subtotalului ajustat de mai jos;
+                  nu este un calcul al decontărilor contractuale pe zile efective.
+                </p>
+              </div>
+            )}
+          </section>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Subtotal capitolele 1–12 după ajustarea normativă</CardTitle>
+          <CardTitle>Subtotal capitolele 1–12 după ajustările normative</CardTitle>
         </CardHeader>
         <CardContent>
-          {temporaryWorks.adjustedGeneralCalculationComplete &&
-          temporaryWorks.adjustedTotals ? (
+          {winterConditions.complete && winterConditions.adjustedTotals ? (
             <div className="space-y-5">
               {PROFESSIONAL_GENERAL_ESTIMATE_CHAPTERS.map(({ number, label }) => (
                 <section
@@ -426,31 +523,31 @@ export default async function ProfessionalGeneralEstimateDetailPage({
                     Capitolul {number} — {label}
                   </h2>
                   <TotalsRow
-                    totals={temporaryWorks.adjustedTotals!.chapters[number]}
+                    totals={winterConditions.adjustedTotals!.chapters[number]}
                     currency={estimate.currency}
                   />
                 </section>
               ))}
               <section className="space-y-2 border-t pt-4">
                 <h2 className="font-semibold text-heading">
-                  Subtotal capitolele 1–12 după această ajustare
+                  Subtotal capitolele 1–12 după capitolele 8 și 9
                 </h2>
                 <TotalsRow
-                  totals={temporaryWorks.adjustedTotals.totals}
+                  totals={winterConditions.adjustedTotals.totals}
                   currency={estimate.currency}
                   emphasized
                 />
               </section>
               <p className="text-sm font-medium text-amber-800">
-                Acesta nu este totalul final al investiției. Costurile pentru
-                timp friguros, alte cheltuieli normative, rezerva, SDNC și TVA
-                nu sunt încă incluse.
+                Acesta nu este totalul final al investiției. Alte cheltuieli
+                normative, rezerva, SDNC și TVA nu sunt încă incluse.
               </p>
             </div>
           ) : (
             <p className="text-sm font-medium text-amber-800">
-              Subtotalul ajustat nu este disponibil până când sursele de bază și
-              calculul construcțiilor provizorii sunt complete.
+              Subtotalul ajustat nu este disponibil până când sursele de bază,
+              calculul construcțiilor provizorii și decizia pentru timp friguros
+              sunt complete.
             </p>
           )}
         </CardContent>
