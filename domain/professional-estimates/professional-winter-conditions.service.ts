@@ -67,7 +67,8 @@ export function validateShortProject(
   const startMonth = Number(startDate.slice(5, 7));
   const startDay = Number(startDate.slice(8, 10));
   const anniversary = Date.UTC(startYear + 1, startMonth - 1, startDay);
-  if (end >= anniversary) {
+  // Inclusive schedule: Jan 1 through Dec 31 already spans a full year.
+  if (end + DAY_MS >= anniversary) {
     fail("not_short_project", "Metoda pentru proiect sub un an nu poate fi folosită la această durată.");
   }
 
