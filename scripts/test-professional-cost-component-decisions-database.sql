@@ -168,7 +168,7 @@ BEGIN
   -- The estimated_profit INSERT is exercised below as the organization
   -- member, so the RLS test checks an actual INSERT into an unused slot.
 END
-$;
+$$;
 
 CREATE ROLE devizo_cost_decisions_rls_test NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA public, auth TO devizo_cost_decisions_rls_test;
