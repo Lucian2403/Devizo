@@ -1,0 +1,6068 @@
+{
+  "id": "7b2cb9cf-8bf0-4d25-a8c4-e88f72711027",
+  "prevId": "7b2cb9cf-8bf0-4d25-a8c4-e88f72711026",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_url": {
+          "name": "avatar_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.organizations": {
+      "name": "organizations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vat_number": {
+          "name": "vat_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_terms": {
+          "name": "payment_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "execution_duration": {
+          "name": "execution_duration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inclusions": {
+          "name": "inclusions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exclusions": {
+          "name": "exclusions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legal_terms": {
+          "name": "legal_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vat_rate": {
+          "name": "vat_rate",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "default_currency": {
+          "name": "default_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'EUR'"
+        },
+        "default_language": {
+          "name": "default_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'en'"
+        },
+        "customer_document_language": {
+          "name": "customer_document_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'en'"
+        },
+        "tax_profile": {
+          "name": "tax_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "organizations_slug_unique": {
+          "name": "organizations_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.organization_members": {
+      "name": "organization_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "organization_members_organization_id_organizations_id_fk": {
+          "name": "organization_members_organization_id_organizations_id_fk",
+          "tableFrom": "organization_members",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "organization_members_organization_id_user_id_unique": {
+          "name": "organization_members_organization_id_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.customers": {
+      "name": "customers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_name": {
+          "name": "contact_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "preferred_language": {
+          "name": "preferred_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "customers_organization_id_organizations_id_fk": {
+          "name": "customers_organization_id_organizations_id_fk",
+          "tableFrom": "customers",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "customers_id_org_unique": {
+          "name": "customers_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.projects": {
+      "name": "projects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'planned'"
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "projects_organization_id_organizations_id_fk": {
+          "name": "projects_organization_id_organizations_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "projects_customer_org_fkey": {
+          "name": "projects_customer_org_fkey",
+          "tableFrom": "projects",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "projects_id_org_unique": {
+          "name": "projects_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "projects_status_check": {
+          "name": "projects_status_check",
+          "value": "\"projects\".\"status\" in ('planned', 'active', 'completed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_categories": {
+      "name": "catalog_categories",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "catalog_categories_organization_id_organizations_id_fk": {
+          "name": "catalog_categories_organization_id_organizations_id_fk",
+          "tableFrom": "catalog_categories",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "catalog_categories_id_org_unique": {
+          "name": "catalog_categories_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.catalog_items": {
+      "name": "catalog_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_type": {
+          "name": "item_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'labor'"
+        },
+        "selling_price": {
+          "name": "selling_price",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost_price": {
+          "name": "cost_price",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(768)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding_source": {
+          "name": "embedding_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding_updated_at": {
+          "name": "embedding_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "catalog_items_org_code_unique": {
+          "name": "catalog_items_org_code_unique",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"catalog_items\".\"code\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "catalog_items_organization_id_organizations_id_fk": {
+          "name": "catalog_items_organization_id_organizations_id_fk",
+          "tableFrom": "catalog_items",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "catalog_items_category_org_fkey": {
+          "name": "catalog_items_category_org_fkey",
+          "tableFrom": "catalog_items",
+          "tableTo": "catalog_categories",
+          "columnsFrom": [
+            "category_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "catalog_items_unit_check": {
+          "name": "catalog_items_unit_check",
+          "value": "\"catalog_items\".\"unit\" in ('m2', 'm', 'm3', 'pcs', 'hour', 'day', 'kg', 'l', 'set', 'service')"
+        },
+        "catalog_items_item_type_check": {
+          "name": "catalog_items_item_type_check",
+          "value": "\"catalog_items\".\"item_type\" in ('labor', 'material')"
+        },
+        "catalog_items_currency_check": {
+          "name": "catalog_items_currency_check",
+          "value": "\"catalog_items\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_match_feedback": {
+      "name": "catalog_match_feedback",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "extracted_text": {
+          "name": "extracted_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suggested_catalog_item_id": {
+          "name": "suggested_catalog_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selected_catalog_item_id": {
+          "name": "selected_catalog_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "catalog_match_feedback_org_created_idx": {
+          "name": "catalog_match_feedback_org_created_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "catalog_match_feedback_organization_id_organizations_id_fk": {
+          "name": "catalog_match_feedback_organization_id_organizations_id_fk",
+          "tableFrom": "catalog_match_feedback",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "catalog_match_feedback_suggested_catalog_item_id_catalog_items_id_fk": {
+          "name": "catalog_match_feedback_suggested_catalog_item_id_catalog_items_id_fk",
+          "tableFrom": "catalog_match_feedback",
+          "tableTo": "catalog_items",
+          "columnsFrom": [
+            "suggested_catalog_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "catalog_match_feedback_selected_catalog_item_id_catalog_items_id_fk": {
+          "name": "catalog_match_feedback_selected_catalog_item_id_catalog_items_id_fk",
+          "tableFrom": "catalog_match_feedback",
+          "tableTo": "catalog_items",
+          "columnsFrom": [
+            "selected_catalog_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quotes": {
+      "name": "quotes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "quotes_organization_id_organizations_id_fk": {
+          "name": "quotes_organization_id_organizations_id_fk",
+          "tableFrom": "quotes",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "quotes_project_org_fkey": {
+          "name": "quotes_project_org_fkey",
+          "tableFrom": "quotes",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "quotes_id_org_unique": {
+          "name": "quotes_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quote_versions": {
+      "name": "quote_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_id": {
+          "name": "quote_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version_number": {
+          "name": "version_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_email": {
+          "name": "customer_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_phone": {
+          "name": "customer_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_name": {
+          "name": "project_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_address": {
+          "name": "project_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "snapshot_captured_at": {
+          "name": "snapshot_captured_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_project_id": {
+          "name": "source_project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_customer_id": {
+          "name": "source_customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_number": {
+          "name": "document_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_year": {
+          "name": "document_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_sequence": {
+          "name": "document_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_template_version": {
+          "name": "pdf_template_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_name": {
+          "name": "company_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_legal_name": {
+          "name": "company_legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_tax_vat_id": {
+          "name": "company_tax_vat_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_email": {
+          "name": "company_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_phone": {
+          "name": "company_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_address": {
+          "name": "company_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_country": {
+          "name": "company_country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_language": {
+          "name": "document_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_terms": {
+          "name": "payment_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "execution_duration": {
+          "name": "execution_duration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inclusions": {
+          "name": "inclusions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exclusions": {
+          "name": "exclusions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_terms": {
+          "name": "company_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validity_days": {
+          "name": "validity_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_pct": {
+          "name": "discount_pct",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "vat_rate": {
+          "name": "vat_rate",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "subtotal": {
+          "name": "subtotal",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "discount_amount": {
+          "name": "discount_amount",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "taxable_amount": {
+          "name": "taxable_amount",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "vat_amount": {
+          "name": "vat_amount",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "total": {
+          "name": "total",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "quote_versions_organization_id_organizations_id_fk": {
+          "name": "quote_versions_organization_id_organizations_id_fk",
+          "tableFrom": "quote_versions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "quote_versions_quote_org_fkey": {
+          "name": "quote_versions_quote_org_fkey",
+          "tableFrom": "quote_versions",
+          "tableTo": "quotes",
+          "columnsFrom": [
+            "quote_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "quote_versions_quote_version_unique": {
+          "name": "quote_versions_quote_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "quote_id",
+            "version_number"
+          ]
+        },
+        "quote_versions_id_org_unique": {
+          "name": "quote_versions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "quote_versions_org_document_number_unique": {
+          "name": "quote_versions_org_document_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "document_number"
+          ]
+        },
+        "quote_versions_org_document_sequence_unique": {
+          "name": "quote_versions_org_document_sequence_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "document_year",
+            "document_sequence"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "quote_versions_status_check": {
+          "name": "quote_versions_status_check",
+          "value": "\"quote_versions\".\"status\" in ('draft', 'sent', 'accepted', 'rejected')"
+        },
+        "quote_versions_snapshot_provenance_check": {
+          "name": "quote_versions_snapshot_provenance_check",
+          "value": "(\n        (\"quote_versions\".\"status\" = 'draft'\n          and \"quote_versions\".\"snapshot_captured_at\" is null\n          and \"quote_versions\".\"source_project_id\" is null\n          and \"quote_versions\".\"source_customer_id\" is null)\n        or\n        (\"quote_versions\".\"status\" <> 'draft'\n          and \"quote_versions\".\"snapshot_captured_at\" is not null)\n      )"
+        },
+        "quote_versions_document_identity_check": {
+          "name": "quote_versions_document_identity_check",
+          "value": "(\n        (\"quote_versions\".\"status\" = 'draft'\n          and \"quote_versions\".\"document_number\" is null\n          and \"quote_versions\".\"document_year\" is null\n          and \"quote_versions\".\"document_sequence\" is null)\n        or\n        (\"quote_versions\".\"status\" <> 'draft'\n          and \"quote_versions\".\"document_number\" is not null\n          and \"quote_versions\".\"document_year\" is not null\n          and \"quote_versions\".\"document_sequence\" is not null\n          and \"quote_versions\".\"document_sequence\" > 0)\n      )"
+        },
+        "quote_versions_pdf_template_version_check": {
+          "name": "quote_versions_pdf_template_version_check",
+          "value": "(\n        (\"quote_versions\".\"status\" = 'draft' and \"quote_versions\".\"pdf_template_version\" is null)\n        or\n        (\"quote_versions\".\"status\" <> 'draft'\n          and \"quote_versions\".\"pdf_template_version\" = 'commercial-offer-v1')\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.quote_items": {
+      "name": "quote_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_version_id": {
+          "name": "quote_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "catalog_item_id": {
+          "name": "catalog_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(10, 3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discount_pct": {
+          "name": "discount_pct",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "line_total": {
+          "name": "line_total",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "quote_items_organization_id_organizations_id_fk": {
+          "name": "quote_items_organization_id_organizations_id_fk",
+          "tableFrom": "quote_items",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "quote_items_version_org_fkey": {
+          "name": "quote_items_version_org_fkey",
+          "tableFrom": "quote_items",
+          "tableTo": "quote_versions",
+          "columnsFrom": [
+            "quote_version_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "quote_items_unit_check": {
+          "name": "quote_items_unit_check",
+          "value": "\"quote_items\".\"unit\" in ('m2', 'm', 'm3', 'pcs', 'hour', 'day', 'kg', 'l', 'set', 'service')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.audit_events": {
+      "name": "audit_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_id": {
+          "name": "quote_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_version_id": {
+          "name": "quote_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_events_org_created_idx": {
+          "name": "audit_events_org_created_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_events_version_idx": {
+          "name": "audit_events_version_idx",
+          "columns": [
+            {
+              "expression": "quote_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_events_organization_id_organizations_id_fk": {
+          "name": "audit_events_organization_id_organizations_id_fk",
+          "tableFrom": "audit_events",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "audit_events_quote_org_fkey": {
+          "name": "audit_events_quote_org_fkey",
+          "tableFrom": "audit_events",
+          "tableTo": "quotes",
+          "columnsFrom": [
+            "quote_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "audit_events_event_type_check": {
+          "name": "audit_events_event_type_check",
+          "value": "\"audit_events\".\"event_type\" in ('quote_sent', 'quote_accepted', 'quote_rejected')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.calculation_contexts": {
+      "name": "calculation_contexts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "construction_object_id": {
+          "name": "construction_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_quantity_list_id": {
+          "name": "work_quantity_list_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valuation_date": {
+          "name": "valuation_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimate_perspective": {
+          "name": "estimate_perspective",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "work_kind": {
+          "name": "work_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'resource'"
+        },
+        "normative_basis": {
+          "name": "normative_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "calculation_contexts_organization_id_organizations_id_fk": {
+          "name": "calculation_contexts_organization_id_organizations_id_fk",
+          "tableFrom": "calculation_contexts",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calculation_contexts_object_org_fkey": {
+          "name": "calculation_contexts_object_org_fkey",
+          "tableFrom": "calculation_contexts",
+          "tableTo": "construction_objects",
+          "columnsFrom": [
+            "construction_object_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calculation_contexts_list_object_org_fkey": {
+          "name": "calculation_contexts_list_object_org_fkey",
+          "tableFrom": "calculation_contexts",
+          "tableTo": "work_quantity_lists",
+          "columnsFrom": [
+            "work_quantity_list_id",
+            "construction_object_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "construction_object_id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "calculation_contexts_id_org_unique": {
+          "name": "calculation_contexts_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "calculation_contexts_id_list_org_unique": {
+          "name": "calculation_contexts_id_list_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "work_quantity_list_id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "calculation_contexts_perspective_check": {
+          "name": "calculation_contexts_perspective_check",
+          "value": "\"calculation_contexts\".\"estimate_perspective\" is null or \"calculation_contexts\".\"estimate_perspective\" in ('investor', 'contractor')"
+        },
+        "calculation_contexts_work_kind_check": {
+          "name": "calculation_contexts_work_kind_check",
+          "value": "\"calculation_contexts\".\"work_kind\" is null or \"calculation_contexts\".\"work_kind\" in ('construction', 'installation', 'commissioning')"
+        },
+        "calculation_contexts_currency_check": {
+          "name": "calculation_contexts_currency_check",
+          "value": "\"calculation_contexts\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        },
+        "calculation_contexts_method_check": {
+          "name": "calculation_contexts_method_check",
+          "value": "\"calculation_contexts\".\"method\" = 'resource'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.calculation_rules": {
+      "name": "calculation_rules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculation_context_id": {
+          "name": "calculation_context_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "norm_application_id": {
+          "name": "norm_application_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_type": {
+          "name": "rule_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis": {
+          "name": "basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_type": {
+          "name": "value_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "calculation_rules_organization_id_organizations_id_fk": {
+          "name": "calculation_rules_organization_id_organizations_id_fk",
+          "tableFrom": "calculation_rules",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calculation_rules_context_org_fkey": {
+          "name": "calculation_rules_context_org_fkey",
+          "tableFrom": "calculation_rules",
+          "tableTo": "calculation_contexts",
+          "columnsFrom": [
+            "calculation_context_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "calculation_rules_source_org_fkey": {
+          "name": "calculation_rules_source_org_fkey",
+          "tableFrom": "calculation_rules",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "calculation_rules_norm_application_context_org_fkey": {
+          "name": "calculation_rules_norm_application_context_org_fkey",
+          "tableFrom": "calculation_rules",
+          "tableTo": "norm_applications",
+          "columnsFrom": [
+            "norm_application_id",
+            "calculation_context_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "calculation_context_id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "calculation_rules_id_org_unique": {
+          "name": "calculation_rules_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "calculation_rules_type_check": {
+          "name": "calculation_rules_type_check",
+          "value": "\"calculation_rules\".\"rule_type\" in ('coefficient', 'overhead', 'estimated_profit', 'transport', 'procurement_storage', 'temporary_works', 'winter_conditions', 'other')"
+        },
+        "calculation_rules_basis_check": {
+          "name": "calculation_rules_basis_check",
+          "value": "\"calculation_rules\".\"basis\" in ('direct_cost', 'labor_cost', 'material_cost', 'machinery_cost', 'wages', 'resource_cost', 'custom')"
+        },
+        "calculation_rules_value_type_check": {
+          "name": "calculation_rules_value_type_check",
+          "value": "\"calculation_rules\".\"value_type\" in ('percent', 'coefficient', 'fixed_amount')"
+        },
+        "calculation_rules_value_check": {
+          "name": "calculation_rules_value_check",
+          "value": "\"calculation_rules\".\"value\" >= 0"
+        },
+        "calculation_rules_fixed_currency_check": {
+          "name": "calculation_rules_fixed_currency_check",
+          "value": "(\"calculation_rules\".\"value_type\" = 'fixed_amount' and \"calculation_rules\".\"currency\" is not null)\n        or (\"calculation_rules\".\"value_type\" <> 'fixed_amount' and \"calculation_rules\".\"currency\" is null)"
+        },
+        "calculation_rules_currency_check": {
+          "name": "calculation_rules_currency_check",
+          "value": "\"calculation_rules\".\"currency\" is null or \"calculation_rules\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.construction_objects": {
+      "name": "construction_objects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "construction_objects_org_code_unique": {
+          "name": "construction_objects_org_code_unique",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"construction_objects\".\"code\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "construction_objects_organization_id_organizations_id_fk": {
+          "name": "construction_objects_organization_id_organizations_id_fk",
+          "tableFrom": "construction_objects",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "construction_objects_project_org_fkey": {
+          "name": "construction_objects_project_org_fkey",
+          "tableFrom": "construction_objects",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "construction_objects_id_org_unique": {
+          "name": "construction_objects_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.estimate_norm_versions": {
+      "name": "estimate_norm_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimate_norm_id": {
+          "name": "estimate_norm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version_label": {
+          "name": "version_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'resource'"
+        },
+        "basis_quantity": {
+          "name": "basis_quantity",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1'"
+        },
+        "basis_unit": {
+          "name": "basis_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applicability": {
+          "name": "applicability",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "publication_status": {
+          "name": "publication_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "estimate_norm_versions_organization_id_organizations_id_fk": {
+          "name": "estimate_norm_versions_organization_id_organizations_id_fk",
+          "tableFrom": "estimate_norm_versions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "estimate_norm_versions_norm_org_fkey": {
+          "name": "estimate_norm_versions_norm_org_fkey",
+          "tableFrom": "estimate_norm_versions",
+          "tableTo": "estimate_norms",
+          "columnsFrom": [
+            "estimate_norm_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "estimate_norm_versions_source_org_fkey": {
+          "name": "estimate_norm_versions_source_org_fkey",
+          "tableFrom": "estimate_norm_versions",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "estimate_norm_versions_id_org_unique": {
+          "name": "estimate_norm_versions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "estimate_norm_versions_norm_version_unique": {
+          "name": "estimate_norm_versions_norm_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "estimate_norm_id",
+            "version_label"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "estimate_norm_versions_method_check": {
+          "name": "estimate_norm_versions_method_check",
+          "value": "\"estimate_norm_versions\".\"method\" = 'resource'"
+        },
+        "estimate_norm_versions_basis_quantity_check": {
+          "name": "estimate_norm_versions_basis_quantity_check",
+          "value": "\"estimate_norm_versions\".\"basis_quantity\" > 0"
+        },
+        "estimate_norm_versions_basis_unit_nonempty_check": {
+          "name": "estimate_norm_versions_basis_unit_nonempty_check",
+          "value": "length(trim(\"estimate_norm_versions\".\"basis_unit\")) > 0"
+        },
+        "estimate_norm_versions_validity_check": {
+          "name": "estimate_norm_versions_validity_check",
+          "value": "\"estimate_norm_versions\".\"valid_to\" is null or \"estimate_norm_versions\".\"valid_from\" is null or \"estimate_norm_versions\".\"valid_to\" >= \"estimate_norm_versions\".\"valid_from\""
+        },
+        "estimate_norm_versions_publication_status_check": {
+          "name": "estimate_norm_versions_publication_status_check",
+          "value": "\"estimate_norm_versions\".\"publication_status\" in ('draft', 'in_review', 'approved', 'published')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.estimate_norms": {
+      "name": "estimate_norms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "namespace": {
+          "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "estimate_norms_organization_id_organizations_id_fk": {
+          "name": "estimate_norms_organization_id_organizations_id_fk",
+          "tableFrom": "estimate_norms",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "estimate_norms_id_org_unique": {
+          "name": "estimate_norms_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "estimate_norms_org_namespace_code_unique": {
+          "name": "estimate_norms_org_namespace_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "namespace",
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.norm_applications": {
+      "name": "norm_applications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculation_context_id": {
+          "name": "calculation_context_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_quantity_list_id": {
+          "name": "work_quantity_list_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_quantity_item_id": {
+          "name": "work_quantity_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimate_norm_version_id": {
+          "name": "estimate_norm_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "application_order": {
+          "name": "application_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "application_coefficient": {
+          "name": "application_coefficient",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "norm_applications_organization_id_organizations_id_fk": {
+          "name": "norm_applications_organization_id_organizations_id_fk",
+          "tableFrom": "norm_applications",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "norm_applications_context_list_org_fkey": {
+          "name": "norm_applications_context_list_org_fkey",
+          "tableFrom": "norm_applications",
+          "tableTo": "calculation_contexts",
+          "columnsFrom": [
+            "calculation_context_id",
+            "work_quantity_list_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "work_quantity_list_id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "norm_applications_work_item_list_org_fkey": {
+          "name": "norm_applications_work_item_list_org_fkey",
+          "tableFrom": "norm_applications",
+          "tableTo": "work_quantity_items",
+          "columnsFrom": [
+            "work_quantity_item_id",
+            "work_quantity_list_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "work_quantity_list_id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "norm_applications_norm_version_org_fkey": {
+          "name": "norm_applications_norm_version_org_fkey",
+          "tableFrom": "norm_applications",
+          "tableTo": "estimate_norm_versions",
+          "columnsFrom": [
+            "estimate_norm_version_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "norm_applications_id_org_unique": {
+          "name": "norm_applications_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "norm_applications_id_context_org_unique": {
+          "name": "norm_applications_id_context_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "calculation_context_id",
+            "organization_id"
+          ]
+        },
+        "norm_applications_context_item_order_unique": {
+          "name": "norm_applications_context_item_order_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "calculation_context_id",
+            "work_quantity_item_id",
+            "application_order"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "norm_applications_order_check": {
+          "name": "norm_applications_order_check",
+          "value": "\"norm_applications\".\"application_order\" > 0"
+        },
+        "norm_applications_coefficient_check": {
+          "name": "norm_applications_coefficient_check",
+          "value": "\"norm_applications\".\"application_coefficient\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.normative_applicability_decisions": {
+      "name": "normative_applicability_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "triggering_update_id": {
+          "name": "triggering_update_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applicable_from": {
+          "name": "applicable_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applicable_until": {
+          "name": "applicable_until",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "decided_by_user_id": {
+          "name": "decided_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis_note": {
+          "name": "basis_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence_uri": {
+          "name": "evidence_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_code": {
+          "name": "source_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_edition": {
+          "name": "source_edition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_title": {
+          "name": "source_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_publisher": {
+          "name": "source_publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_jurisdiction": {
+          "name": "source_jurisdiction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_authority": {
+          "name": "source_authority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_uri": {
+          "name": "source_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_fingerprint": {
+          "name": "source_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "official_status": {
+          "name": "official_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "normative_applicability_decisions_organization_id_organizations_id_fk": {
+          "name": "normative_applicability_decisions_organization_id_organizations_id_fk",
+          "tableFrom": "normative_applicability_decisions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "normative_applicability_source_org_fkey": {
+          "name": "normative_applicability_source_org_fkey",
+          "tableFrom": "normative_applicability_decisions",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "normative_applicability_update_org_fkey": {
+          "name": "normative_applicability_update_org_fkey",
+          "tableFrom": "normative_applicability_decisions",
+          "tableTo": "normative_updates",
+          "columnsFrom": [
+            "triggering_update_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "normative_applicability_decisions_id_org_unique": {
+          "name": "normative_applicability_decisions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "normative_applicability_decisions_id_source_org_unique": {
+          "name": "normative_applicability_decisions_id_source_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "source_id",
+            "organization_id"
+          ]
+        },
+        "normative_applicability_source_revision_unique": {
+          "name": "normative_applicability_source_revision_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "source_id",
+            "revision"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "normative_applicability_revision_check": {
+          "name": "normative_applicability_revision_check",
+          "value": "\"normative_applicability_decisions\".\"revision\" > 0"
+        },
+        "normative_applicability_decision_check": {
+          "name": "normative_applicability_decision_check",
+          "value": "\"normative_applicability_decisions\".\"decision\" in ('applicable', 'not_applicable', 'deferred', 'unknown')"
+        },
+        "normative_applicability_applicable_date_check": {
+          "name": "normative_applicability_applicable_date_check",
+          "value": "\"normative_applicability_decisions\".\"decision\" <> 'applicable' or (\"normative_applicability_decisions\".\"applicable_from\" is not null and \"normative_applicability_decisions\".\"official_status\" = 'in_force')"
+        },
+        "normative_applicability_validity_check": {
+          "name": "normative_applicability_validity_check",
+          "value": "\"normative_applicability_decisions\".\"applicable_until\" is null or \"normative_applicability_decisions\".\"applicable_from\" is null or \"normative_applicability_decisions\".\"applicable_until\" >= \"normative_applicability_decisions\".\"applicable_from\""
+        },
+        "normative_applicability_basis_note_check": {
+          "name": "normative_applicability_basis_note_check",
+          "value": "length(trim(\"normative_applicability_decisions\".\"basis_note\")) between 1 and 4000"
+        },
+        "normative_applicability_evidence_uri_check": {
+          "name": "normative_applicability_evidence_uri_check",
+          "value": "\"normative_applicability_decisions\".\"evidence_uri\" is null or length(trim(\"normative_applicability_decisions\".\"evidence_uri\")) <= 2048"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.normative_source_relations": {
+      "name": "normative_source_relations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_source_id": {
+          "name": "from_source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_source_id": {
+          "name": "to_source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "relation_type": {
+          "name": "relation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evidence_uri": {
+          "name": "evidence_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "normative_source_relations_org_created_idx": {
+          "name": "normative_source_relations_org_created_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "normative_source_relations_organization_id_organizations_id_fk": {
+          "name": "normative_source_relations_organization_id_organizations_id_fk",
+          "tableFrom": "normative_source_relations",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "normative_source_relations_from_source_org_fkey": {
+          "name": "normative_source_relations_from_source_org_fkey",
+          "tableFrom": "normative_source_relations",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "from_source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "normative_source_relations_to_source_org_fkey": {
+          "name": "normative_source_relations_to_source_org_fkey",
+          "tableFrom": "normative_source_relations",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "to_source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "normative_source_relations_id_org_unique": {
+          "name": "normative_source_relations_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "normative_source_relations_unique": {
+          "name": "normative_source_relations_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "from_source_id",
+            "to_source_id",
+            "relation_type"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "normative_source_relations_not_self_check": {
+          "name": "normative_source_relations_not_self_check",
+          "value": "\"normative_source_relations\".\"from_source_id\" <> \"normative_source_relations\".\"to_source_id\""
+        },
+        "normative_source_relations_type_check": {
+          "name": "normative_source_relations_type_check",
+          "value": "\"normative_source_relations\".\"relation_type\" in ('amends', 'replaces', 'supersedes', 'supplements', 'corrigendum_to', 'related_to')"
+        },
+        "normative_source_relations_evidence_uri_check": {
+          "name": "normative_source_relations_evidence_uri_check",
+          "value": "\"normative_source_relations\".\"evidence_uri\" is null or length(trim(\"normative_source_relations\".\"evidence_uri\")) <= 2048"
+        },
+        "normative_source_relations_note_check": {
+          "name": "normative_source_relations_note_check",
+          "value": "\"normative_source_relations\".\"note\" is null or length(trim(\"normative_source_relations\".\"note\")) <= 4000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.normative_sources": {
+      "name": "normative_sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition": {
+          "name": "edition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jurisdiction": {
+          "name": "jurisdiction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'MD'"
+        },
+        "authority": {
+          "name": "authority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_uri": {
+          "name": "source_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_date": {
+          "name": "approval_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publication_date": {
+          "name": "publication_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "official_status": {
+          "name": "official_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "monitoring_enabled": {
+          "name": "monitoring_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "last_verified_at": {
+          "name": "last_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_verification_status": {
+          "name": "last_verification_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'never'"
+        },
+        "last_verification_error": {
+          "name": "last_verification_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_fingerprint": {
+          "name": "content_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "normative_sources_organization_id_organizations_id_fk": {
+          "name": "normative_sources_organization_id_organizations_id_fk",
+          "tableFrom": "normative_sources",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "normative_sources_id_org_unique": {
+          "name": "normative_sources_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "normative_sources_org_code_edition_unique": {
+          "name": "normative_sources_org_code_edition_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "code",
+            "edition"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "normative_sources_type_check": {
+          "name": "normative_sources_type_check",
+          "value": "\"normative_sources\".\"source_type\" in ('normative_document', 'norm_collection', 'price_catalog', 'legislation', 'official_guidance', 'company_custom', 'import')"
+        },
+        "normative_sources_official_status_check": {
+          "name": "normative_sources_official_status_check",
+          "value": "\"normative_sources\".\"official_status\" in ('draft', 'consultation', 'approved', 'in_force', 'superseded', 'repealed', 'unknown')"
+        },
+        "normative_sources_verification_status_check": {
+          "name": "normative_sources_verification_status_check",
+          "value": "\"normative_sources\".\"last_verification_status\" in ('never', 'success', 'error')"
+        },
+        "normative_sources_status_check": {
+          "name": "normative_sources_status_check",
+          "value": "\"normative_sources\".\"status\" in ('draft', 'active', 'superseded')"
+        },
+        "normative_sources_validity_check": {
+          "name": "normative_sources_validity_check",
+          "value": "\"normative_sources\".\"valid_to\" is null or \"normative_sources\".\"valid_from\" is null or \"normative_sources\".\"valid_to\" >= \"normative_sources\".\"valid_from\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.normative_update_reviews": {
+      "name": "normative_update_reviews",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "update_id": {
+          "name": "update_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewer_user_id": {
+          "name": "reviewer_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_code": {
+          "name": "source_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_edition": {
+          "name": "source_edition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_authority": {
+          "name": "source_authority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "official_uri": {
+          "name": "official_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publication_date": {
+          "name": "publication_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previous_fingerprint": {
+          "name": "previous_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detected_fingerprint": {
+          "name": "detected_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "normative_update_reviews_org_reviewed_idx": {
+          "name": "normative_update_reviews_org_reviewed_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reviewed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "normative_update_reviews_organization_id_organizations_id_fk": {
+          "name": "normative_update_reviews_organization_id_organizations_id_fk",
+          "tableFrom": "normative_update_reviews",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "normative_update_reviews_update_org_fkey": {
+          "name": "normative_update_reviews_update_org_fkey",
+          "tableFrom": "normative_update_reviews",
+          "tableTo": "normative_updates",
+          "columnsFrom": [
+            "update_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "normative_update_reviews_source_org_fkey": {
+          "name": "normative_update_reviews_source_org_fkey",
+          "tableFrom": "normative_update_reviews",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "normative_update_reviews_id_org_unique": {
+          "name": "normative_update_reviews_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "normative_update_reviews_update_unique": {
+          "name": "normative_update_reviews_update_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "update_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "normative_update_reviews_decision_check": {
+          "name": "normative_update_reviews_decision_check",
+          "value": "\"normative_update_reviews\".\"decision\" in ('reviewed_no_action', 'dismissed', 'requires_normative_version', 'requires_metadata_update', 'requires_follow_up')"
+        },
+        "normative_update_reviews_note_length_check": {
+          "name": "normative_update_reviews_note_length_check",
+          "value": "\"normative_update_reviews\".\"note\" is null or length(trim(\"normative_update_reviews\".\"note\")) <= 4000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.normative_updates": {
+      "name": "normative_updates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "update_type": {
+          "name": "update_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'source_page_changed'"
+        },
+        "review_status": {
+          "name": "review_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'detected'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impact_summary": {
+          "name": "impact_summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "official_uri": {
+          "name": "official_uri",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publication_date": {
+          "name": "publication_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_fingerprint": {
+          "name": "event_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "detected_at": {
+          "name": "detected_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "normative_updates_org_detected_idx": {
+          "name": "normative_updates_org_detected_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "detected_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "normative_updates_organization_id_organizations_id_fk": {
+          "name": "normative_updates_organization_id_organizations_id_fk",
+          "tableFrom": "normative_updates",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "normative_updates_source_org_fkey": {
+          "name": "normative_updates_source_org_fkey",
+          "tableFrom": "normative_updates",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "normative_updates_id_org_unique": {
+          "name": "normative_updates_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "normative_updates_source_event_unique": {
+          "name": "normative_updates_source_event_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "source_id",
+            "event_fingerprint"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "normative_updates_type_check": {
+          "name": "normative_updates_type_check",
+          "value": "\"normative_updates\".\"update_type\" in ('source_page_changed', 'amendment', 'replacement', 'status_change', 'price_catalog_update', 'other')"
+        },
+        "normative_updates_review_status_check": {
+          "name": "normative_updates_review_status_check",
+          "value": "\"normative_updates\".\"review_status\" in ('detected', 'reviewed', 'dismissed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_cost_component_decisions": {
+      "name": "professional_cost_component_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculation_context_id": {
+          "name": "calculation_context_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component": {
+          "name": "component",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "professional_rule_definition_id": {
+          "name": "professional_rule_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_cost_component_decisions_org_context_component_idx": {
+          "name": "professional_cost_component_decisions_org_context_component_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "calculation_context_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "component",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_cost_component_decisions_organization_id_organizations_id_fk": {
+          "name": "professional_cost_component_decisions_organization_id_organizations_id_fk",
+          "tableFrom": "professional_cost_component_decisions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_cost_component_decisions_context_org_fkey": {
+          "name": "professional_cost_component_decisions_context_org_fkey",
+          "tableFrom": "professional_cost_component_decisions",
+          "tableTo": "calculation_contexts",
+          "columnsFrom": [
+            "calculation_context_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_cost_component_decisions_rule_org_component_fkey": {
+          "name": "professional_cost_component_decisions_rule_org_component_fkey",
+          "tableFrom": "professional_cost_component_decisions",
+          "tableTo": "professional_rule_definitions",
+          "columnsFrom": [
+            "professional_rule_definition_id",
+            "organization_id",
+            "component"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id",
+            "component"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_cost_component_decisions_context_component_unique": {
+          "name": "professional_cost_component_decisions_context_component_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "calculation_context_id",
+            "component"
+          ]
+        },
+        "professional_cost_component_decisions_id_org_unique": {
+          "name": "professional_cost_component_decisions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_cost_component_decisions_component_check": {
+          "name": "professional_cost_component_decisions_component_check",
+          "value": "\"professional_cost_component_decisions\".\"component\" in ('labor_contributions', 'material_transport', 'overhead', 'estimated_profit')"
+        },
+        "professional_cost_component_decisions_decision_check": {
+          "name": "professional_cost_component_decisions_decision_check",
+          "value": "\"professional_cost_component_decisions\".\"decision\" in ('applied', 'not_applicable')"
+        },
+        "professional_cost_component_decisions_shape_check": {
+          "name": "professional_cost_component_decisions_shape_check",
+          "value": "(\n        (\"professional_cost_component_decisions\".\"decision\" = 'applied' and \"professional_cost_component_decisions\".\"professional_rule_definition_id\" is not null and \"professional_cost_component_decisions\".\"reason\" is null)\n        or\n        (\"professional_cost_component_decisions\".\"decision\" = 'not_applicable' and \"professional_cost_component_decisions\".\"professional_rule_definition_id\" is null and \"professional_cost_component_decisions\".\"reason\" is not null and length(trim(\"professional_cost_component_decisions\".\"reason\")) > 0)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_general_estimate_entries": {
+      "name": "professional_general_estimate_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "general_estimate_id": {
+          "name": "general_estimate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_estimate_id": {
+          "name": "object_estimate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chapter_number": {
+          "name": "chapter_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chapter_position_number": {
+          "name": "chapter_position_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "included": {
+          "name": "included",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_general_estimate_entries_org_object_idx": {
+          "name": "professional_general_estimate_entries_org_object_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "object_estimate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_general_estimate_entries_organization_id_organizations_id_fk": {
+          "name": "professional_general_estimate_entries_organization_id_organizations_id_fk",
+          "tableFrom": "professional_general_estimate_entries",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_general_estimate_entries_general_estimate_org_fkey": {
+          "name": "professional_general_estimate_entries_general_estimate_org_fkey",
+          "tableFrom": "professional_general_estimate_entries",
+          "tableTo": "professional_general_estimates",
+          "columnsFrom": [
+            "general_estimate_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_general_estimate_entries_object_estimate_org_fkey": {
+          "name": "professional_general_estimate_entries_object_estimate_org_fkey",
+          "tableFrom": "professional_general_estimate_entries",
+          "tableTo": "professional_object_estimates",
+          "columnsFrom": [
+            "object_estimate_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_general_estimate_entries_membership_unique": {
+          "name": "professional_general_estimate_entries_membership_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "general_estimate_id",
+            "object_estimate_id"
+          ]
+        },
+        "professional_general_estimate_entries_chapter_position_unique": {
+          "name": "professional_general_estimate_entries_chapter_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "general_estimate_id",
+            "chapter_number",
+            "chapter_position_number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_general_estimate_entries_chapter_check": {
+          "name": "professional_general_estimate_entries_chapter_check",
+          "value": "\"professional_general_estimate_entries\".\"chapter_number\" between 1 and 12"
+        },
+        "professional_general_estimate_entries_position_check": {
+          "name": "professional_general_estimate_entries_position_check",
+          "value": "\"professional_general_estimate_entries\".\"chapter_position_number\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_general_estimates": {
+      "name": "professional_general_estimates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valuation_date": {
+          "name": "valuation_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_general_estimates_org_date_idx": {
+          "name": "professional_general_estimates_org_date_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "valuation_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_general_estimates_organization_id_organizations_id_fk": {
+          "name": "professional_general_estimates_organization_id_organizations_id_fk",
+          "tableFrom": "professional_general_estimates",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_general_estimates_id_org_unique": {
+          "name": "professional_general_estimates_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_general_estimates_currency_check": {
+          "name": "professional_general_estimates_currency_check",
+          "value": "\"professional_general_estimates\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        },
+        "professional_general_estimates_name_check": {
+          "name": "professional_general_estimates_name_check",
+          "value": "length(trim(\"professional_general_estimates\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_object_estimate_entries": {
+      "name": "professional_object_estimate_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_estimate_id": {
+          "name": "object_estimate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculation_context_id": {
+          "name": "calculation_context_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position_number": {
+          "name": "position_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost_category": {
+          "name": "cost_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "included": {
+          "name": "included",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_object_estimate_entries_org_context_idx": {
+          "name": "professional_object_estimate_entries_org_context_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "calculation_context_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_object_estimate_entries_organization_id_organizations_id_fk": {
+          "name": "professional_object_estimate_entries_organization_id_organizations_id_fk",
+          "tableFrom": "professional_object_estimate_entries",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_object_estimate_entries_object_estimate_org_fkey": {
+          "name": "professional_object_estimate_entries_object_estimate_org_fkey",
+          "tableFrom": "professional_object_estimate_entries",
+          "tableTo": "professional_object_estimates",
+          "columnsFrom": [
+            "object_estimate_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_object_estimate_entries_context_org_fkey": {
+          "name": "professional_object_estimate_entries_context_org_fkey",
+          "tableFrom": "professional_object_estimate_entries",
+          "tableTo": "calculation_contexts",
+          "columnsFrom": [
+            "calculation_context_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_object_estimate_entries_membership_unique": {
+          "name": "professional_object_estimate_entries_membership_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "object_estimate_id",
+            "calculation_context_id"
+          ]
+        },
+        "professional_object_estimate_entries_position_unique": {
+          "name": "professional_object_estimate_entries_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "object_estimate_id",
+            "position_number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_object_estimate_entries_position_check": {
+          "name": "professional_object_estimate_entries_position_check",
+          "value": "\"professional_object_estimate_entries\".\"position_number\" > 0"
+        },
+        "professional_object_estimate_entries_cost_category_check": {
+          "name": "professional_object_estimate_entries_cost_category_check",
+          "value": "\"professional_object_estimate_entries\".\"cost_category\" in ('construction_works', 'installation_works', 'equipment_furniture_inventory', 'other_costs')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_object_estimates": {
+      "name": "professional_object_estimates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "construction_object_id": {
+          "name": "construction_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valuation_date": {
+          "name": "valuation_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_object_estimates_org_object_idx": {
+          "name": "professional_object_estimates_org_object_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "construction_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_object_estimates_organization_id_organizations_id_fk": {
+          "name": "professional_object_estimates_organization_id_organizations_id_fk",
+          "tableFrom": "professional_object_estimates",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_object_estimates_object_org_fkey": {
+          "name": "professional_object_estimates_object_org_fkey",
+          "tableFrom": "professional_object_estimates",
+          "tableTo": "construction_objects",
+          "columnsFrom": [
+            "construction_object_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_object_estimates_id_org_unique": {
+          "name": "professional_object_estimates_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_object_estimates_currency_check": {
+          "name": "professional_object_estimates_currency_check",
+          "value": "\"professional_object_estimates\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        },
+        "professional_object_estimates_name_check": {
+          "name": "professional_object_estimates_name_check",
+          "value": "length(trim(\"professional_object_estimates\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_resources": {
+      "name": "professional_resources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_type": {
+          "name": "resource_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "procurement_category": {
+          "name": "procurement_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_resources_org_source_code_unique": {
+          "name": "professional_resources_org_source_code_unique",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"professional_resources\".\"code\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_resources_organization_id_organizations_id_fk": {
+          "name": "professional_resources_organization_id_organizations_id_fk",
+          "tableFrom": "professional_resources",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_resources_source_org_fkey": {
+          "name": "professional_resources_source_org_fkey",
+          "tableFrom": "professional_resources",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_resources_id_org_unique": {
+          "name": "professional_resources_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_resources_type_check": {
+          "name": "professional_resources_type_check",
+          "value": "\"professional_resources\".\"resource_type\" in ('labor', 'material', 'machinery', 'transport', 'energy', 'other')"
+        },
+        "professional_resources_procurement_category_check": {
+          "name": "professional_resources_procurement_category_check",
+          "value": "\"professional_resources\".\"procurement_category\" is null or \"professional_resources\".\"procurement_category\" in ('construction_materials', 'metal_structures', 'equipment', 'other')"
+        },
+        "professional_resources_unit_nonempty_check": {
+          "name": "professional_resources_unit_nonempty_check",
+          "value": "length(trim(\"professional_resources\".\"unit\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_rule_definitions": {
+      "name": "professional_rule_definitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applicability_decision_id": {
+          "name": "applicability_decision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component": {
+          "name": "component",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_type": {
+          "name": "value_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "calculation_basis": {
+          "name": "calculation_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimate_perspective": {
+          "name": "estimate_perspective",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_kind": {
+          "name": "work_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_origin": {
+          "name": "rule_origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procurement_category": {
+          "name": "procurement_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_rule_definitions_org_component_idx": {
+          "name": "professional_rule_definitions_org_component_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "component",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_rule_definitions_organization_id_organizations_id_fk": {
+          "name": "professional_rule_definitions_organization_id_organizations_id_fk",
+          "tableFrom": "professional_rule_definitions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_rule_definitions_source_org_fkey": {
+          "name": "professional_rule_definitions_source_org_fkey",
+          "tableFrom": "professional_rule_definitions",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "professional_rule_definitions_applicability_source_org_fkey": {
+          "name": "professional_rule_definitions_applicability_source_org_fkey",
+          "tableFrom": "professional_rule_definitions",
+          "tableTo": "normative_applicability_decisions",
+          "columnsFrom": [
+            "applicability_decision_id",
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "source_id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_rule_definitions_id_org_unique": {
+          "name": "professional_rule_definitions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "professional_rule_definitions_id_org_component_unique": {
+          "name": "professional_rule_definitions_id_org_component_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id",
+            "component"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_rule_definitions_component_check": {
+          "name": "professional_rule_definitions_component_check",
+          "value": "\"professional_rule_definitions\".\"component\" in ('labor_contributions', 'material_transport', 'procurement_storage', 'overhead', 'estimated_profit')"
+        },
+        "professional_rule_definitions_perspective_check": {
+          "name": "professional_rule_definitions_perspective_check",
+          "value": "\"professional_rule_definitions\".\"estimate_perspective\" in ('investor', 'contractor', 'any')"
+        },
+        "professional_rule_definitions_work_kind_check": {
+          "name": "professional_rule_definitions_work_kind_check",
+          "value": "\"professional_rule_definitions\".\"work_kind\" in ('construction', 'installation', 'commissioning', 'any')"
+        },
+        "professional_rule_definitions_rule_origin_check": {
+          "name": "professional_rule_definitions_rule_origin_check",
+          "value": "\"professional_rule_definitions\".\"rule_origin\" in ('normative_sector_average', 'company_individual', 'contract_agreed', 'statutory')"
+        },
+        "professional_rule_definitions_value_check": {
+          "name": "professional_rule_definitions_value_check",
+          "value": "\"professional_rule_definitions\".\"value\" >= 0"
+        },
+        "professional_rule_definitions_validity_check": {
+          "name": "professional_rule_definitions_validity_check",
+          "value": "\"professional_rule_definitions\".\"valid_to\" is null or \"professional_rule_definitions\".\"valid_to\" >= \"professional_rule_definitions\".\"valid_from\""
+        },
+        "professional_rule_definitions_semantics_check": {
+          "name": "professional_rule_definitions_semantics_check",
+          "value": "(\n        (\"professional_rule_definitions\".\"component\" = 'labor_contributions' and \"professional_rule_definitions\".\"value_type\" = 'percent' and \"professional_rule_definitions\".\"calculation_basis\" = 'labor_cost')\n        or (\"professional_rule_definitions\".\"component\" = 'material_transport' and \"professional_rule_definitions\".\"value_type\" = 'percent' and \"professional_rule_definitions\".\"calculation_basis\" = 'material_cost')\n        or (\"professional_rule_definitions\".\"component\" = 'material_transport' and \"professional_rule_definitions\".\"value_type\" = 'fixed_amount' and \"professional_rule_definitions\".\"calculation_basis\" = 'fixed_amount')\n        or (\"professional_rule_definitions\".\"component\" = 'procurement_storage' and \"professional_rule_definitions\".\"value_type\" = 'percent' and \"professional_rule_definitions\".\"calculation_basis\" = 'material_cost')\n        or (\"professional_rule_definitions\".\"component\" = 'overhead' and \"professional_rule_definitions\".\"value_type\" = 'percent' and \"professional_rule_definitions\".\"calculation_basis\" in ('direct_cost', 'labor_cost'))\n        or (\"professional_rule_definitions\".\"component\" = 'estimated_profit' and \"professional_rule_definitions\".\"value_type\" = 'percent' and \"professional_rule_definitions\".\"calculation_basis\" = 'estimate_cost_before_profit')\n      )"
+        },
+        "professional_rule_definitions_currency_check": {
+          "name": "professional_rule_definitions_currency_check",
+          "value": "(\"professional_rule_definitions\".\"value_type\" = 'fixed_amount' and \"professional_rule_definitions\".\"currency\" is not null and \"professional_rule_definitions\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP'))\n        or (\"professional_rule_definitions\".\"value_type\" <> 'fixed_amount' and \"professional_rule_definitions\".\"currency\" is null)"
+        },
+        "professional_rule_definitions_procurement_category_check": {
+          "name": "professional_rule_definitions_procurement_category_check",
+          "value": "(\"professional_rule_definitions\".\"component\" = 'procurement_storage' and \"professional_rule_definitions\".\"procurement_category\" is not null and length(trim(\"professional_rule_definitions\".\"procurement_category\")) > 0)\n        or (\"professional_rule_definitions\".\"component\" <> 'procurement_storage' and \"professional_rule_definitions\".\"procurement_category\" is null)"
+        },
+        "professional_rule_definitions_official_decision_check": {
+          "name": "professional_rule_definitions_official_decision_check",
+          "value": "\"professional_rule_definitions\".\"rule_origin\" not in ('normative_sector_average', 'statutory')\n        or \"professional_rule_definitions\".\"applicability_decision_id\" is not null"
+        },
+        "professional_rule_definitions_source_reference_check": {
+          "name": "professional_rule_definitions_source_reference_check",
+          "value": "\"professional_rule_definitions\".\"source_reference\" is null or length(trim(\"professional_rule_definitions\".\"source_reference\")) > 0"
+        },
+        "professional_rule_definitions_name_check": {
+          "name": "professional_rule_definitions_name_check",
+          "value": "length(trim(\"professional_rule_definitions\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.resource_consumptions": {
+      "name": "resource_consumptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimate_norm_version_id": {
+          "name": "estimate_norm_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position_number": {
+          "name": "position_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_per_norm_basis": {
+          "name": "quantity_per_norm_basis",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "resource_consumptions_organization_id_organizations_id_fk": {
+          "name": "resource_consumptions_organization_id_organizations_id_fk",
+          "tableFrom": "resource_consumptions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "resource_consumptions_norm_version_org_fkey": {
+          "name": "resource_consumptions_norm_version_org_fkey",
+          "tableFrom": "resource_consumptions",
+          "tableTo": "estimate_norm_versions",
+          "columnsFrom": [
+            "estimate_norm_version_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "resource_consumptions_resource_org_fkey": {
+          "name": "resource_consumptions_resource_org_fkey",
+          "tableFrom": "resource_consumptions",
+          "tableTo": "professional_resources",
+          "columnsFrom": [
+            "resource_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "resource_consumptions_id_org_unique": {
+          "name": "resource_consumptions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "resource_consumptions_norm_position_unique": {
+          "name": "resource_consumptions_norm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "estimate_norm_version_id",
+            "position_number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "resource_consumptions_position_check": {
+          "name": "resource_consumptions_position_check",
+          "value": "\"resource_consumptions\".\"position_number\" > 0"
+        },
+        "resource_consumptions_quantity_check": {
+          "name": "resource_consumptions_quantity_check",
+          "value": "\"resource_consumptions\".\"quantity_per_norm_basis\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.resource_prices": {
+      "name": "resource_prices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis_quantity": {
+          "name": "basis_quantity",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1'"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vat_treatment": {
+          "name": "vat_treatment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "transport_treatment": {
+          "name": "transport_treatment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "resource_prices_resource_valid_from_idx": {
+          "name": "resource_prices_resource_valid_from_idx",
+          "columns": [
+            {
+              "expression": "resource_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "valid_from",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "resource_prices_organization_id_organizations_id_fk": {
+          "name": "resource_prices_organization_id_organizations_id_fk",
+          "tableFrom": "resource_prices",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "resource_prices_resource_org_fkey": {
+          "name": "resource_prices_resource_org_fkey",
+          "tableFrom": "resource_prices",
+          "tableTo": "professional_resources",
+          "columnsFrom": [
+            "resource_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "resource_prices_source_org_fkey": {
+          "name": "resource_prices_source_org_fkey",
+          "tableFrom": "resource_prices",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "resource_prices_id_org_unique": {
+          "name": "resource_prices_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "resource_prices_price_check": {
+          "name": "resource_prices_price_check",
+          "value": "\"resource_prices\".\"price\" >= 0"
+        },
+        "resource_prices_vat_treatment_check": {
+          "name": "resource_prices_vat_treatment_check",
+          "value": "\"resource_prices\".\"vat_treatment\" in ('exclusive', 'inclusive', 'unknown')"
+        },
+        "resource_prices_transport_treatment_check": {
+          "name": "resource_prices_transport_treatment_check",
+          "value": "\"resource_prices\".\"transport_treatment\" in ('excluded', 'included', 'unknown')"
+        },
+        "resource_prices_basis_quantity_check": {
+          "name": "resource_prices_basis_quantity_check",
+          "value": "\"resource_prices\".\"basis_quantity\" > 0"
+        },
+        "resource_prices_currency_check": {
+          "name": "resource_prices_currency_check",
+          "value": "\"resource_prices\".\"currency\" in ('MDL', 'EUR', 'RON', 'USD', 'GBP')"
+        },
+        "resource_prices_source_type_check": {
+          "name": "resource_prices_source_type_check",
+          "value": "\"resource_prices\".\"source_type\" in ('manual', 'supplier', 'invoice', 'market', 'import')"
+        },
+        "resource_prices_validity_check": {
+          "name": "resource_prices_validity_check",
+          "value": "\"resource_prices\".\"valid_to\" is null or \"resource_prices\".\"valid_to\" >= \"resource_prices\".\"valid_from\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.work_quantity_items": {
+      "name": "work_quantity_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_quantity_list_id": {
+          "name": "work_quantity_list_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position_number": {
+          "name": "position_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "work_quantity_items_organization_id_organizations_id_fk": {
+          "name": "work_quantity_items_organization_id_organizations_id_fk",
+          "tableFrom": "work_quantity_items",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "work_quantity_items_list_org_fkey": {
+          "name": "work_quantity_items_list_org_fkey",
+          "tableFrom": "work_quantity_items",
+          "tableTo": "work_quantity_lists",
+          "columnsFrom": [
+            "work_quantity_list_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "work_quantity_items_id_org_unique": {
+          "name": "work_quantity_items_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "work_quantity_items_id_list_org_unique": {
+          "name": "work_quantity_items_id_list_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "work_quantity_list_id",
+            "organization_id"
+          ]
+        },
+        "work_quantity_items_list_position_unique": {
+          "name": "work_quantity_items_list_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "work_quantity_list_id",
+            "position_number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "work_quantity_items_position_check": {
+          "name": "work_quantity_items_position_check",
+          "value": "\"work_quantity_items\".\"position_number\" > 0"
+        },
+        "work_quantity_items_quantity_check": {
+          "name": "work_quantity_items_quantity_check",
+          "value": "\"work_quantity_items\".\"quantity\" > 0"
+        },
+        "work_quantity_items_unit_nonempty_check": {
+          "name": "work_quantity_items_unit_nonempty_check",
+          "value": "length(trim(\"work_quantity_items\".\"unit\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.work_quantity_lists": {
+      "name": "work_quantity_lists",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "construction_object_id": {
+          "name": "construction_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_date": {
+          "name": "source_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "work_quantity_lists_organization_id_organizations_id_fk": {
+          "name": "work_quantity_lists_organization_id_organizations_id_fk",
+          "tableFrom": "work_quantity_lists",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "work_quantity_lists_object_org_fkey": {
+          "name": "work_quantity_lists_object_org_fkey",
+          "tableFrom": "work_quantity_lists",
+          "tableTo": "construction_objects",
+          "columnsFrom": [
+            "construction_object_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "work_quantity_lists_id_org_unique": {
+          "name": "work_quantity_lists_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "work_quantity_lists_id_object_org_unique": {
+          "name": "work_quantity_lists_id_object_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "construction_object_id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "work_quantity_lists_revision_check": {
+          "name": "work_quantity_lists_revision_check",
+          "value": "\"work_quantity_lists\".\"revision\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_general_rule_definitions": {
+      "name": "professional_general_rule_definitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applicability_decision_id": {
+          "name": "applicability_decision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component": {
+          "name": "component",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_code": {
+          "name": "rule_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "group_code": {
+          "name": "group_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "group_label": {
+          "name": "group_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_type": {
+          "name": "value_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_to": {
+          "name": "valid_to",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_reference": {
+          "name": "source_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_general_rules_org_source_idx": {
+          "name": "professional_general_rules_org_source_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_general_rule_definitions_organization_id_organizations_id_fk": {
+          "name": "professional_general_rule_definitions_organization_id_organizations_id_fk",
+          "tableFrom": "professional_general_rule_definitions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_general_rules_source_org_fkey": {
+          "name": "professional_general_rules_source_org_fkey",
+          "tableFrom": "professional_general_rule_definitions",
+          "tableTo": "normative_sources",
+          "columnsFrom": [
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "professional_general_rules_applicability_source_org_fkey": {
+          "name": "professional_general_rules_applicability_source_org_fkey",
+          "tableFrom": "professional_general_rule_definitions",
+          "tableTo": "normative_applicability_decisions",
+          "columnsFrom": [
+            "applicability_decision_id",
+            "source_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "source_id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_general_rules_id_org_unique": {
+          "name": "professional_general_rules_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        },
+        "professional_general_rules_id_org_component_unique": {
+          "name": "professional_general_rules_id_org_component_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id",
+            "component"
+          ]
+        },
+        "professional_general_rules_pack_rule_unique": {
+          "name": "professional_general_rules_pack_rule_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "source_id",
+            "component",
+            "rule_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_general_rules_component_check": {
+          "name": "professional_general_rules_component_check",
+          "value": "\"professional_general_rule_definitions\".\"component\" in ('temporary_works', 'winter_conditions')"
+        },
+        "professional_general_rules_value_type_check": {
+          "name": "professional_general_rules_value_type_check",
+          "value": "\"professional_general_rule_definitions\".\"value_type\" = 'percent'"
+        },
+        "professional_general_rules_value_check": {
+          "name": "professional_general_rules_value_check",
+          "value": "\"professional_general_rule_definitions\".\"value\" > 0"
+        },
+        "professional_general_rules_validity_check": {
+          "name": "professional_general_rules_validity_check",
+          "value": "\"professional_general_rule_definitions\".\"valid_to\" is null or \"professional_general_rule_definitions\".\"valid_to\" >= \"professional_general_rule_definitions\".\"valid_from\""
+        },
+        "professional_general_rules_text_check": {
+          "name": "professional_general_rules_text_check",
+          "value": "length(trim(\"professional_general_rule_definitions\".\"rule_code\")) > 0 and length(trim(\"professional_general_rule_definitions\".\"group_code\")) > 0 and length(trim(\"professional_general_rule_definitions\".\"group_label\")) > 0 and length(trim(\"professional_general_rule_definitions\".\"name\")) > 0 and length(trim(\"professional_general_rule_definitions\".\"source_reference\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_general_cost_decisions": {
+      "name": "professional_general_cost_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "general_estimate_id": {
+          "name": "general_estimate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component": {
+          "name": "component",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_definition_id": {
+          "name": "rule_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_condition": {
+          "name": "project_condition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_construction_amount": {
+          "name": "project_construction_amount",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_installation_amount": {
+          "name": "project_installation_amount",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_reference": {
+          "name": "project_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_general_cost_decisions_org_estimate_idx": {
+          "name": "professional_general_cost_decisions_org_estimate_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "general_estimate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_general_cost_decisions_organization_id_organizations_id_fk": {
+          "name": "professional_general_cost_decisions_organization_id_organizations_id_fk",
+          "tableFrom": "professional_general_cost_decisions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_general_cost_decisions_estimate_org_fkey": {
+          "name": "professional_general_cost_decisions_estimate_org_fkey",
+          "tableFrom": "professional_general_cost_decisions",
+          "tableTo": "professional_general_estimates",
+          "columnsFrom": [
+            "general_estimate_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_general_cost_decisions_rule_org_component_fkey": {
+          "name": "professional_general_cost_decisions_rule_org_component_fkey",
+          "tableFrom": "professional_general_cost_decisions",
+          "tableTo": "professional_general_rule_definitions",
+          "columnsFrom": [
+            "rule_definition_id",
+            "organization_id",
+            "component"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id",
+            "component"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_general_cost_decisions_estimate_component_unique": {
+          "name": "professional_general_cost_decisions_estimate_component_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "general_estimate_id",
+            "component"
+          ]
+        },
+        "professional_general_cost_decisions_id_org_unique": {
+          "name": "professional_general_cost_decisions_id_org_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_general_cost_decisions_component_check": {
+          "name": "professional_general_cost_decisions_component_check",
+          "value": "\"professional_general_cost_decisions\".\"component\" = 'temporary_works'"
+        },
+        "professional_general_cost_decisions_mode_check": {
+          "name": "professional_general_cost_decisions_mode_check",
+          "value": "\"professional_general_cost_decisions\".\"mode\" in ('normative_rate', 'project_calculation')"
+        },
+        "professional_general_cost_decisions_shape_check": {
+          "name": "professional_general_cost_decisions_shape_check",
+          "value": "((\"professional_general_cost_decisions\".\"mode\" = 'normative_rate' and \"professional_general_cost_decisions\".\"rule_definition_id\" is not null and \"professional_general_cost_decisions\".\"project_condition\" in ('standard', 'reconstruction_or_extension_operating_facility', 'road_reconstruction', 'capital_repair_complex', 'capital_repair_selective') and \"professional_general_cost_decisions\".\"project_construction_amount\" is null and \"professional_general_cost_decisions\".\"project_installation_amount\" is null and \"professional_general_cost_decisions\".\"project_reference\" is null) or (\"professional_general_cost_decisions\".\"mode\" = 'project_calculation' and \"professional_general_cost_decisions\".\"rule_definition_id\" is null and \"professional_general_cost_decisions\".\"project_condition\" is null and \"professional_general_cost_decisions\".\"project_construction_amount\" is not null and \"professional_general_cost_decisions\".\"project_installation_amount\" is not null and \"professional_general_cost_decisions\".\"project_construction_amount\" >= 0 and \"professional_general_cost_decisions\".\"project_installation_amount\" >= 0 and (\"professional_general_cost_decisions\".\"project_construction_amount\" + \"professional_general_cost_decisions\".\"project_installation_amount\") > 0 and \"professional_general_cost_decisions\".\"project_reference\" is not null and length(trim(\"professional_general_cost_decisions\".\"project_reference\")) > 0))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.professional_winter_decisions": {
+      "name": "professional_winter_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "general_estimate_id": {
+          "name": "general_estimate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_component": {
+          "name": "rule_component",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'winter_conditions'"
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_definition_id": {
+          "name": "rule_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_kind": {
+          "name": "period_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "winter_days": {
+          "name": "winter_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_reference": {
+          "name": "project_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "building_scope": {
+          "name": "building_scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "principal_work_confirmed": {
+          "name": "principal_work_confirmed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "false"
+        },
+        "classification": {
+          "name": "classification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "analogy_reference": {
+          "name": "analogy_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exclusion_reason": {
+          "name": "exclusion_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "professional_winter_decisions_organization_id_organizations_id_fk": {
+          "name": "professional_winter_decisions_organization_id_organizations_id_fk",
+          "tableFrom": "professional_winter_decisions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_winter_decisions_estimate_org_fkey": {
+          "name": "professional_winter_decisions_estimate_org_fkey",
+          "tableFrom": "professional_winter_decisions",
+          "tableTo": "professional_general_estimates",
+          "columnsFrom": [
+            "general_estimate_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_winter_decisions_rule_org_component_fkey": {
+          "name": "professional_winter_decisions_rule_org_component_fkey",
+          "tableFrom": "professional_winter_decisions",
+          "tableTo": "professional_general_rule_definitions",
+          "columnsFrom": [
+            "rule_definition_id",
+            "organization_id",
+            "rule_component"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id",
+            "component"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "professional_winter_decisions_estimate_unique": {
+          "name": "professional_winter_decisions_estimate_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organization_id",
+            "general_estimate_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "professional_winter_decisions_component_check": {
+          "name": "professional_winter_decisions_component_check",
+          "value": "\"professional_winter_decisions\".\"rule_component\" = 'winter_conditions'"
+        },
+        "professional_winter_decisions_shape_check": {
+          "name": "professional_winter_decisions_shape_check",
+          "value": "(\n    (\"professional_winter_decisions\".\"mode\" = 'not_applicable'\n      and \"professional_winter_decisions\".\"exclusion_reason\" = 'heated_current_repair'\n      and \"professional_winter_decisions\".\"rule_definition_id\" is null and \"professional_winter_decisions\".\"period_kind\" is null\n      and \"professional_winter_decisions\".\"start_date\" is null and \"professional_winter_decisions\".\"end_date\" is null\n      and \"professional_winter_decisions\".\"winter_days\" is null and \"professional_winter_decisions\".\"project_reference\" is null\n      and \"professional_winter_decisions\".\"building_scope\" is null and \"professional_winter_decisions\".\"classification\" is null\n      and \"professional_winter_decisions\".\"analogy_reference\" is null and \"professional_winter_decisions\".\"principal_work_confirmed\" = false)\n    or\n    (\"professional_winter_decisions\".\"mode\" = 'normative_rate' and \"professional_winter_decisions\".\"rule_definition_id\" is not null\n      and \"professional_winter_decisions\".\"exclusion_reason\" is null\n      and \"professional_winter_decisions\".\"period_kind\" in ('annual_average','short_project')\n      and \"professional_winter_decisions\".\"building_scope\" in ('residential_administrative','other')\n      and \"professional_winter_decisions\".\"classification\" in ('listed','analogous')\n      and ((\"professional_winter_decisions\".\"classification\" = 'listed' and \"professional_winter_decisions\".\"analogy_reference\" is null)\n        or (\"professional_winter_decisions\".\"classification\" = 'analogous'\n          and \"professional_winter_decisions\".\"analogy_reference\" is not null\n          and length(trim(\"professional_winter_decisions\".\"analogy_reference\")) > 0))\n      and ((\"professional_winter_decisions\".\"period_kind\" = 'annual_average'\n        and \"professional_winter_decisions\".\"start_date\" is null and \"professional_winter_decisions\".\"end_date\" is null\n        and \"professional_winter_decisions\".\"winter_days\" is null and \"professional_winter_decisions\".\"project_reference\" is null)\n      or (\"professional_winter_decisions\".\"period_kind\" = 'short_project'\n        and \"professional_winter_decisions\".\"start_date\" is not null and \"professional_winter_decisions\".\"end_date\" is not null\n        and \"professional_winter_decisions\".\"end_date\" >= \"professional_winter_decisions\".\"start_date\"\n        and \"professional_winter_decisions\".\"winter_days\" is not null and \"professional_winter_decisions\".\"winter_days\" >= 0\n        and \"professional_winter_decisions\".\"project_reference\" is not null\n        and length(trim(\"professional_winter_decisions\".\"project_reference\")) > 0)))\n  )"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
