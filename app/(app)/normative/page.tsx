@@ -100,13 +100,15 @@ function usageTotal(usage: {
   resourcePrices: number;
   calculationRules: number;
   professionalRuleDefinitions: number;
+  professionalGeneralRuleDefinitions: number;
 }): number {
   return (
     usage.normVersions +
     usage.resources +
     usage.resourcePrices +
     usage.calculationRules +
-    usage.professionalRuleDefinitions
+    usage.professionalRuleDefinitions +
+    usage.professionalGeneralRuleDefinitions
   );
 }
 

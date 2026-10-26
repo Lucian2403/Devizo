@@ -11,3 +11,4 @@ export * from "./quoteVersions";
 export * from "./quoteItems";
 export * from "./auditEvents";
 export * from "./professionalEstimates";
+export * from "./professionalGeneralCosts";

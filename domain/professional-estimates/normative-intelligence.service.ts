@@ -53,6 +53,11 @@ export function formatSourceImpact(usage: NormativeSourceUsage): string {
       `${usage.professionalRuleDefinitions} ${usage.professionalRuleDefinitions === 1 ? "definiție de regulă profesională" : "definiții de reguli profesionale"}`,
     );
   }
+  if (usage.professionalGeneralRuleDefinitions > 0) {
+    parts.push(
+      `${usage.professionalGeneralRuleDefinitions} ${usage.professionalGeneralRuleDefinitions === 1 ? "regulă normativă de deviz general" : "reguli normative de deviz general"}`,
+    );
+  }
 
   return parts.length > 0
     ? `Sursa este folosită de: ${parts.join(" · ")}.`
