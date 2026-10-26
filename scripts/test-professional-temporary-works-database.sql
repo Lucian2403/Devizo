@@ -70,10 +70,16 @@ FROM temporary_works_fixture;
 
 INSERT INTO public.normative_applicability_decisions
   (id, organization_id, source_id, revision, decision, applicable_from,
-   decided_by_user_id, basis_note, source_code, source_edition, official_status)
-SELECT applicability_id, org_id, source_id, 1, 'applicable', '2013-02-15',
-  actor_id, 'Temporary works DB fixture', 'NCM L.02.05-2012', '2012', 'in_force'
-FROM temporary_works_fixture;
+   decided_by_user_id, basis_note, source_code, source_edition,
+   source_title, source_publisher, source_jurisdiction, source_authority,
+   source_uri, source_fingerprint, official_status)
+SELECT f.applicability_id, f.org_id, f.source_id, 1, 'applicable',
+  '2013-02-15', f.actor_id, 'Temporary works DB fixture',
+  s.code, s.edition, s.title, s.publisher, s.jurisdiction,
+  s.authority, s.source_uri, s.content_fingerprint, s.official_status
+FROM temporary_works_fixture f
+JOIN public.normative_sources s
+  ON s.id = f.source_id AND s.organization_id = f.org_id;
 
 INSERT INTO public.professional_general_rule_definitions
   (id, organization_id, source_id, applicability_decision_id, component,
@@ -114,12 +120,15 @@ BEGIN
   alternate_applicability := gen_random_uuid();
   INSERT INTO public.normative_applicability_decisions
     (id, organization_id, source_id, revision, decision, applicable_from,
-     decided_by_user_id, basis_note, source_code, source_edition, official_status)
-  VALUES (
-    alternate_applicability, own.org_id, own.source_id, 2, 'applicable',
+     decided_by_user_id, basis_note, source_code, source_edition,
+     source_title, source_publisher, source_jurisdiction, source_authority,
+     source_uri, source_fingerprint, official_status)
+  SELECT alternate_applicability, own.org_id, own.source_id, 2, 'applicable',
     '2013-02-15', own.actor_id, 'Second applicability revision fixture',
-    'NCM L.02.05-2012', '2012', 'in_force'
-  );
+    s.code, s.edition, s.title, s.publisher, s.jurisdiction,
+    s.authority, s.source_uri, s.content_fingerprint, s.official_status
+  FROM public.normative_sources s
+  WHERE s.id = own.source_id AND s.organization_id = own.org_id;
 
   BEGIN
     INSERT INTO public.professional_general_rule_definitions
