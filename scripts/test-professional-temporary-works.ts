@@ -532,13 +532,17 @@ async function testService() {
   assert.equal(view.adjustedTotals?.chapters[8].total, "40.4100312");
   assert.equal(view.adjustedTotals?.totals.total, "5091.6639312");
 
-  const decisionId = repo.costDecision?.id;
+  const savedDecision = await repo.getDecision(ids.org, ids.general);
+  assert.ok(savedDecision);
+  const decisionId = savedDecision.id;
   await service.saveDecision(ids.org, ids.general, {
     mode: "normative_rate",
     ruleDefinitionId: rule25.id,
     projectCondition: "reconstruction_or_extension_operating_facility",
   });
-  assert.equal(repo.costDecision?.id, decisionId);
+  const updatedDecision = await repo.getDecision(ids.org, ids.general);
+  assert.ok(updatedDecision);
+  assert.equal(updatedDecision.id, decisionId);
   const reconstruction = await service.getView(ids.org, {
     id: ids.general,
     valuationDate: "2026-10-15",
@@ -596,7 +600,9 @@ async function testService() {
     "other eligible table rows exist but must not replace the saved exact rule",
   );
   assert.match(stale.error ?? "", /nu mai este eligibilă/);
-  assert.equal(repo.costDecision?.ruleDefinitionId, rule25.id);
+  const staleDecision = await repo.getDecision(ids.org, ids.general);
+  assert.ok(staleDecision);
+  assert.equal(staleDecision.ruleDefinitionId, rule25.id);
   rule25.validTo = originalRuleValidTo;
   const baseIncomplete = await service.getView(ids.org, {
     id: ids.general,

@@ -100,3 +100,14 @@ export {
   type TemporaryWorksProjectCondition,
   type TemporaryWorksResult,
 } from "./temporary-works";
+
+export {
+  applyWinterConditionsToGeneralEstimate,
+  calculateWinterConditions,
+  calculateWinterConditionsBase,
+  winterPeriodCoefficient,
+  WinterConditionsCalculationError,
+  type WinterPeriod,
+  type WinterConditionsBase,
+  type WinterConditionsResult,
+} from "./winter-conditions";
