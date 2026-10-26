@@ -146,10 +146,11 @@ BEGIN
   BEGIN
     INSERT INTO public.professional_general_estimate_entries
       (organization_id, general_estimate_id, object_estimate_id, chapter_number, chapter_position_number)
-    SELECT own.org_id, other_fixture.general_estimate_id, own.object_estimate_id, 3, 1
-    FROM general_estimate_fixture own
+    SELECT source_fixture.org_id, other_fixture.general_estimate_id,
+           source_fixture.object_estimate_id, 3, 1
+    FROM general_estimate_fixture source_fixture
     CROSS JOIN general_estimate_fixture other_fixture
-    WHERE own.org_id <> other_fixture.org_id
+    WHERE source_fixture.org_id <> other_fixture.org_id
     LIMIT 1;
     RAISE EXCEPTION 'Expected general estimate organization FK failure';
   EXCEPTION WHEN foreign_key_violation THEN NULL;
@@ -158,10 +159,11 @@ BEGIN
   BEGIN
     INSERT INTO public.professional_general_estimate_entries
       (organization_id, general_estimate_id, object_estimate_id, chapter_number, chapter_position_number)
-    SELECT own.org_id, own.general_estimate_id, other_fixture.object_estimate_id, 3, 1
-    FROM general_estimate_fixture own
+    SELECT source_fixture.org_id, source_fixture.general_estimate_id,
+           other_fixture.object_estimate_id, 3, 1
+    FROM general_estimate_fixture source_fixture
     CROSS JOIN general_estimate_fixture other_fixture
-    WHERE own.org_id <> other_fixture.org_id
+    WHERE source_fixture.org_id <> other_fixture.org_id
     LIMIT 1;
     RAISE EXCEPTION 'Expected object estimate organization FK failure';
   EXCEPTION WHEN foreign_key_violation THEN NULL;
