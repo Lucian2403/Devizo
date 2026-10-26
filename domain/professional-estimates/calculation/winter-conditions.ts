@@ -84,7 +84,7 @@ export function winterPeriodCoefficient(period: WinterPeriod): string {
   if (period.kind === "annual_average") {
     return "1";
   }
-  if (period.kind !== "short_project" || !period.projectReference.trim()) {
+  if (!period.projectReference.trim()) {
     throw new WinterConditionsCalculationError(
       "A short-project winter calculation requires a project reference.",
     );
