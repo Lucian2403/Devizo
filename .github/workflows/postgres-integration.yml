@@ -1,0 +1,40 @@
+name: PostgreSQL integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  normative-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: devizo_ci
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: devizo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devizo_ci -d devizo_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_TEST_URL: postgres://devizo_ci:local_ci_only@127.0.0.1:5432/devizo_ci
+      CONFIRM_DISPOSABLE_DATABASE: "yes"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate SQL and PostgreSQL 16 migration/RLS fixtures
+        run: pnpm test:normative:db
