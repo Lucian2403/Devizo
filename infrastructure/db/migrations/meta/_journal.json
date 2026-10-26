@@ -183,6 +183,13 @@
       "when": 1792846800000,
       "tag": "0025_temporary_works_pack_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793016000000,
+      "tag": "0026_professional_winter_rule_component",
+      "breakpoints": true
     }
   ]
 }
