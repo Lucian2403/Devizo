@@ -165,13 +165,10 @@ BEGIN
   PERFORM pg_temp.expect_component_decision_failure(
     sql,
     '23505');
-  INSERT INTO public.professional_cost_component_decisions
-    (organization_id, calculation_context_id, component, decision, reason)
-  VALUES
-    (fixture_a.org_id, fixture_a.context_id, 'estimated_profit',
-      'not_applicable', 'Explicit company decision');
+  -- The estimated_profit INSERT is exercised below as the organization
+  -- member, so the RLS test checks an actual INSERT into an unused slot.
 END
-$$;
+$;
 
 CREATE ROLE devizo_cost_decisions_rls_test NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA public, auth TO devizo_cost_decisions_rls_test;
