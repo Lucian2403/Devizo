@@ -209,7 +209,7 @@ BEGIN
        rule_definition_id, project_condition)
     VALUES (
       own.org_id, other.general_estimate_id, 'temporary_works',
-      own.rule_id, 'standard'
+      'normative_rate', own.rule_id, 'standard'
     );
     RAISE EXCEPTION 'Expected cross-org general estimate FK failure';
   EXCEPTION WHEN foreign_key_violation THEN NULL;
@@ -221,7 +221,7 @@ BEGIN
        rule_definition_id, project_condition)
     VALUES (
       own.org_id, scratch_general_for_cross_rule, 'temporary_works',
-      other.rule_id, 'standard'
+      'normative_rate', other.rule_id, 'standard'
     );
     RAISE EXCEPTION 'Expected cross-org rule FK failure';
   EXCEPTION WHEN foreign_key_violation THEN NULL;
