@@ -78,7 +78,7 @@ export const professionalGeneralRuleDefinitions = pgTable(
     ),
     componentCheck: check(
       "professional_general_rules_component_check",
-      sql`${table.component} = 'temporary_works'`,
+      sql`${table.component} in ('temporary_works', 'winter_conditions')`,
     ),
     valueTypeCheck: check(
       "professional_general_rules_value_type_check",
