@@ -12,3 +12,5 @@ export * from "./quoteItems";
 export * from "./auditEvents";
 export * from "./professionalEstimates";
 export * from "./professionalGeneralCosts";
+
+export * from "./professionalWinterDecisions";
