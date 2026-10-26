@@ -80,14 +80,27 @@ async function main() {
     for (const file of ["0007_professional_estimates_rls.sql", "0008_normative_governance_guards.sql"]) {
       await client.unsafe(readFileSync(join(policiesPath, file), "utf8"));
     }
-    await client.unsafe(readFileSync("scripts/test-normative-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-norm-lifecycle.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-procurement-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-cost-component-decisions-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-object-estimates-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-general-estimates-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-temporary-works-database.sql", "utf8"));
-    await client.unsafe(readFileSync("scripts/test-professional-winter-rules-database.sql", "utf8"));
+    const fixtureFiles = [
+      "test-normative-database.sql",
+      "test-professional-norm-lifecycle.sql",
+      "test-professional-procurement-database.sql",
+      "test-professional-cost-component-decisions-database.sql",
+      "test-professional-object-estimates-database.sql",
+      "test-professional-general-estimates-database.sql",
+      "test-professional-temporary-works-database.sql",
+      "test-professional-winter-rules-database.sql",
+    ];
+    for (const file of fixtureFiles) {
+      const path = join("scripts", file);
+      console.log(`Checking ${path}...`);
+      try {
+        await client.unsafe(readFileSync(path, "utf8"));
+      } catch (error) {
+        // Identify the file without exposing connection strings or SQL contents.
+        const detail = error instanceof Error ? error.message : "Unknown SQL error";
+        throw new Error(`${path}: ${detail}`);
+      }
+    }
     console.log("M8.4D legacy migration defaults, semantic CHECK constraints and organization RLS checks passed.");
     console.log("M8.4E component decision constraints, organization relationships, uniqueness and RLS checks passed.");
     console.log("M8.5A object estimate constraints, organization relationships, uniqueness and RLS checks passed.");
