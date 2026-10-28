@@ -111,3 +111,11 @@ export {
   type WinterConditionsBase,
   type WinterConditionsResult,
 } from "./winter-conditions";
+
+export {
+  calculateGeneralReserve,
+  GENERAL_RESERVE_RATES,
+  GeneralReserveCalculationError,
+  type GeneralReserveCategory,
+  type GeneralReserveResult,
+} from "./general-reserve";
