@@ -90,6 +90,7 @@ async function main() {
       "test-professional-temporary-works-database.sql",
       "test-professional-winter-rules-database.sql",
       "test-professional-winter-decisions-database.sql",
+      "test-professional-general-reserve-database.sql",
     ];
     for (const file of fixtureFiles) {
       const path = join("scripts", file);
@@ -109,6 +110,7 @@ async function main() {
     console.log("M8.5C1 temporary works rule/decision constraints, organization relationships and RLS checks passed.");
     console.log("M8.5C2B1 winter rule component CHECK, pack uniqueness and RLS guards passed.");
     console.log("M8.5C2B2 winter decision shape, FK, uniqueness and tenant RLS guards passed.");
+    console.log("M8.5D1 general reserve constraints, tenant FKs and RLS guards passed.");
     console.log("Database guards, membership lifecycle, provenance, draft-only consumptions, rule-definition constraints, M8.4B norm publication lifecycle and RLS checks passed.");
     console.log("Test mutations rolled back; legacy migration fixtures remain in the disposable database.");
   } finally {
