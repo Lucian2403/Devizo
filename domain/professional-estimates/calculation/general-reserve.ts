@@ -1,8 +1,8 @@
-import {
-  Decimal, parseDecimal, toDecimalString,
-  type ProfessionalGeneralEstimateChapterTotals,
-  type ProfessionalGeneralEstimateTotals,
-} from "./index";
+import { Decimal, parseDecimal, toDecimalString } from "./decimal";
+import type {
+  ProfessionalGeneralEstimateChapterTotals,
+  ProfessionalGeneralEstimateTotals,
+} from "./general-estimate";
 
 /** CP L.01.01-2012, pct. 6.11; a separate row AFTER Chapters 1–12. */
 export const GENERAL_RESERVE_RATES = {
