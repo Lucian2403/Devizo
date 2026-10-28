@@ -36,5 +36,11 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: TypeScript and domain regressions
+        run: |
+          pnpm typecheck
+          pnpm test:professional
+          pnpm test:normative
+          pnpm test:ui
       - name: Validate SQL and PostgreSQL 16 migration/RLS fixtures
         run: pnpm test:normative:db

@@ -69,6 +69,19 @@ import {
 }
 
 {
+  const forms = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "general-estimates", "winter-conditions-forms.tsx"), "utf8");
+  const winterDecision = forms.slice(forms.indexOf("export function WinterDecisionForm"));
+  assert.ok(winterDecision.includes("onSubmit={submitWithoutReset}"),
+    "Winter decisions must prevent native form reset after rejected saves");
+  assert.ok(winterDecision.includes("event.preventDefault()"));
+  assert.ok(winterDecision.includes("new FormData(event.currentTarget)"));
+  assert.ok(winterDecision.includes("startTransition(() => formAction(values))"));
+  assert.ok(winterDecision.includes("loading={pending}"),
+    "The button must reflect the pending transition");
+}
+
+{
   const page = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "object-estimates", "[objectEstimateId]", "page.tsx"), "utf8");
   assert.ok(page.includes('Obiect local: {local?.constructionObjectId ?? "—"}'));

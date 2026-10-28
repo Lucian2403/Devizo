@@ -48,6 +48,8 @@ import { ProfessionalTemporaryWorksService } from "@/domain/professional-estimat
 import { DrizzleProfessionalTemporaryWorksRepository } from "@/infrastructure/db/repositories/professionalTemporaryWorks.repository";
 import { ProfessionalWinterRulesService } from "@/domain/professional-estimates/professional-winter-rules.service";
 import { DrizzleProfessionalWinterRulesRepository } from "@/infrastructure/db/repositories/professionalWinterRules.repository";
+import { ProfessionalWinterConditionsService } from "@/domain/professional-estimates/professional-winter-conditions.service";
+import { DrizzleProfessionalWinterDecisionsRepository } from "@/infrastructure/db/repositories/professionalWinterDecisions.repository";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { getProfessionalEstimateCalculation } from "@/server/professionalEstimateCalculation";
 
@@ -167,6 +169,13 @@ export function getProfessionalTemporaryWorksService(): ProfessionalTemporaryWor
 export function getProfessionalWinterRulesService(): ProfessionalWinterRulesService {
   return new ProfessionalWinterRulesService(
     new DrizzleProfessionalWinterRulesRepository(),
+  );
+}
+
+export function getProfessionalWinterConditionsService(): ProfessionalWinterConditionsService {
+  return new ProfessionalWinterConditionsService(
+    new DrizzleProfessionalWinterDecisionsRepository(),
+    getProfessionalWinterRulesService(),
   );
 }
 
