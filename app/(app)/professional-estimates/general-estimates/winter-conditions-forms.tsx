@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -227,10 +226,10 @@ export function WinterDecisionForm({
         </p>
       )}
       <Message state={state} />
-      <Button type="submit" loading={pending}
+      <SubmitButton loading={pending} pendingLabel="Se salvează..."
         disabled={pending || (mode === "normative_rate" && view.eligibleRules.length === 0)}>
         {pending ? "Se salvează..." : "Salvează decizia pentru timp friguros"}
-      </Button>
+      </SubmitButton>
     </form>
   );
 }
