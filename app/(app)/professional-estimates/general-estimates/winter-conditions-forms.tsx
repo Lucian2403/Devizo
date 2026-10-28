@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -69,6 +70,7 @@ export function WinterDecisionForm({
   action, view,
 }: { action: FormAction; view: WinterConditionsView }) {
   const [state, formAction] = useActionState<WinterFormState, FormData>(action, null);
+  const [pending, startTransition] = useTransition();
   const saved = view.decision;
   const [mode, setMode] = useState(saved?.mode ?? "normative_rate");
   const [ruleId, setRuleId] = useState(saved?.ruleDefinitionId ?? "");
@@ -84,13 +86,22 @@ export function WinterDecisionForm({
     return [...result.entries()];
   }, [view.eligibleRules]);
 
+  // A native form action resets its fields even when our server action returns
+  // a validation error. Dispatch it explicitly so the user's selections remain
+  // in sync with the visible conditional fields after a rejected save.
+  function submitWithoutReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    startTransition(() => formAction(values));
+  }
+
   const selected = view.eligibleRules.find((row) => row.id === ruleId);
   const principalOnly = NCM_L_02_06_2012_RULE_PACK.find(
     (row) => row.ruleCode === selected?.ruleCode,
   )?.principalWorkOnly ?? false;
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} onSubmit={submitWithoutReset} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="winterMode">Aplicabilitate / metodă</Label>
         <select id="winterMode" name="mode" value={mode}
@@ -216,10 +227,10 @@ export function WinterDecisionForm({
         </p>
       )}
       <Message state={state} />
-      <SubmitButton pendingLabel="Se salvează..."
-        disabled={mode === "normative_rate" && view.eligibleRules.length === 0}>
-        Salvează decizia pentru timp friguros
-      </SubmitButton>
+      <Button type="submit" loading={pending}
+        disabled={pending || (mode === "normative_rate" && view.eligibleRules.length === 0)}>
+        {pending ? "Se salvează..." : "Salvează decizia pentru timp friguros"}
+      </Button>
     </form>
   );
 }
