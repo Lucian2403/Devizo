@@ -22,6 +22,15 @@ import {
 } from "../infrastructure/db/prepared-statements";
 
 {
+  const tailwind = readFileSync(join(process.cwd(), "tailwind.config.ts"), "utf8");
+  assert.ok(tailwind.includes('import tailwindcssAnimate from "tailwindcss-animate";'),
+    "Tailwind ESM config must import its plugin instead of using require");
+  assert.ok(tailwind.includes("plugins: [tailwindcssAnimate]"));
+  assert.ok(!tailwind.includes('require("tailwindcss-animate")'),
+    "require is not defined when Tailwind config is evaluated as ESM");
+}
+
+{
   const nav = readFileSync(join(process.cwd(), "app", "(app)", "main-nav.tsx"), "utf8");
   const workspacePage = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "page.tsx"), "utf8");

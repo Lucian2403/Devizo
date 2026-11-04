@@ -16,6 +16,7 @@ import {
   getProfessionalGeneralEstimateService,
   getProfessionalTemporaryWorksService,
   getProfessionalWinterConditionsService,
+  getProfessionalGeneralReserveService,
 } from "@/server/container";
 import {
   addProfessionalGeneralEstimateEntry,
@@ -35,6 +36,8 @@ import {
 } from "../temporary-works-forms";
 import { installWinterRulePack, saveWinterDecision } from "../winter-conditions-actions";
 import { WinterDecisionForm, WinterRulePackForm } from "../winter-conditions-forms";
+import { saveGeneralReserveDecision } from "../general-reserve-actions";
+import { GeneralReserveForm } from "../general-reserve-form";
 
 const columns = [
   ["constructionWorks", "Lucrări de construcții"],
@@ -82,6 +85,10 @@ export default async function ProfessionalGeneralEstimateDetailPage({
     },
     temporaryWorks,
   );
+  const generalReserve = await getProfessionalGeneralReserveService().getView(
+    org.id, estimate.id, estimate.valuationDate,
+    winterConditions.complete ? winterConditions.adjustedTotals : null,
+  );
   const selectedWinterRule = winterConditions.decision?.ruleDefinitionId
     ? winterConditions.installedRules.find(
         (rule) => rule.id === winterConditions.decision?.ruleDefinitionId,
@@ -107,6 +114,7 @@ export default async function ProfessionalGeneralEstimateDetailPage({
   );
   const installWinterPackAction = installWinterRulePack.bind(null, generalEstimateId);
   const saveWinterAction = saveWinterDecision.bind(null, generalEstimateId);
+  const saveReserveAction = saveGeneralReserveDecision.bind(null, generalEstimateId);
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
@@ -539,8 +547,9 @@ export default async function ProfessionalGeneralEstimateDetailPage({
                 />
               </section>
               <p className="text-sm font-medium text-amber-800">
-                Acesta nu este totalul final al investiției. Alte cheltuieli
-                normative, rezerva, SDNC și TVA nu sunt încă incluse.
+                Acesta nu este totalul final al investiției. Rezerva este
+                calculată separat mai jos; alte cheltuieli normative, SDNC și
+                TVA nu sunt încă incluse.
               </p>
             </div>
           ) : (
@@ -549,6 +558,52 @@ export default async function ProfessionalGeneralEstimateDetailPage({
               calculul construcțiilor provizorii și decizia pentru timp friguros
               sunt complete.
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rezerva pentru cheltuieli neprevăzute — după capitolele 1–12</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            CP L.01.01-2012, pct. 6.11: 2% pentru obiective sociale,
+            3% pentru obiective de producere sau 6% pentru studii și
+            calcule tehnico-economice. Categoria se stabilește explicit.
+            Rezerva nu modifică sumele din capitolul 9.
+          </p>
+          <GeneralReserveForm
+            key={[generalReserve.savedDecision?.id ?? "new",
+              generalReserve.savedDecision?.updatedAt.toISOString() ?? ""].join(":")}
+            action={saveReserveAction}
+            view={generalReserve}
+          />
+          {generalReserve.error && (
+            <p className="text-sm text-amber-800">{generalReserve.error}</p>
+          )}
+          {generalReserve.result && (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Detail label="Subtotal capitolele 1–12">
+                  {formatProfessionalResourceMoney(generalReserve.result.base.total, estimate.currency)}
+                </Detail>
+                <Detail label={`Rezervă (${generalReserve.result.ratePercent}%)`}>
+                  {formatProfessionalResourceMoney(generalReserve.result.reserve.total, estimate.currency)}
+                </Detail>
+                <Detail label="Total cu rezervă">
+                  {formatProfessionalResourceMoney(generalReserve.result.withReserve.total, estimate.currency)}
+                </Detail>
+              </div>
+              <h3 className="text-sm font-semibold text-heading">
+                Rezerva repartizată pe coloane
+              </h3>
+              <TotalsRow totals={generalReserve.result.reserve} currency={estimate.currency} />
+              <p className="text-xs text-muted-foreground">
+                {generalReserve.result.sourceReference}. Suma de mai sus nu este
+                încă TOTAL DEVIZ GENERAL; SDNC și TVA se tratează separat.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

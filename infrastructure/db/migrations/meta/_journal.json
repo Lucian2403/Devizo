@@ -197,6 +197,13 @@
       "when": 1793020000000,
       "tag": "0027_professional_winter_decisions",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793170000000,
+      "tag": "0028_professional_general_reserve",
+      "breakpoints": true
     }
   ]
 }
