@@ -40,7 +40,7 @@ export const professionalSdncDecisions = pgTable("professional_sdnc_decisions", 
     sql`length(trim(${t.basisNote})) between 1 and 4000`),
   modeCheck: check("professional_sdnc_mode_shape_check", sql`(
     (${t.mode} = 'liable'
-      and ${t.workKind} in ('new_construction','existing_intervention')
+      and ${t.workKind} is not null and ${t.workKind} in ('new_construction','existing_intervention')
       and ${t.permitConfirmed} = true
       and ${t.nonPublicFundingConfirmed} = true
       and ${t.notExemptHouseConfirmed} = true
@@ -57,7 +57,7 @@ export const professionalSdncDecisions = pgTable("professional_sdnc_decisions", 
       and ${t.notExemptHouseConfirmed} = false
       and ${t.annualEligibleInvestmentMdl} is null
       and ${t.supportingDocument} is null
-      and ${t.exclusionReason} in (
+      and ${t.exclusionReason} is not null and ${t.exclusionReason} in (
         'public_budget','no_building_permit',
         'personal_individual_house','outside_eligible_works'))
   )`),
