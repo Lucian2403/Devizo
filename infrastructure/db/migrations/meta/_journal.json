@@ -204,6 +204,13 @@
       "when": 1793170000000,
       "tag": "0028_professional_general_reserve",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794390000000,
+      "tag": "0029_professional_sdnc_2026",
+      "breakpoints": true
     }
   ]
 }

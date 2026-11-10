@@ -91,6 +91,7 @@ async function main() {
       "test-professional-winter-rules-database.sql",
       "test-professional-winter-decisions-database.sql",
       "test-professional-general-reserve-database.sql",
+      "test-professional-sdnc-database.sql",
     ];
     for (const file of fixtureFiles) {
       const path = join("scripts", file);

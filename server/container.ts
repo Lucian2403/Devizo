@@ -52,6 +52,8 @@ import { ProfessionalWinterConditionsService } from "@/domain/professional-estim
 import { DrizzleProfessionalWinterDecisionsRepository } from "@/infrastructure/db/repositories/professionalWinterDecisions.repository";
 import { ProfessionalGeneralReserveService } from "@/domain/professional-estimates/professional-general-reserve.service";
 import { DrizzleProfessionalGeneralReserveRepository } from "@/infrastructure/db/repositories/professionalGeneralReserve.repository";
+import { ProfessionalSdncService } from "@/domain/professional-estimates/professional-sdnc.service";
+import { DrizzleProfessionalSdncRepository } from "@/infrastructure/db/repositories/professionalSdnc.repository";
 import { ProfessionalEstimateNotFoundError } from "@/domain/professional-estimates/professional-estimate-workspace.service";
 import { getProfessionalEstimateCalculation } from "@/server/professionalEstimateCalculation";
 
@@ -260,4 +262,8 @@ export async function syncCatalogEmbeddings(
   } catch (error) {
     console.error("Catalog embedding sync failed:", error);
   }
+}
+
+export function getProfessionalSdncService(): ProfessionalSdncService {
+  return new ProfessionalSdncService(new DrizzleProfessionalSdncRepository());
 }
