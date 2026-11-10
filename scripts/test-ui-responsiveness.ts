@@ -31,6 +31,23 @@ import {
 }
 
 {
+  const form = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "general-estimates", "sdnc-form.tsx"), "utf8");
+  const page = readFileSync(join(process.cwd(), "app", "(app)",
+    "professional-estimates", "general-estimates", "[generalEstimateId]", "page.tsx"), "utf8");
+  assert.ok(form.includes("onSubmit={submitWithoutReset}"),
+    "Rejected SDNC form actions must preserve the user's fields");
+  assert.ok(form.includes('name="annualEligibleInvestmentMdl"'));
+  assert.ok(form.includes('name="permitConfirmed"'));
+  assert.ok(form.includes('name="nonPublicFundingConfirmed"'));
+  assert.ok(form.includes('name="notExemptHouseConfirmed"'));
+  assert.ok(form.includes('name="exclusionReason"'));
+  assert.ok(page.includes("getProfessionalSdncService().getView("));
+  assert.ok(page.includes("reserveReady={generalReserve.ready}"));
+  assert.ok(page.includes("distinctă de subtotalul cu rezervă"));
+}
+
+{
   const nav = readFileSync(join(process.cwd(), "app", "(app)", "main-nav.tsx"), "utf8");
   const workspacePage = readFileSync(join(process.cwd(), "app", "(app)",
     "professional-estimates", "page.tsx"), "utf8");
