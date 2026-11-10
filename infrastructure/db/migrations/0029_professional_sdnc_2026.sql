@@ -25,7 +25,7 @@ CREATE TABLE "professional_sdnc_decisions" (
   CONSTRAINT "professional_sdnc_mode_shape_check"
     CHECK (
       ("mode" = 'liable'
-        AND "work_kind" IN ('new_construction','existing_intervention')
+        AND "work_kind" IS NOT NULL AND "work_kind" IN ('new_construction','existing_intervention')
         AND "permit_confirmed" = true
         AND "non_public_funding_confirmed" = true
         AND "not_exempt_house_confirmed" = true
@@ -42,7 +42,7 @@ CREATE TABLE "professional_sdnc_decisions" (
         AND "not_exempt_house_confirmed" = false
         AND "annual_eligible_investment_mdl" IS NULL
         AND "supporting_document" IS NULL
-        AND "exclusion_reason" IN ('public_budget','no_building_permit',
+        AND "exclusion_reason" IS NOT NULL AND "exclusion_reason" IN ('public_budget','no_building_permit',
           'personal_individual_house','outside_eligible_works'))
     )
 );
