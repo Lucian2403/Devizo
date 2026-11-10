@@ -17,6 +17,7 @@ import {
   getProfessionalTemporaryWorksService,
   getProfessionalWinterConditionsService,
   getProfessionalGeneralReserveService,
+  getProfessionalSdncService,
 } from "@/server/container";
 import {
   addProfessionalGeneralEstimateEntry,
@@ -38,6 +39,9 @@ import { installWinterRulePack, saveWinterDecision } from "../winter-conditions-
 import { WinterDecisionForm, WinterRulePackForm } from "../winter-conditions-forms";
 import { saveGeneralReserveDecision } from "../general-reserve-actions";
 import { GeneralReserveForm } from "../general-reserve-form";
+import { saveSdncDecision } from "../sdnc-actions";
+import { SdncForm } from "../sdnc-form";
+import { SDNC_2026_LEGAL } from "@/domain/professional-estimates/professional-sdnc.service";
 
 const columns = [
   ["constructionWorks", "Lucrări de construcții"],
@@ -89,6 +93,9 @@ export default async function ProfessionalGeneralEstimateDetailPage({
     org.id, estimate.id, estimate.valuationDate,
     winterConditions.complete ? winterConditions.adjustedTotals : null,
   );
+  const sdnc = await getProfessionalSdncService().getView(
+    org.id, estimate.id, estimate.valuationDate, generalReserve.ready,
+  );
   const selectedWinterRule = winterConditions.decision?.ruleDefinitionId
     ? winterConditions.installedRules.find(
         (rule) => rule.id === winterConditions.decision?.ruleDefinitionId,
@@ -115,6 +122,7 @@ export default async function ProfessionalGeneralEstimateDetailPage({
   const installWinterPackAction = installWinterRulePack.bind(null, generalEstimateId);
   const saveWinterAction = saveWinterDecision.bind(null, generalEstimateId);
   const saveReserveAction = saveGeneralReserveDecision.bind(null, generalEstimateId);
+  const saveSdncAction = saveSdncDecision.bind(null, generalEstimateId);
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
@@ -602,6 +610,72 @@ export default async function ProfessionalGeneralEstimateDetailPage({
               <p className="text-xs text-muted-foreground">
                 {generalReserve.result.sourceReference}. Suma de mai sus nu este
                 încă TOTAL DEVIZ GENERAL; SDNC și TVA se tratează separat.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>SDNC — contribuția pentru normative în construcții (2026)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            În anul fiscal 2026, cota este de 0,5% din investițiile anuale
+            eligibile în capital fix. Aplicabilitatea depinde de tipul
+            lucrării, autorizație, finanțare și excepțiile legale.
+            Baza anuală nu se preia automat din deviz.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {SDNC_2026_LEGAL.legalBasis}.{" "}
+            <a href={SDNC_2026_LEGAL.rateSource}
+              target="_blank" rel="noopener noreferrer" className="underline">
+              Cota oficială (SFS)
+            </a>{" · "}
+            <a href={SDNC_2026_LEGAL.baseSource}
+              target="_blank" rel="noopener noreferrer" className="underline">
+              Baza anuală (SFS)
+            </a>{" · "}
+            <a href={SDNC_2026_LEGAL.eligibilitySource}
+              target="_blank" rel="noopener noreferrer" className="underline">
+              Cine datorează contribuția (SFS)
+            </a>
+          </p>
+          <SdncForm
+            key={[sdnc.savedDecision?.id ?? "new",
+              sdnc.savedDecision?.updatedAt.toISOString() ?? ""].join(":")}
+            action={saveSdncAction}
+            view={sdnc}
+            valuationDate={estimate.valuationDate}
+            reserveReady={generalReserve.ready}
+          />
+          {sdnc.error && <p className="text-sm text-amber-800">{sdnc.error}</p>}
+          {sdnc.ready && sdnc.excluded && (
+            <div className="rounded-lg border p-4 text-sm">
+              SDNC neaplicabil — motiv și documente înregistrate explicit.
+              Contribuția anuală nu a fost calculată.
+            </div>
+          )}
+          {sdnc.ready && sdnc.result && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Detail label="Baza anuală eligibilă — 2026 (MDL)">
+                  {formatProfessionalResourceMoney(
+                    sdnc.result.annualEligibleInvestmentMdl, "MDL",
+                  )}
+                </Detail>
+                <Detail label="Cota legală">0,5%</Detail>
+                <Detail label="SDNC anual calculat (MDL)">
+                  {formatProfessionalResourceMoney(
+                    sdnc.result.annualContributionMdl, "MDL",
+                  )}
+                </Detail>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Suma este distinctă de subtotalul cu rezervă: nu este
+                însumată automat în Devizul General și nu reprezintă
+                declarația fiscală DNTC25.
               </p>
             </div>
           )}
